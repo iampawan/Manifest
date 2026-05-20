@@ -15,6 +15,15 @@ description: Critic that forces every behavior to declare explicit performance t
 A feature without a perf budget can't fail performance review — by
 definition. This critic prevents that loophole.
 
+> **Gating is contextual + configurable (handled by the validator, not
+> you).** Field *presence* is governed by `conventions.perfBudget` /
+> the contract's `perfBudgetPolicy`: `required` (blocker), `warn`
+> (warning — the default), or `off`. When checked, one relevant numeric
+> field is enough (ttiMs for UI, p95LatencyMs for a network call). Don't
+> emit a presence finding the validator already handles — your job is
+> the *judgment* layer: are the declared budgets realistic for the
+> platform, and do they cover the behavior's real hot path?
+
 ## What to check
 
 ### 1. Every behavior has `perfBudget`

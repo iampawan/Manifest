@@ -25,6 +25,19 @@ const SEVERITIES = new Set(["blocker", "warning", "info"]);
 const REQUIRED_COMMS = ["empty", "loading", "success", "error"];
 const PROTOCOL_VERSION = 1;
 
+// commsStates is a UI concern — only required for user-facing behaviors.
+// A behavior is "server-only" when every platform it declares is one of
+// these; such behaviors skip the commsStates requirement and the UI-only
+// perf field (ttiMs) is not expected of them.
+const SERVER_PLATFORMS = new Set(["server", "backend"]);
+// perfBudget gating policy: "required" = missing/incomplete is a blocker
+// (the old behavior); "warn" = a warning (default — visible but doesn't
+// block readiness); "off" = not checked at all. Set per repo via
+// conventions.perfBudget, or per contract via frontmatter perfBudgetPolicy.
+const PERF_POLICIES = new Set(["required", "warn", "off"]);
+const DEFAULT_PERF_POLICY = "warn";
+const PERF_FIELDS = ["ttiMs", "p95LatencyMs", "errorRatePct"];
+
 // PR-stage code-review findings (distinct from contract critics): they
 // operate on a diff and propose code changes. They share the severity
 // enum but carry a category + file/line instead of a fragmentRef.
@@ -103,10 +116,17 @@ function parseContract(md) {
 
 // ─── Deterministic checks ────────────────────────────────────────────
 
-function checkContract(contract) {
+function checkContract(contract, options = {}) {
   const findings = [];
   const { frontmatter, behaviors, acs } = contract;
   const contractPlatforms = new Set(frontmatter.platforms || []);
+
+  // Resolve the perfBudget policy: per-contract frontmatter wins, then the
+  // caller-supplied repo convention, then the default ("warn"). Anything
+  // unrecognized falls back to the default rather than erroring.
+  let perfPolicy = frontmatter.perfBudgetPolicy || options.perfBudgetPolicy || DEFAULT_PERF_POLICY;
+  if (!PERF_POLICIES.has(perfPolicy)) perfPolicy = DEFAULT_PERF_POLICY;
+  const perfSeverity = perfPolicy === "required" ? "blocker" : "warning";
 
   const add = (critic, idNum, severity, message, suggestion, fragmentRef) =>
     findings.push({
@@ -150,37 +170,58 @@ function checkContract(contract) {
         "Add an instrumentation block (eventName + properties + expectedRatePerDay, or a server-log/database/sentry/manual source).",
         b.id);
     }
-    // 2. perfBudget present with numeric fields
-    if (!b.perfBudget) {
-      add("perf-budget", `PERF-${String(++n.PERF).padStart(3, "0")}`, "blocker",
-        `${b.id} has no perfBudget.`,
-        "Add perfBudget with numeric ttiMs, p95LatencyMs, errorRatePct.",
-        b.id);
-    } else {
-      for (const f of ["ttiMs", "p95LatencyMs", "errorRatePct"]) {
-        if (typeof b.perfBudget[f] !== "number") {
-          add("perf-budget", `PERF-${String(++n.PERF).padStart(3, "0")}`, "blocker",
-            `${b.id} perfBudget.${f} is missing or not a number.`,
-            `Set ${f} to a concrete number.`, b.id);
+    // Is this behavior user-facing? (Server-only behaviors skip the UI
+    // requirements: commsStates entirely, and the UI-only perf field.)
+    const bp = b.platforms || [];
+    const serverOnly = bp.length > 0 && bp.every((p) => SERVER_PLATFORMS.has(p));
+    const userFacing = !serverOnly;
+
+    // 2. perfBudget — governed by policy. Relaxed from "all three fields"
+    //    to "at least one numeric field that's relevant" so a behavior
+    //    with no network call needn't invent a p95 (fill what applies).
+    if (perfPolicy !== "off") {
+      if (!b.perfBudget) {
+        add("perf-budget", `PERF-${String(++n.PERF).padStart(3, "0")}`, perfSeverity,
+          `${b.id} has no perfBudget.`,
+          "Add perfBudget with at least one numeric field relevant to this behavior (ttiMs for UI responsiveness, p95LatencyMs for a network call, errorRatePct).",
+          b.id);
+      } else {
+        // The fields that make sense here: ttiMs only for user-facing.
+        const relevant = userFacing ? PERF_FIELDS : PERF_FIELDS.filter((f) => f !== "ttiMs");
+        const numericCount = relevant.filter((f) => typeof b.perfBudget[f] === "number").length;
+        if (numericCount === 0) {
+          add("perf-budget", `PERF-${String(++n.PERF).padStart(3, "0")}`, perfSeverity,
+            `${b.id} perfBudget has no numeric budget field.`,
+            `Set at least one of ${relevant.join(" / ")} to a concrete number.`, b.id);
+        }
+        // A field that's present but non-numeric (e.g. "TBD") is a gap at
+        // the policy severity — it means "I haven't decided yet."
+        for (const f of PERF_FIELDS) {
+          if (f in b.perfBudget && typeof b.perfBudget[f] !== "number") {
+            add("perf-budget", `PERF-${String(++n.PERF).padStart(3, "0")}`, perfSeverity,
+              `${b.id} perfBudget.${f} is "${b.perfBudget[f]}", not a number.`,
+              `Set ${f} to a concrete number or remove it.`, b.id);
+          }
         }
       }
     }
-    // 3. commsStates present with all four
-    if (!b.commsStates) {
-      add("comms-completeness", `COMMS-${String(++n.COMMS).padStart(3, "0")}`, "blocker",
-        `${b.id} has no commsStates.`,
-        "Add commsStates with empty, loading, success, error.", b.id);
-    } else {
-      for (const f of REQUIRED_COMMS) {
-        if (!b.commsStates[f] || String(b.commsStates[f]).trim() === "") {
-          add("comms-completeness", `COMMS-${String(++n.COMMS).padStart(3, "0")}`, "blocker",
-            `${b.id} commsStates.${f} is missing.`,
-            `Add ${f} state copy for ${b.id}.`, b.id);
+    // 3. commsStates — required only for user-facing behaviors.
+    if (userFacing) {
+      if (!b.commsStates) {
+        add("comms-completeness", `COMMS-${String(++n.COMMS).padStart(3, "0")}`, "blocker",
+          `${b.id} has no commsStates.`,
+          "Add commsStates with empty, loading, success, error.", b.id);
+      } else {
+        for (const f of REQUIRED_COMMS) {
+          if (!b.commsStates[f] || String(b.commsStates[f]).trim() === "") {
+            add("comms-completeness", `COMMS-${String(++n.COMMS).padStart(3, "0")}`, "blocker",
+              `${b.id} commsStates.${f} is missing.`,
+              `Add ${f} state copy for ${b.id}.`, b.id);
+          }
         }
       }
     }
     // 4. platforms subset of contract platforms
-    const bp = b.platforms || [];
     if (bp.length === 0) {
       add("platform-parity", `PP-${String(++n.PP).padStart(3, "0")}`, "blocker",
         `${b.id} declares no platforms.`,

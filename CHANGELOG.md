@@ -12,6 +12,34 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.7.0] — contextual perfBudget / commsStates gating
+
+Process proportional to the behavior, not blanket boilerplate.
+
+### Changed
+- **`commsStates` is now required only for user-facing behaviors.**
+  Server-only behaviors (platforms all `server`/`backend`) are exempt —
+  no more demanding four UI states for a backend job.
+- **`perfBudget` gating is configurable** via `conventions.perfBudget`
+  in `repos.yml` (or `perfBudgetPolicy` per contract): `required`
+  (blocker), `warn` (warning — **the new default**, so a missing budget
+  no longer blocks the pipeline), or `off`. When checked, **one relevant
+  numeric field is enough** (ttiMs for UI, p95LatencyMs for a network
+  call) — a behavior with no network call needn't invent a p95. A `TBD`/
+  non-numeric value is flagged at the policy severity.
+- Renamed/rebranded the whole plugin **Shipline → Manifest** (name,
+  slugs, `.manifest/` convention, `/manifest` command, repo reference).
+
+### Notes
+- The two critic skills (`perf-budget`, `comms-completeness`) now defer
+  field-presence to the validator and focus on judgment (are budgets
+  realistic; is error copy actionable). 6 new validator tests (69 total).
+- Rationale: the blanket "all three fields on every behavior" rule
+  created friction for backend behaviors and teams without perf
+  telemetry, contradicting "works with whatever infrastructure you
+  have." The value is kept where it's cheap (user-facing UI states) and
+  made opt-in where it isn't.
+
 ## [0.6.0] — bug→fix loop closure (+ trigger fix)
 
 ### Fixed

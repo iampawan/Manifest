@@ -112,6 +112,17 @@ conventions:
   maxFixIterations: 3
   autoFixWarnings: false
 
+  # How strict the perfBudget gate is. (commsStates is always required for
+  # user-facing behaviors and skipped for server-only ones — not toggled.)
+  #   required — a missing/incomplete perfBudget is a blocker
+  #   warn     — a warning; visible but doesn't block readiness (default)
+  #   off      — perfBudget isn't checked at all
+  # Per-contract override: `perfBudgetPolicy` in the contract frontmatter.
+  # When checked, one relevant numeric field is enough (ttiMs for UI,
+  # p95LatencyMs for a network call) — no need to invent fields that don't
+  # apply to the behavior.
+  perfBudget: warn
+
 # Access notes:
 #
 # 1. GitHub MCP path (preferred): no local clones needed. The critic

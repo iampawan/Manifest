@@ -125,13 +125,8 @@ Then in Claude Code:
 /plugin install manifest@manifest
 ```
 
-**Updates:** Claude Code captures the commit hash at install time and
-doesn't auto-refresh. When the plugin author pushes a new version:
-
-```
-/plugin marketplace update manifest
-/plugin install manifest@manifest     # re-install to pull the latest
-```
+**Updates:** Claude Code pins the commit at install time and doesn't
+auto-refresh — see [Updating Manifest](#updating-manifest) below.
 
 ---
 
@@ -183,6 +178,58 @@ ln -s ~/path/to/manifest ~/.claude/plugins/manifest
 
 Edits to SKILL.md files are picked up on next invocation. Edits to
 the manifest may require a Claude Code restart.
+
+---
+
+## Updating Manifest
+
+Claude Code does **not** auto-update an installed plugin — it pins what
+it captured at install time. Update the way that matches how you
+installed (the `version` in `.claude-plugin/plugin.json` and the
+[CHANGELOG](CHANGELOG.md) tell you what you're on vs. what's latest):
+
+**Method A — Marketplace.** Refresh the marketplace, then re-install:
+
+```
+/plugin marketplace update manifest
+/plugin install manifest@manifest      # re-install to pull the latest
+```
+
+Restart Claude Code if commands don't reflect the new version. For
+reproducible upgrades across a team, install a tagged release rather
+than tracking `main` (if the author tags releases):
+
+```
+/plugin install manifest@manifest@v0.7.0
+```
+
+**Method B — Direct file install.** Re-copy the folder over the old one,
+then restart Claude Code (or `/plugin` to confirm the new version). If
+you got it from git, pull first:
+
+```bash
+cd ~/path/to/manifest && git pull         # if it's a clone
+cp -r manifest ~/.claude/plugins/manifest # overwrite the installed copy
+```
+
+**Method C — Development mode.** Just `git pull` in your working folder.
+With `claude --plugin-dir .`, SKILL.md edits are picked up on next
+invocation; changes to `plugin.json`/`marketplace.json` need a restart.
+A symlinked install behaves the same.
+
+**Don't forget the workflows.** The GitHub Actions files
+(`workflows/*.yml`) are **copied into your repo's `.github/workflows/`**
+at setup — they live in your repo, not the plugin, so updating the
+plugin does **not** update them. After an update that changed any
+workflow (the CHANGELOG will say), re-copy them:
+
+```bash
+cp ~/.claude/plugins/manifest/workflows/*.yml .github/workflows/
+```
+
+Likewise, `repos.yml` is yours once copied — diff it against
+`examples/repos.yml.example` after an update to pick up new `conventions`
+keys (e.g., `perfBudget`, `rolloutPlan`).
 
 ---
 

@@ -250,9 +250,21 @@ prod (then `slaHit` records the final hit/miss).
 
 ### Behavior fields
 
-Each behavior needs `instrumentation`, `perfBudget`, and `commsStates` for the
-contract to reach `verified` status. The instrumentation-coverage,
-perf-budget, and comms-completeness critics enforce this.
+Every behavior needs `instrumentation` and an acceptance criterion. The
+other two fields are **contextual**, so the gate fits the behavior
+instead of demanding boilerplate:
+
+- **`commsStates`** is a UI concern — required only for **user-facing**
+  behaviors (platforms include web/ios/android/etc.). A **server-only**
+  behavior (platforms are all `server`/`backend`) is exempt.
+- **`perfBudget`** is governed by a policy: `required` (missing/`TBD` is
+  a blocker), `warn` (a warning — visible but doesn't block; **the
+  default**), or `off` (not checked). Set it per repo via
+  `conventions.perfBudget` in `repos.yml`, or per contract via the
+  `perfBudgetPolicy` frontmatter field. When checked, you need only
+  **one numeric field that's relevant** (e.g. `ttiMs` for UI,
+  `p95LatencyMs` for a network call) — a behavior with no network call
+  doesn't have to invent a p95.
 
 ### Sizing rules (set by critic-sizing)
 

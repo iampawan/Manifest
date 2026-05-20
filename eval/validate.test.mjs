@@ -56,14 +56,47 @@ test("seeded-gaps: catches missing instrumentation on B1", () => {
   assert.equal(f.severity, "blocker");
 });
 
-test("seeded-gaps: catches missing perfBudget on B2", () => {
+test("perfBudget: missing budget is a WARNING by default (not a blocker)", () => {
   const c = parseContract(read("seeded-gaps.md"));
-  const findings = checkContract(c);
-  const f = findings.find(
-    (x) => x.critic === "perf-budget" && x.fragmentRef === "B2"
-  );
-  assert.ok(f, "expected a missing-perfBudget blocker on B2");
+  const findings = checkContract(c); // default policy = "warn"
+  const f = findings.find((x) => x.critic === "perf-budget" && x.fragmentRef === "B2");
+  assert.ok(f, "expected a missing-perfBudget finding on B2");
+  assert.equal(f.severity, "warning");
+});
+
+test("perfBudget: policy 'required' makes a missing budget a blocker", () => {
+  const c = parseContract(read("seeded-gaps.md"));
+  const findings = checkContract(c, { perfBudgetPolicy: "required" });
+  const f = findings.find((x) => x.critic === "perf-budget" && x.fragmentRef === "B2");
+  assert.ok(f);
   assert.equal(f.severity, "blocker");
+});
+
+test("perfBudget: policy 'off' emits no perf-budget findings", () => {
+  const c = parseContract(read("seeded-gaps.md"));
+  const findings = checkContract(c, { perfBudgetPolicy: "off" });
+  assert.equal(findings.filter((x) => x.critic === "perf-budget").length, 0);
+});
+
+test("perfBudget: per-contract frontmatter policy overrides the option", () => {
+  const c = parseContract(read("seeded-gaps.md"));
+  c.frontmatter.perfBudgetPolicy = "required";
+  const findings = checkContract(c, { perfBudgetPolicy: "off" }); // frontmatter wins
+  const f = findings.find((x) => x.critic === "perf-budget" && x.fragmentRef === "B2");
+  assert.ok(f);
+  assert.equal(f.severity, "blocker");
+});
+
+test("perfBudget: one relevant numeric field is enough (no longer needs all three)", () => {
+  const c = parseContract(read("clean.md"));
+  // Strip clean.md's first behavior down to a single numeric field.
+  c.behaviors[0].perfBudget = { p95LatencyMs: 500 };
+  const findings = checkContract(c, { perfBudgetPolicy: "required" });
+  assert.equal(
+    findings.filter((x) => x.critic === "perf-budget" && x.fragmentRef === c.behaviors[0].id).length,
+    0,
+    "a single numeric field should satisfy perfBudget"
+  );
 });
 
 test("seeded-gaps: catches missing comms states on B2", () => {
@@ -73,6 +106,31 @@ test("seeded-gaps: catches missing comms states on B2", () => {
     (x) => x.critic === "comms-completeness" && x.fragmentRef === "B2"
   );
   assert.ok(f, "expected a missing-comms blocker on B2");
+});
+
+test("commsStates: server-only behavior is exempt (no comms requirement)", () => {
+  const c = parseContract(read("clean.md"));
+  const b = c.behaviors[0];
+  b.platforms = ["server"];        // backend-only behavior
+  delete b.commsStates;             // no UI states
+  const findings = checkContract(c);
+  assert.equal(
+    findings.filter((x) => x.critic === "comms-completeness" && x.fragmentRef === b.id).length,
+    0,
+    "server-only behavior should not require commsStates"
+  );
+});
+
+test("commsStates: user-facing behavior still requires all four states", () => {
+  const c = parseContract(read("clean.md"));
+  const b = c.behaviors[0];
+  b.platforms = ["web"];
+  delete b.commsStates;
+  const findings = checkContract(c);
+  assert.ok(
+    findings.some((x) => x.critic === "comms-completeness" && x.fragmentRef === b.id),
+    "user-facing behavior must still require commsStates"
+  );
 });
 
 test("seeded-gaps: catches behaviors with no AC (B1 and B3)", () => {

@@ -16,6 +16,13 @@ Most production "the feature doesn't work" bugs are actually
 "the feature works but the user can't tell" bugs. This critic catches
 them before the spec ships.
 
+> **Contextual (handled by the validator).** `commsStates` is required
+> only for **user-facing** behaviors; **server-only** behaviors
+> (platforms all `server`/`backend`) are exempt — don't flag them for
+> missing states. Field presence for user-facing behaviors is the
+> validator's job; yours is the *judgment* layer: is the error copy
+> actionable, on-brand, and specific (not "Something went wrong")?
+
 ## What to check
 
 ### 1. Every behavior has `commsStates`
