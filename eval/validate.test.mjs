@@ -216,3 +216,37 @@ test("time: shows both IST and UTC", () => {
   assert.ok(s.includes("13:30 IST"));
   assert.ok(s.includes("08:00 UTC"));
 });
+
+// ─── Content-hash cache ──────────────────────────────────────────────
+
+import { cacheStatus, hashOf } from "../scripts/validate.mjs";
+
+test("cache: stale when no prior findings", () => {
+  const c = cacheStatus("sha256:abc", "0.3.0", 1, {});
+  assert.equal(c.cached, false);
+});
+
+test("cache: cached when hash + versions all match", () => {
+  const fm = { verifiedAt: "t", verifiedWith: { contractHash: "sha256:abc", pluginVersion: "0.3.0", protocolVersion: 1 } };
+  const c = cacheStatus("sha256:abc", "0.3.0", 1, fm);
+  assert.equal(c.cached, true);
+});
+
+test("cache: stale when content hash differs", () => {
+  const fm = { verifiedWith: { contractHash: "sha256:OLD", pluginVersion: "0.3.0", protocolVersion: 1 } };
+  const c = cacheStatus("sha256:NEW", "0.3.0", 1, fm);
+  assert.equal(c.cached, false);
+  assert.ok(c.reason.includes("content changed"));
+});
+
+test("cache: stale when plugin version differs", () => {
+  const fm = { verifiedWith: { contractHash: "sha256:abc", pluginVersion: "0.2.0", protocolVersion: 1 } };
+  const c = cacheStatus("sha256:abc", "0.3.0", 1, fm);
+  assert.equal(c.cached, false);
+  assert.ok(c.reason.includes("plugin version"));
+});
+
+test("cache: hashOf is deterministic + content-sensitive", () => {
+  assert.equal(hashOf("hello"), hashOf("hello"));
+  assert.notEqual(hashOf("hello"), hashOf("hello "));
+});

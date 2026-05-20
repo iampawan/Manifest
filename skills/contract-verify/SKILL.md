@@ -21,7 +21,30 @@ A contract ID (e.g., `SC-005`) or path.
 ### 1. Read and guard
 
 Read `.shipline/contracts/<ID>.md`. If it doesn't exist or status is
-already `promoted`, refuse. Set status to `verifying`.
+already `promoted`, refuse.
+
+### 1b. Cache check — skip the expensive critics if nothing changed
+
+Before doing any work, check whether a prior verify still applies:
+
+```bash
+node <plugin-root>/scripts/validate.mjs --cache-check .shipline/contracts/<ID>.md
+```
+
+- **Exit 0 (cached)** — the contract content, plugin version, and
+  protocol version are unchanged since the last verify. The existing
+  `.findings.md` is still valid. **Skip the critics entirely** and tell
+  the user: "Nothing changed since the last verify (<reason>). Reusing
+  findings from <timestamp>. Run `/contract verify <ID> --force` to
+  re-verify anyway." This saves the full LLM critic cost on no-op
+  re-runs (CI re-runs, habit re-runs, iterating on other files).
+- **Exit 1 (stale)** — content or version changed. Proceed to a full
+  verify.
+
+If the user passed `--force`, skip this cache check and always run a
+full verify.
+
+Then set status to `verifying`.
 
 ### 2. Run the deterministic validator FIRST
 

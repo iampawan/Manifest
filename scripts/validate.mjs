@@ -15,13 +15,23 @@
 // Output: JSON to stdout — { findings: [...], sizing, readiness, contractHash }
 // Exit code: 0 if no blockers, 1 if blockers present, 2 on input error.
 
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import yaml from "js-yaml";
 
 const SEVERITIES = new Set(["blocker", "warning", "info"]);
 const REQUIRED_COMMS = ["empty", "loading", "success", "error"];
 const PROTOCOL_VERSION = 1;
+
+const hashOf = (md) =>
+  "sha256:" + createHash("sha256").update(md).digest("hex").slice(0, 16);
+
+const readFrontmatter = (md) => {
+  const m = md.match(/^---\n([\s\S]*?)\n---/);
+  return m ? yaml.load(m[1]) || {} : {};
+};
 
 // ─── Contract parsing ────────────────────────────────────────────────
 
@@ -315,6 +325,26 @@ function derivePhase(fm) {
   return { phase: fm.status || "unknown", next: "—" };
 }
 
+// ─── Content-hash cache ──────────────────────────────────────────────
+
+// Is the existing findings file still valid for the current contract?
+// Valid (cached) means: same content hash + same plugin version + same
+// protocol version → the verify can be skipped and prior findings
+// reused. Model is recorded for provenance but NOT part of the cache
+// key (the eval suite, not the cache, defends against model drift).
+function cacheStatus(currentHash, pluginVersion, protocolVersion, findingsFm) {
+  if (!findingsFm || Object.keys(findingsFm).length === 0)
+    return { cached: false, reason: "no prior findings — run a full verify" };
+  const w = findingsFm.verifiedWith || {};
+  if (w.contractHash !== currentHash)
+    return { cached: false, reason: "contract content changed since last verify" };
+  if (String(w.pluginVersion) !== String(pluginVersion))
+    return { cached: false, reason: `plugin version changed (${w.pluginVersion} → ${pluginVersion})` };
+  if (Number(w.protocolVersion) !== Number(protocolVersion))
+    return { cached: false, reason: `protocol version changed (${w.protocolVersion} → ${protocolVersion})` };
+  return { cached: true, reason: `unchanged since ${findingsFm.verifiedAt || "last verify"}` };
+}
+
 // ─── Findings schema validation (for critic output) ──────────────────
 
 function validateFindings(findings) {
@@ -343,6 +373,9 @@ export {
   slaStatus,
   derivePhase,
   fmtBothZones,
+  cacheStatus,
+  hashOf,
+  readFrontmatter,
   SEVERITIES,
   PROTOCOL_VERSION,
 };
@@ -371,6 +404,27 @@ function main() {
     const sla = slaStatus(frontmatter);
     console.log(sla.label);
     process.exit(sla.state === "overdue" ? 1 : 0);
+  }
+
+  if (args[0] === "--cache-check") {
+    // Is the existing findings file still valid for this contract?
+    // Exit 0 = cached (skip verify), 1 = stale (run verify).
+    const contractPath = args[1];
+    const md = readFileSync(contractPath, "utf8");
+    const currentHash = hashOf(md);
+    const findingsPath = contractPath.replace(/\.md$/, ".findings.md");
+    const findingsFm = existsSync(findingsPath)
+      ? readFrontmatter(readFileSync(findingsPath, "utf8"))
+      : {};
+    // plugin version from <plugin>/.claude-plugin/plugin.json
+    let pv = "unknown";
+    try {
+      const pj = join(dirname(fileURLToPath(import.meta.url)), "..", ".claude-plugin", "plugin.json");
+      pv = JSON.parse(readFileSync(pj, "utf8")).version;
+    } catch { /* leave unknown */ }
+    const cs = cacheStatus(currentHash, pv, PROTOCOL_VERSION, findingsFm);
+    console.log(JSON.stringify({ ...cs, currentHash, pluginVersion: pv }, null, 2));
+    process.exit(cs.cached ? 0 : 1);
   }
 
   if (args[0] === "--status") {
@@ -408,8 +462,7 @@ function main() {
   const findings = checkContract(contract);
   const sizing = computeSizing(contract);
   const readiness = computeReadiness(contract, findings);
-  const contractHash =
-    "sha256:" + createHash("sha256").update(md).digest("hex").slice(0, 16);
+  const contractHash = hashOf(md);
 
   const out = {
     protocolVersion: PROTOCOL_VERSION,

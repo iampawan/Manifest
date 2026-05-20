@@ -12,6 +12,15 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.3.1] — content-hash caching
+
+### Added
+- **Content-hash caching** — `/contract verify` skips the LLM critics
+  when the contract content + plugin version are unchanged since the
+  last verify (reuses prior findings). No-op re-runs (CI, habit,
+  iterating on other files) now cost zero tokens. `--force` overrides.
+  `validate.mjs --cache-check` powers it; 5 tests.
+
 ## [0.3.0] — right-sized process + leaner critics
 
 Process proportional to risk, end to end.

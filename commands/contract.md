@@ -78,6 +78,11 @@ the *relevant* judgment critics run (selected by change type):
 Output: `.shipline/contracts/<ID>.findings.md` plus updated frontmatter
 on the contract itself (`status`, `complexity`, readiness reasons).
 
+**Caching:** if the contract content + plugin version are unchanged
+since the last verify, it reuses the prior findings and skips the
+critics (no LLM cost on no-op re-runs). Use `/contract verify <ID>
+--force` to re-verify regardless.
+
 Invokes the **contract-verify** skill.
 
 ### /contract promote <ID>
