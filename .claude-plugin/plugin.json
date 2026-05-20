@@ -1,0 +1,8 @@
+{
+  "name": "shipline",
+  "version": "0.2.0",
+  "description": "PRD-to-production pipeline with quality gates. Author contracts, run critics, implement via agent, verify deploys, and produce post-launch reports — all from markdown in your repo.",
+  "author": {
+    "name": "Pawan"
+  }
+}

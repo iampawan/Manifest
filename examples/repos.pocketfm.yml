@@ -1,0 +1,88 @@
+# .shipline/repos.yml — example for a multi-stack product (native iOS +
+# native Android + Flutter + web). Hand-written sample; in practice run
+# `/setup` and the init wizard generates this for you (it runs
+# scripts/detect.mjs to fill framework/SDK/test fields automatically).
+#
+# Each repo declares a `framework` so skills (implement, verify-deployment)
+# can infer the right toolchain from STACK-PROFILES.md — no stack is
+# assumed. Override any command via an explicit `toolchain` block.
+
+repos:
+  - name: ios-native
+    path: /Users/pawankumar/Documents/dev/pocket/ios_fm_client
+    platforms: [ios]
+    framework: ios-native            # → Swift/XCTest toolchain
+    languages: [swift]
+    srcDir: "Pocket FM"
+    eventSdk: firebase               # ⚠️ VERIFY iOS analytics SDK
+    apiDependencies: []              # ⚠️ FILL IN backend repo(s)
+    toolchain:
+      scheme: "Pocket FM"            # ⚠️ VERIFY Xcode scheme name
+      # test / lint / build inferred from ios-native profile; override if needed
+
+  - name: android-native
+    path: /Users/pawankumar/Documents/dev/pocket/android_fm_client
+    platforms: [android]
+    framework: android-native        # → Kotlin/Gradle toolchain
+    languages: [kotlin]
+    srcDir: "app/src/main/java/com/radio/pocketfm"
+    eventSdk: firebase               # ⚠️ VERIFY
+    apiDependencies: []              # ⚠️ FILL IN
+    toolchain:
+      module: "app"                  # gradle module
+
+  - name: flutter
+    path: /Users/pawankumar/Documents/dev/pocket/pocketfm_flutter
+    platforms: [ios, android]        # see native-vs-Flutter note below
+    framework: flutter               # → flutter toolchain
+    languages: [dart]
+    srcDir: "packages"
+    eventSdk: firebase               # ⚠️ VERIFY
+    apiDependencies: []              # ⚠️ FILL IN
+    # toolchain inferred: flutter pub get / flutter test / flutter analyze / flutter build
+
+  - name: web
+    path: /Users/pawankumar/Documents/dev/pocket/ugc-ui
+    platforms: [web]
+    framework: nextjs                # ⚠️ VERIFY — Next.js? plain React? Vite?
+    languages: [typescript, tsx]
+    srcDir: "src"
+    eventSdk: mixpanel               # ⚠️ VERIFY — you have a Mixpanel MCP
+    apiDependencies: []              # ⚠️ FILL IN
+    apiClientPattern: "src/**/api/**/*.ts"   # ⚠️ VERIFY where HTTP calls live
+    # toolchain inferred from nextjs profile
+
+  # ⚠️ NO BACKEND REPO in your pocket-navigator config. Add it so the
+  # regression critic can trace API calls to handlers. Example:
+  #
+  # - name: backend
+  #   github: pocketfm/backend       # or local path
+  #   platforms: [server]
+  #   framework: fastapi             # or gin / express — drives toolchain
+  #   languages: [python]            # or go / typescript
+  #   routePattern: "..."            # where API routes are defined
+  #   serves: ["/feed/*", "/auth/*", "/player/*"]   # route prefixes it owns
+  #   eventSdk: custom
+
+# Modules pocket-navigator knows about: player, auth, downloads, analytics
+
+conventions:
+  defaultBranch: main
+  eventNameUniqueness: strict
+  apiBoundaryRequiresBoth: true
+  scanDepth: inventory
+  fullSweepOnUnmatchedApi: true
+
+# ── Native + Flutter coexistence ─────────────────────────────────────
+# You have native iOS + native Android + Flutter. Decide a convention:
+#
+# Option A — Flutter is the migration target:
+#   Contracts target [ios, android, web]; the Flutter repo implements
+#   ios+android; native repos are legacy. Parity critic checks Flutter + web.
+#
+# Option B — Hybrid, explicit surfaces:
+#   Use tags native-ios / native-android / flutter / web in BOTH the
+#   repo `platforms` above and in contracts. More precise, more verbose.
+#
+# Until you pick, the regression + parity critics may double-count
+# ios/android across the native and flutter repos.

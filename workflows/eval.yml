@@ -1,0 +1,63 @@
+name: Shipline eval
+
+# Runs the deterministic validator's eval suite on every change to the
+# plugin. This is the regression gate: a change that alters validator
+# behavior, breaks the parser, or lets out-of-schema severities through
+# fails the build.
+#
+# Install this in the SHIPLINE PLUGIN repo (not your product repos).
+
+on:
+  push:
+    paths:
+      - "scripts/**"
+      - "eval/**"
+      - ".claude-plugin/**"
+  pull_request:
+    paths:
+      - "scripts/**"
+      - "eval/**"
+      - ".claude-plugin/**"
+  workflow_dispatch:
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install validator deps
+        working-directory: scripts
+        run: npm install
+
+      - name: Run unit tests (validator + stack detector)
+        run: node --test eval/validate.test.mjs eval/detect.test.mjs
+
+      - name: Sanity-check the example contracts parse and validate
+        run: |
+          set -e
+          for f in examples/EX-001-saved-cards.md eval/contracts/clean.md eval/contracts/seeded-gaps.md; do
+            echo "Validating $f"
+            node scripts/validate.mjs "$f" > /dev/null || true   # non-zero exit on blockers is expected for seeded-gaps
+          done
+
+      - name: Assert clean contract has zero blockers
+        run: |
+          BLOCKERS=$(node scripts/validate.mjs eval/contracts/clean.md | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).readiness.openBlockers))")
+          echo "clean.md blockers: $BLOCKERS"
+          test "$BLOCKERS" = "0"
+
+      - name: Assert seeded-gaps contract is caught (has blockers)
+        run: |
+          set +e
+          node scripts/validate.mjs eval/contracts/seeded-gaps.md > /tmp/out.json
+          CODE=$?
+          BLOCKERS=$(node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).readiness.openBlockers))" < /tmp/out.json)
+          echo "seeded-gaps blockers: $BLOCKERS (exit $CODE)"
+          # must have caught blockers and exited non-zero
+          test "$CODE" = "1"
+          test "$BLOCKERS" -gt "0"

@@ -1,0 +1,84 @@
+name: Failsafe launch monitor
+
+# Daily cron that produces launch reports at day 1/7/14/28 and runs
+# bug triage every day in between, for any contract currently in its
+# 28-day monitoring window.
+
+on:
+  schedule:
+    - cron: "0 14 * * *"   # 14:00 UTC daily — adjust to your team's morning
+  workflow_dispatch:
+    inputs:
+      contractId:
+        description: "Optional: limit to one contract"
+        required: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Claude CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      # Find all contracts in their monitoring window (≤28 days since
+      # they reached 100% prod rollout).
+      - name: Identify contracts in window
+        id: contracts
+        run: |
+          # Each contract markdown has frontmatter we can grep. We look
+          # for `landed: ` absent or set to null AND `prodRolloutAt:` set.
+          IDS=$(find .shipline/contracts -name "*.md" \
+            ! -name "*.findings.md" ! -name "*.r*.md" \
+            ! -name "*.deploy-*.md" ! -name "*.launch-report-*.md" \
+            ! -name "*.bug-log.md" \
+            -exec grep -l "prodRolloutAt:" {} \; \
+            | xargs grep -L "^landed: true" \
+            | xargs grep -L "^landed: false" \
+            | xargs -I{} basename {} .md \
+            | tr '\n' ' ')
+          echo "ids=$IDS" >> $GITHUB_OUTPUT
+          echo "Found contracts in window: $IDS"
+
+      - name: Run launch-report and bug-triage per contract
+        if: steps.contracts.outputs.ids != ''
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          AMPLITUDE_API_KEY: ${{ secrets.AMPLITUDE_API_KEY }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+          for ID in ${{ steps.contracts.outputs.ids }}; do
+            echo "=== Contract $ID ==="
+
+            # Compute day index since prodRolloutAt
+            ROLLOUT_DATE=$(grep "prodRolloutAt:" .shipline/contracts/$ID.md | awk '{print $2}')
+            DAY=$(( ( $(date +%s) - $(date -d "$ROLLOUT_DATE" +%s) ) / 86400 ))
+
+            # Launch report at day 1, 7, 14, 28
+            if [[ "$DAY" == "1" || "$DAY" == "7" || "$DAY" == "14" || "$DAY" == "28" ]]; then
+              claude --skill launch-report \
+                --input "{ \"contractId\": \"$ID\", \"dayIndex\": $DAY }"
+            fi
+
+            # Bug triage every day
+            claude --skill bug-triage \
+              --input "{ \"contractId\": \"$ID\" }"
+
+            # On day 28, mark as landed/not-landed based on the final report
+            if [[ "$DAY" == "28" ]]; then
+              echo "Day 28 — final verdict marked in contract by launch-report skill."
+            fi
+          done
+
+      - name: Commit reports
+        run: |
+          git config user.name "shipline-bot"
+          git config user.email "shipline-bot@users.noreply.github.com"
+          git add .shipline/
+          git diff --staged --quiet || git commit -m "chore(shipline): daily launch monitor"
+          git push
