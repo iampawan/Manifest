@@ -19,6 +19,12 @@ on:
         description: "Optional: limit to one contract"
         required: false
 
+# Share the state-writer concurrency group with launch-monitor so the
+# two crons never race on push to the specs repo.
+concurrency:
+  group: shipline-state-writer
+  cancel-in-progress: false
+
 jobs:
   guard:
     runs-on: ubuntu-latest
@@ -69,5 +75,7 @@ jobs:
           git config user.name "shipline-bot"
           git config user.email "shipline-bot@users.noreply.github.com"
           git add .shipline/
-          git diff --staged --quiet || git commit -m "chore(shipline): rollback-guard check"
-          git push
+          git diff --staged --quiet && exit 0
+          git commit -m "chore(shipline): rollback-guard check"
+          git pull --rebase --autostash origin "$(git rev-parse --abbrev-ref HEAD)" || true
+          git push || { git pull --rebase --autostash origin "$(git rev-parse --abbrev-ref HEAD)"; git push; }

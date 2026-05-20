@@ -118,6 +118,21 @@ review the whole repo. For each hunk, walk the four categories:
 - Copy-paste that should be factored; a function doing too much.
 - Misleading names; missing types where the stack expects them.
 
+**Dependencies / supply chain** (when the diff touches a manifest /
+lockfile — package.json, pubspec.yaml, go.mod, requirements.txt,
+build.gradle, Podfile, etc.)
+- A newly-added dependency: is it necessary, or does the repo already
+  have something that does this? Flag avoidable new deps (`warning`).
+- Pinning: a floating/`latest`/`*` version range is a `warning` —
+  prefer a pinned or caret-bounded version for reproducible builds.
+- Known-risky: a package you recognize as deprecated/abandoned, or one
+  whose name is a near-typo of a popular package (typosquat) is a
+  `blocker`. Don't fabricate CVEs — flag only what you can justify.
+- License: a copyleft (GPL/AGPL) dep added to a proprietary codebase is
+  a `warning` worth a human license check.
+- A lockfile changed with no corresponding manifest change (or vice
+  versa) is a `warning` — likely an unintended or out-of-band update.
+
 ### 3. Ground every finding
 
 Each finding cites a real `file` and (where possible) `line` from the

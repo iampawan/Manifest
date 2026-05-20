@@ -1,0 +1,49 @@
+{
+  "contract": "judgment-gaps.md",
+  "note": "Expected JUDGMENT findings for eval/contracts/judgment-gaps.md. 'required' items are load-bearing — recall must catch all of them or the eval fails. 'required:false' items are bonus: reported but not gating, to tolerate LLM variance on softer calls (per RELIABILITY.md issue #2).",
+  "requiredRecallThreshold": 1.0,
+  "expected": [
+    {
+      "gap": "B1 delete account is destructive + irreversible but the contract names no authorization, re-authentication, or ownership check",
+      "critic": "security",
+      "minSeverity": "blocker",
+      "anyOf": ["authoriz", "authz", "re-auth", "reauth", "re-authenticat", "password", "permission", "ownership", "confirm", "irreversible", "destructive"],
+      "required": true
+    },
+    {
+      "gap": "B2 data export describes only the happy path — no large/slow export, repeated/duplicate request, or mid-export failure handling",
+      "critic": "edge-cases",
+      "minSeverity": "warning",
+      "anyOf": ["large", "timeout", "repeat", "duplicate", "midway", "partial", "async", "in progress", "in-progress", "concurrent", "retry", "fail"],
+      "required": true
+    },
+    {
+      "gap": "B1 error copy ('Something went wrong') is generic and not actionable for a destructive action",
+      "critic": "comms-completeness",
+      "minSeverity": "warning",
+      "anyOf": ["actionable", "generic", "vague", "something went wrong", "specific", "what to do", "next step"],
+      "required": false
+    },
+    {
+      "gap": "B2 'export all data' is synchronous with no bound, pagination, or background-job model",
+      "critic": "scalability",
+      "minSeverity": "warning",
+      "anyOf": ["unbounded", "pagination", "async", "background", "job", "queue", "scale", "large dataset", "synchronous", "stream"],
+      "required": false
+    },
+    {
+      "gap": "B3 active-sessions list shows device/location data with no masking/PII handling described",
+      "critic": "security",
+      "minSeverity": "warning",
+      "anyOf": ["pii", "mask", "ip", "location", "device", "sensitive", "expose", "personal"],
+      "required": false
+    },
+    {
+      "gap": "B3 claims web + ios but describes no platform-specific session-revocation UX difference",
+      "critic": "platform-parity",
+      "minSeverity": "warning",
+      "anyOf": ["platform", "ios", "web", "parity", "revoke", "mobile", "device-specific"],
+      "required": false
+    }
+  ]
+}

@@ -28,12 +28,16 @@ Shipline scales the ceremony to the change. Four tiers:
 | Stage | What runs | Output |
 |---|---|---|
 | **Author** | `/contract new` (JIRA/Linear/Notion link or text) | `.shipline/contracts/<ID>.md` |
-| **Verify** | `/contract verify` (validator + only the relevant judgment critics) | `.shipline/contracts/<ID>.findings.md` |
+| **Verify** | `/contract verify` (validator + only the relevant judgment critics) | `.shipline/contracts/<ID>.findings.md` (+ `.findings.json`) |
 | **Promote** | `/contract promote` | Frozen revision, JIRA epic, SLA timer (24h/72h) |
 | **Implement** | `/implement <ID>` (PR comment, runs in CI) | PR with code + tests in the repo's stack |
-| **Verify PR** | `pr-verify.yml` workflow | AC coverage comment on PR |
+| **Verify PR** | `pr-verify.yml` → `verify-pr` (AC conformance) + `code-review` (code-level defects) | coverage comment + `CR-` findings; open blockers gate merge |
+| **Review→fix** | `@claude /fix-pr <ID>` (Implementer fix-mode) | findings addressed + re-pushed, bounded by `maxFixIterations` |
 | **Verify deploy** | `verify-deploy.yml` (platform-aware: web/Flutter/backend) | per-AC pass/fail + canary verdict |
+| **Canary guard** | `rollback-guard.yml` (every 30 min) + `/canary`, `/rollback-check` | proceed / hold / recommend-rollback + next ramp step (recommends only) |
 | **Launch report** | `launch-monitor.yml` (cron, 4 weeks) | Slack DM at day 1/7/14/28 |
+| **Bug watch + route** | `bug-triage` (daily) | tickets with contract refs, routed to `/fix` or `/contract` (gated) |
+| **Rollback** | `/postmortem <ID>` (after a revert) | `landed: rolled-back`, blameless postmortem, reopened follow-up |
 
 Anytime: **`/status [<ID>]`** shows phase, SLA time-left (IST + UTC),
 readiness, and next action — for one contract or everything in flight.
@@ -154,8 +158,9 @@ Then in Claude Code:
 ```
 
 Skills auto-discover from `skills/*/SKILL.md`; slash commands
-(`/contract`, `/implement`, `/verify-pr`, `/code-review`, `/launch`,
-`/rollback-check`, `/shipline`) become available immediately.
+(`/contract`, `/implement`, `/verify-pr`, `/code-review`, `/verify-deploy`,
+`/canary`, `/rollback-check`, `/postmortem`, `/launch`, `/shipline`)
+become available immediately.
 
 ---
 
@@ -309,18 +314,16 @@ shipline/
 │   ├── RELIABILITY.md                   # hardening plan — built vs planned
 │   └── INSTALL-FOR-TRYERS.md            # focused install doc for teammates
 ├── scripts/
-│   ├── validate.mjs                     # DETERMINISTIC layer (mechanical checks + schema validation)
-│   ├── detect.mjs                       # DETERMINISTIC stack detection (framework/SDK/test per repo)
-│   └── package.json                     # depends on js-yaml
-│   └── PUBLISH-CHECKLIST.md             # ship to your team (publish + install)
-├── eval/
-│   ├── validate.test.mjs                # validator + SLA + phase tests
-│   ├── detect.test.mjs                  # stack-detector tests  (56 total, all green)
-│   └── contracts/                       # golden contracts (clean + seeded-gaps)
-├── scripts/
-│   ├── validate.mjs                     # DETERMINISTIC: checks, schema, sizing, readiness, --sla, --status
+│   ├── validate.mjs                     # DETERMINISTIC: checks, schema, sizing, readiness, --sla/--status/--check-*
 │   ├── detect.mjs                       # DETERMINISTIC: framework/SDK/test detection per repo
+│   ├── recall.mjs                       # DETERMINISTIC: scores critic findings vs the golden set
 │   └── package.json                     # depends on js-yaml
+├── eval/
+│   ├── validate.test.mjs                # validator + SLA + phase + review/guard schema tests
+│   ├── detect.test.mjs                  # stack-detector tests  (63 total, all green)
+│   ├── recall.test.mjs                  # recall-scorer tests
+│   ├── golden/                          # expected judgment findings (recall harness)
+│   └── contracts/                       # clean + seeded-gaps + judgment-gaps fixtures
 ├── examples/
 │   ├── EX-001-saved-cards.md            # example contract
 │   ├── repos.yml.example                # multi-repo configuration template
@@ -346,7 +349,8 @@ shipline/
 │   ├── implement/SKILL.md               # the heavy agent — stack-agnostic; build + fix modes
 │   ├── code-review/SKILL.md             # PR-stage code-level review (CR- findings)
 │   ├── verify-deployment/SKILL.md       # platform-aware (web / Flutter / backend)
-│   ├── rollback-guard/SKILL.md          # rollout-window health watch (recommends only)
+│   ├── rollback-guard/SKILL.md          # rollout-window health watch + next-ramp-step (recommends only)
+│   ├── rollback-postmortem/SKILL.md     # blameless postmortem + reopen after a rollback
 │   ├── launch-report/SKILL.md           # the loop-closer
 │   └── bug-triage/SKILL.md
 ├── commands/
@@ -360,6 +364,8 @@ shipline/
 │   ├── code-review.md                   # /code-review <PR>
 │   ├── verify-deploy.md                 # /verify-deploy <ID> <URL>
 │   ├── rollback-check.md                # /rollback-check <ID>
+│   ├── canary.md                        # /canary <ID> — current stage + next step
+│   ├── postmortem.md                    # /postmortem <ID> — after a rollback
 │   ├── bug-triage.md                    # /bug-triage <ID>
 │   └── launch.md                        # /launch <ID>
 └── workflows/

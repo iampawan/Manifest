@@ -12,6 +12,76 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.6.0] — bug→fix loop closure (+ trigger fix)
+
+### Fixed
+- **Monitoring trigger never fired.** `launch-monitor.yml` matched
+  contracts on `prodRolloutAt:`, but the contract format stores the
+  rollout timestamp as `prodRollout100At:` — so the daily launch-report
+  and bug-triage sweep silently found zero contracts. Corrected the
+  field name (and the day-index computation that used it).
+
+### Added
+- **bug-triage now closes its loop.** After filing/deduping a cluster it
+  routes the bug back into the pipeline: trivial/high-confidence (or any
+  S0/S1) can auto-enter the `/fix` express lane; bigger ones draft a
+  `/contract` stub. Guardrails: propose-by-default, auto-start only for
+  high-confidence-trivial or S0/S1, ≤2 auto-starts per run, never
+  auto-merge (the fix still goes through verify-pr + code-review +
+  human approval). The route is seeded from the triage evidence
+  (symptom, repro, suspect file + git-blame owner, contract context).
+- New `bugFollowups` contract frontmatter — links the routed ticket ↔
+  fix PR / new contract ↔ originating contract; an open follow-up
+  tempers the `landed` verdict. The cluster is marked `routed` in the
+  bug-log so the next nightly run doesn't re-route it.
+
+### Notes
+- No new credentials required: routing reuses the scopes the Implementer
+  already declares (`github:contents:write` / `pull_requests:write`) and
+  the tracker MCP bug-triage already uses. Without write access it
+  degrades to *proposing* the route in Slack / a PR comment.
+
+## [0.5.0] — recall harness, canary orchestrator, rollback ending
+
+Fills the gaps a self-audit surfaced: the missing half of the
+reliability story, the described-but-unbuilt canary orchestrator, and
+the one place the end-to-end loop had no ending.
+
+### Added
+- **Critic recall harness** — `eval/contracts/judgment-gaps.md` is a
+  structurally-complete contract (zero deterministic findings) with
+  planted *judgment* defects; `eval/golden/judgment-gaps.expected.json`
+  declares which critic must catch each. `scripts/recall.mjs` is a
+  deterministic scorer (recall + schema check) with 7 unit tests; the
+  `critic-recall` job in `eval.yml` runs the verify skill against the
+  fixture and scores it (skips cleanly without LLM creds). This is the
+  drift defense RELIABILITY.md #2 asked for — a recall drop fails CI.
+  `contract-verify` now also emits a machine-readable `.findings.json`.
+- **Canary orchestrator (recommend-and-approve)** — `rolloutPlan`
+  (stages + bake `holdHours`) in `repos.yml` / contract frontmatter;
+  `rollback-guard` now recommends the next ramp step on a healthy check;
+  `/canary <ID>` shows the current stage + next step. The system never
+  advances the flag — a human does. Fixed the GUIDE wording that
+  implied an automated orchestrator existed.
+- **Post-rollback / postmortem loop** — `rollback-postmortem` skill +
+  `/postmortem <ID>`: records `landed: rolled-back` + `rolledBackAt`,
+  writes a blameless postmortem from the contract timeline + guard
+  reports + Sentry, and reopens the work as a follow-up (never closes it
+  as done). The rollback ending the loop was missing.
+
+### Changed
+- **Workflow robustness.** `launch-monitor.yml` and `rollback-guard.yml`
+  share a `concurrency: shipline-state-writer` group and rebase before
+  push, so concurrent crons no longer race on the specs repo.
+  Launch-monitor gained **missed-cron catch-up**: it produces any
+  reached-but-unwritten milestone report instead of requiring an exact
+  day match (a delayed/skipped scheduled run no longer drops a report).
+- **code-review** gained a dependency / supply-chain check (avoidable
+  new deps, unpinned ranges, typosquats, license flags, lockfile drift)
+  when the diff touches a manifest/lockfile.
+- New frontmatter: `currentRolloutPercent`, `rolledBackAt`, optional
+  per-contract `rolloutPlan`.
+
 ## [0.4.0] — code review, the fix loop, and a rollout guard
 
 Closes the two gaps between "the spec is good" and "the running feature

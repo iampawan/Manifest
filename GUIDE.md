@@ -39,15 +39,23 @@ Everything lives in your repo at `.shipline/contracts/`:
 .shipline/contracts/
 ├── SC-005.md                              # the live contract
 ├── SC-005.r1.md                           # immutable revision snapshot
-├── SC-005.findings.md                     # critic output
+├── SC-005.findings.md                     # critic output (human view)
+├── SC-005.findings.json                   # critic output (machine-readable; recall harness reads this)
 ├── SC-005.implementation-plan.md          # implementer's plan
+├── SC-005.pr-review.json                  # code-review findings (CR-*); gates the merge + feeds the fix loop
 ├── SC-005.deploy-qa-2026-05-19T10:00.md   # verifier reports per env
+├── SC-005.guard-2026-05-21T14:00.md       # rollback-guard health checks during rollout
 ├── SC-005.launch-report-day1.md           # post-launch reports
 ├── SC-005.launch-report-day7.md
 ├── SC-005.launch-report-day14.md
 ├── SC-005.launch-report-day28.md
-└── SC-005.bug-log.md                      # cumulative bug findings
+├── SC-005.bug-log.md                      # cumulative bug findings + routing state
+└── SC-005.postmortem.md                   # only if rolled back: blameless postmortem
 ```
+
+(At day 28 the contract auto-archives to `.shipline/archive/<year>/<ID>/`,
+keeping the contract + final report and pruning the process exhaust —
+see section 1e.)
 
 Git is your audit trail. Every transition is a commit. Anyone with
 repo access can answer "what did we decide, when, and why" without
@@ -272,7 +280,14 @@ the ramp), or `recommend-rollback` (a clear breach — it posts a
 top-level Slack alert to the owner with the breached signal and the
 exact action). **The guard recommends; it never acts** — a human flips
 the flag or reverts. Run it on demand any time with
-`/rollback-check SC-005`.
+`/rollback-check SC-005`, and `/canary SC-005` shows the current stage
++ next recommended ramp step.
+
+If you do roll back, run `/postmortem SC-005` once the flag is off: it
+records `landed: rolled-back`, writes a blameless postmortem from the
+contract's timeline + guard reports + Sentry, and reopens the work as a
+follow-up (never closes it as done). That's the rollback ending of the
+loop — see ④.
 
 ### ④ LAND — monitor and verify
 Where: the `launch-monitor.yml` cron in GitHub Actions.
@@ -285,8 +300,15 @@ day 1, 7, 14, and 28. At day 28, the final verdict — `landed |
 partial | not-landed | rolled-back` — is committed to the contract
 and the monitoring window closes.
 
-The Bug Watcher runs daily alongside, looking for new error
-clusters and filing JIRA tickets with contract back-references.
+The Bug Watcher (`bug-triage`) runs daily alongside, looking for new
+error clusters and filing JIRA tickets with contract back-references —
+then **routing each new bug back into the pipeline** instead of leaving
+it in a queue: a trivial, high-confidence cluster (or any S0/S1) can
+auto-enter the `/fix` express lane; anything bigger drafts a `/contract`
+stub. Everything else is *proposed* and waits for a human, it never
+auto-merges, and it caps auto-starts per run. The follow-up is recorded
+on the contract as `bugFollowups`, so an open fix tempers the `landed`
+verdict — the loop stays closed even after launch.
 
 ---
 
@@ -484,9 +506,12 @@ regressions. Approve?"
 You click ✅ in Slack.
 
 ### T+10:00 to T+18:00 — Staged rollout
-Remote Config bumps the flag: 1% → 10% → 50% → 100%. The
-orchestrator watches Sentry every 30 minutes. No breach. Goes to
-100% by T+18:00.
+You bump the flag through the `rolloutPlan` stages: 1% → 10% → 50% →
+100%. At each stage, `rollback-guard` samples Sentry every 30 minutes
+and posts a verdict + the next recommended step (`/canary AU-007` shows
+it any time): "healthy, baked 2h — advance to 10%." No breach, so you
+advance at each green check. Reaches 100% by T+18:00. The guard
+recommends; you flip the flag — it never advances the rollout for you.
 
 You leave for the day. SLA met with 6h to spare.
 
@@ -549,16 +574,20 @@ the contract was wrong.
 ### Verifier says `rollback`
 Critical AC fails OR error rate exceeds budget OR zero events firing.
 **Fix**: revert the deploy (your normal CI process). Don't bump the
-canary. Read the failure, fix the contract or the implementation,
-and start the build phase over. The SLA timer pauses while you're
-in rollback (mark the tracking issue accordingly).
+canary. Run `/postmortem <ID>` to record `landed: rolled-back`, capture
+a blameless postmortem, and reopen the work — then fix the contract or
+the implementation and start the build phase over. The SLA timer pauses
+while you're in rollback (mark the tracking issue accordingly).
 
 ### Sentry spikes mid-canary
-The orchestrator pauses the rollout and posts to Slack. You assess:
-real regression or noise?
-**Real**: roll the flag back to 0% (manual in v1). Don't progress to
-100% until fixed.
-**Noise**: resume the rollout from Slack with a one-click.
+`rollback-guard` (running every 30 min) flips its verdict to `hold` or
+`recommend-rollback` and posts a top-level Slack alert with the breached
+signal and the recommended action. It does not pause or revert the
+rollout itself — you assess: real regression or noise?
+**Real**: flip the flag back to 0% and run `/postmortem AU-007` to
+capture what happened. Don't progress to 100% until fixed.
+**Noise**: hold at the current stage, then advance once the next guard
+check is green again.
 
 ### Launch report says `not-landed` at day 28
 The feature shipped but didn't move the metric. This is information,

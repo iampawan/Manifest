@@ -108,6 +108,32 @@ Rubric:
   real volume. The feature is hurting users; recommend reverting to the
   last good state (flag off, or redeploy previous release).
 
+### 3b. Recommend the next ramp step (the canary "orchestrator")
+
+The system does not advance the flag — you tell the human what the next
+step is and they flip it. Read the `rolloutPlan` (contract frontmatter,
+else `repos.yml` `conventions.rolloutPlan`) and the contract's current
+rollout percent (`currentRolloutPercent`, default 1 once
+`canaryStartedAt` is set). Add a `recommendedAction` string to the
+verdict:
+
+- On **proceed**, if the current stage has baked at least its
+  `holdHours`: `"advance flag <name> 10% → 50% (next bake 8h)"`. If it
+  hasn't baked long enough yet: `"hold at 10% — N more hours of bake
+  before advancing"`.
+- On **proceed** at the final 100% stage: `"ramp complete — leave at
+  100%; launch-monitor takes over"`.
+- On **hold**: `"hold at <current>% — investigate <signal> before
+  advancing"`.
+- On **recommend-rollback**: `"flip flag <name> OFF (or redeploy
+  <previous tag>) — do not advance"`.
+
+If there is no flag system / no `rolloutPlan`, set `recommendedAction`
+to `"no staged ramp configured — this is a direct deploy; watch and
+revert manually if needed"`. Stamp `currentRolloutPercent` on the
+contract when the owner confirms they advanced it (or read it back from
+the flag system if the MCP exposes it).
+
 `recommend-rollback` exits the validator with code 3 so the workflow
 can escalate loudly. Validate before posting:
 

@@ -38,6 +38,15 @@ maxFixIterations: 3                     # cap; override via repos.yml convention
 # Rollout health (set by rollback-guard while the feature is ramping)
 guardVerdict: null                      # proceed | hold | recommend-rollback
 guardCheckedAt: null                    # last rollback-guard sample (ISO)
+currentRolloutPercent: null             # current canary stage; human advances the flag, guard records it
+rolledBackAt: null                      # set by rollback-postmortem if the feature was reverted
+
+# Post-launch bugs routed back into the pipeline (set by bug-triage).
+# An open follow-up means landing is at risk — launch-report tempers its
+# verdict accordingly. route: fix | contract; status: open | merged | closed.
+bugFollowups: []                        # e.g. [{ ticket: BUG-101, route: fix, ref: "PR#234", status: open }]
+# rolloutPlan: (optional per-contract override of repos.yml conventions.rolloutPlan)
+#   stages: [{ percent: 1, holdHours: 2 }, { percent: 10, holdHours: 4 }, ...]
 rollbackTriggers:                       # optional explicit guardrails; defaults used if absent
   errorRateMultiplier: 3                # error rate > N× baseline → breach
   crashFreeFloor: 99.0                  # crash-free users % must stay ≥ this

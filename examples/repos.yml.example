@@ -93,6 +93,25 @@ conventions:
   # it can't confidently map a frontend API call to an owning backend.
   fullSweepOnUnmatchedApi: true
 
+  # Default canary ramp for feature-flagged rollouts. rollback-guard reads
+  # this to recommend the NEXT step on a healthy (proceed) check; the human
+  # flips the flag — the guard never advances it automatically. Per-contract
+  # override via a `rolloutPlan` block in the contract frontmatter.
+  # `holdHours` is the minimum bake time at each stage before advancing.
+  rolloutPlan:
+    stages:
+      - { percent: 1,   holdHours: 2 }
+      - { percent: 10,  holdHours: 4 }
+      - { percent: 50,  holdHours: 8 }
+      - { percent: 100, holdHours: 0 }
+  # Teams with no feature-flag system have no staged ramp — verify-deploy's
+  # "ready-for-canary" means "ready to deploy"; ignore rolloutPlan.
+
+  # Review→fix loop cap (Implementer fix-mode); per-contract override via
+  # maxFixIterations frontmatter. Set autoFixWarnings to also fix warnings.
+  maxFixIterations: 3
+  autoFixWarnings: false
+
 # Access notes:
 #
 # 1. GitHub MCP path (preferred): no local clones needed. The critic

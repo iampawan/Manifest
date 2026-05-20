@@ -34,8 +34,8 @@ jobs:
         working-directory: scripts
         run: npm install
 
-      - name: Run unit tests (validator + stack detector)
-        run: node --test eval/validate.test.mjs eval/detect.test.mjs
+      - name: Run unit tests (validator + stack detector + recall scorer)
+        run: node --test eval/validate.test.mjs eval/detect.test.mjs eval/recall.test.mjs
 
       - name: Sanity-check the example contracts parse and validate
         run: |
@@ -61,3 +61,57 @@ jobs:
           # must have caught blockers and exited non-zero
           test "$CODE" = "1"
           test "$BLOCKERS" -gt "0"
+
+      - name: Assert recall fixture is structurally complete (zero deterministic findings)
+        run: |
+          # judgment-gaps.md must be clean to the deterministic validator —
+          # its defects are judgment-only. If this fires, the fixture drifted.
+          COUNT=$(node scripts/validate.mjs eval/contracts/judgment-gaps.md \
+            | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).deterministicFindings.length))")
+          echo "judgment-gaps deterministic findings: $COUNT"
+          test "$COUNT" = "0"
+
+  # Critic recall: the non-deterministic half. Runs the verify skill
+  # against the judgment-gaps fixture and scores its findings against the
+  # golden set with the deterministic scorer. Requires LLM creds — when
+  # absent (e.g. forks), it skips cleanly rather than failing.
+  critic-recall:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install validator deps
+        working-directory: scripts
+        run: npm install
+      - name: Detect creds
+        id: creds
+        env:
+          OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          APIKEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [[ -n "$OAUTH" || -n "$APIKEY" ]]; then
+            echo "has=true" >> $GITHUB_OUTPUT
+          else
+            echo "has=false" >> $GITHUB_OUTPUT
+            echo "::notice::No LLM creds set — skipping critic recall (deterministic eval still ran)."
+          fi
+      - name: Install Claude CLI
+        if: steps.creds.outputs.has == 'true'
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Verify the recall fixture
+        if: steps.creds.outputs.has == 'true'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          mkdir -p .shipline/contracts
+          cp eval/contracts/judgment-gaps.md .shipline/contracts/JGAPS-001.md
+          claude --skill contract-verify --input '{ "contractId": "JGAPS-001" }'
+      - name: Score recall against the golden set
+        if: steps.creds.outputs.has == 'true'
+        run: |
+          node scripts/recall.mjs \
+            .shipline/contracts/JGAPS-001.findings.json \
+            eval/golden/judgment-gaps.expected.json

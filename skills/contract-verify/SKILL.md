@@ -154,6 +154,12 @@ Sections: Open blockers / Warnings / Info. Each finding shows its
 `source` (contract-only = deterministic, github-mcp/local-clone =
 judgment-with-code-reading).
 
+Also write `.shipline/contracts/<ID>.findings.json` — the merged
+findings array (deterministic + judgment), exactly the JSON the critics
+returned, schema-validated by `--check-findings`. This machine-readable
+companion is what the recall harness (`scripts/recall.mjs`) and other
+tooling read; the `.md` file is the human view.
+
 ### 7. Update the contract and report
 
 Set `status` (verified or back to draft), `complexity`. Tell the user
