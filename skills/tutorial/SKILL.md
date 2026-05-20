@@ -173,7 +173,6 @@ Then add:
 >
 > For deep walkthroughs:
 > - `GUIDE.md` — the full how-it-works manual
-> - `MVP-PLAN.md` — demo and rollout strategy
 > - `reference/CONTRACT-FORMAT.md` — contract schema reference
 
 End with:

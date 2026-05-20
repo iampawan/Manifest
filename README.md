@@ -289,9 +289,6 @@ For sharing with teammates, point them at
 **[docs/INSTALL-FOR-TRYERS.md](docs/INSTALL-FOR-TRYERS.md)** — a focused doc
 on Method A.
 
-For demo strategy and stakeholder-convincing plans, read
-**[docs/MVP-PLAN.md](docs/MVP-PLAN.md)**.
-
 ---
 
 ## Files
@@ -309,7 +306,6 @@ shipline/
 │   ├── CRITIC-PROTOCOL.md               # shared rule layer (severity enum, output schema)
 │   └── STACK-PROFILES.md                # per-stack toolchains — skills assume no stack
 ├── docs/                                # human planning docs
-│   ├── MVP-PLAN.md                      # demo + rollout strategy
 │   ├── RELIABILITY.md                   # hardening plan — built vs planned
 │   └── INSTALL-FOR-TRYERS.md            # focused install doc for teammates
 ├── scripts/

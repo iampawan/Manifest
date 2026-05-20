@@ -80,6 +80,45 @@ out of the way.
 
 ---
 
+## 1c. Works with whatever infrastructure you have
+
+Shipline degrades honestly. The spec/build half (which is where most
+bugs are prevented) needs NO infrastructure — only GitHub. The ship/
+land half uses whatever you have and is clear about what it can't do.
+
+| You have | Ship step | "Did it land?" verdict |
+|---|---|---|
+| **Full** (feature flags + Sentry + analytics) | staged canary 1→100%, telemetry-gated | metric movement at day 1/7/14/28 |
+| **Partial** (flags + Sentry, no analytics — the typical pilot) | canary via flags, error-gated by Sentry | "no regression" from Sentry + DB-count / server-log / manual for the metric |
+| **Bare** (nothing — no flags, no Sentry, no analytics) | deploy to prod directly; rollback = manual revert | manual day-28 review + support tickets; report says `unmeasured` for the quant metric |
+
+What's **constant across all three** — the value that doesn't depend
+on infrastructure:
+- A complete, critic-verified spec (edge cases, regression, security
+  caught at PRD time)
+- A verified implementation with AC tests in the repo's stack
+- Cycle-time tracking (intake → prod), computed from git/CI, not telemetry
+
+What **degrades without infrastructure**: only the post-launch
+*quantitative* "did the metric move" verdict. On a bare repo, the
+launch report honestly says `unmeasured — shipped without regression,
+landing not confirmed` and recommends the cheapest fix: one structured
+log line per success action (no analytics product needed). That's
+information, not failure — it tells you which features you're flying
+blind on.
+
+**No feature-flag system?** The "canary" step becomes "deploy to prod
++ watch + manual revert if needed." You lose the gradual blast-radius
+control, not the rest of the cycle. The verifier still runs the AC
+tests against the deployed environment first.
+
+So: pilot on your flags+Sentry repos for the full-confidence loop, and
+run bare repos too — the pipeline still prevents bugs at spec time and
+ships verified code; it just can't promise a measured landing where
+there's nothing to measure.
+
+---
+
 ## 2. The four phases (for Small/Medium contracts)
 
 ### ① SPEC — author and verify

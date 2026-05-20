@@ -281,6 +281,14 @@ tracking issue with the verdict and a link to the report file.
   per-platform failure detail. The Implementer iterates on the
   same PR until it passes verification on every platform in scope.
 
+**If the repo has NO feature-flag system** (no Remote Config /
+LaunchDarkly / etc.): there is no staged canary. `ready-for-canary`
+then means "ready to deploy to prod" — the human deploys directly and
+rollback is a manual revert/redeploy. Say this plainly in the verdict;
+don't imply a gradual rollout that can't happen. The AC tests still
+ran against the deployed environment first, so you're not shipping
+blind — you just don't have the blast-radius control flags give.
+
 ## Anti-patterns
 
 - Don't run web Playwright tests on a Flutter contract. Read

@@ -89,6 +89,5 @@ one-liner; don't `/fix` a multi-platform feature.
 ## Deep dives
 
 - `GUIDE.md` — how it all works, end to end
-- `docs/MVP-PLAN.md` — demo strategy and phased rollout
 - `reference/CONTRACT-FORMAT.md` — contract schema reference
 - `docs/INSTALL-FOR-TRYERS.md` — sharing with teammates

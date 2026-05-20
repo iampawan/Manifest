@@ -86,6 +86,6 @@ pattern is the canonical way to refresh.)
 ## What to do next
 
 Read [`GUIDE.md`](GUIDE.md) for the full walkthrough, then read
-[`MVP-PLAN.md`](MVP-PLAN.md) for the demo strategy. The single
+the retrospective-comparison demo (ask your Shipline owner for the internal demo plan). The single
 highest-value first move is the "retrospective comparison" pattern
-described in MVP-PLAN section "The killer demo move."
+— run the critics against a recently-shipped feature's PRD and show the bugs they would have caught at spec time.
