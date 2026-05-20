@@ -119,6 +119,85 @@ there's nothing to measure.
 
 ---
 
+## 1d. Where contracts live — central state
+
+Contracts are the source of truth, so they need one home. Pick based
+on your repo layout:
+
+- **Single product repo** → `.shipline/contracts/` in that repo, on
+  `main`. Done.
+- **Multiple repos** (web + mobile + backend, like most teams) → a
+  **dedicated specs repo** (`your-org/shipline-contracts`). A
+  cross-repo contract can't sensibly live inside one code repo, and a
+  single specs repo on one `main` branch gives you consistent central
+  state for free: git's total commit order means no two devs get
+  diverging findings for the same contract. Code PRs in the product
+  repos reference the contract by ID.
+
+Set it up once:
+
+```bash
+git init shipline-contracts && cd shipline-contracts
+mkdir -p .shipline/contracts
+cp ~/.claude/plugins/shipline/examples/repos.yml.example .shipline/repos.yml
+# edit repos.yml to point at your product repos (github: org/repo)
+git add -A && git commit -m "init shipline contracts" && git push
+```
+
+Then author/verify/promote from there. `/status` run in this repo is
+your live dashboard of everything in flight.
+
+**Advisory locks.** `owner`, `lockedBy`, `lockedAt` help teammates not
+step on each other — `/contract verify` and `/implement` warn if
+someone else holds a recent lock. They're advisory (git is the real
+arbiter), and only meaningful on the single-branch specs-repo model.
+
+**What this is NOT:** a real-time service. Two people editing the
+*same* contract at once get a normal git merge conflict (rare; git
+handles it), and you `git pull` to see the latest. A backend service
+that adds real-time locking + a query API is the v2+ upgrade, deferred
+until single-branch git actually causes friction. The plugin is built
+so that service would wrap the same contract format, not replace it.
+
+---
+
+## 1e. Lifecycle & retention — does `.shipline/` grow forever?
+
+It grows, but it's text in git — thousands of contracts is tens of MB,
+not a storage problem. The real concern is *clutter*, and most
+per-contract files are **ephemeral** (useful during the cycle, not
+after). So Shipline archives, it doesn't hoard.
+
+**When a contract lands** (day-28 final verdict), its files move to
+`.shipline/archive/<year>/<ID>/`. The active `.shipline/contracts/`
+folder then holds only in-flight + recently-landed work. History is
+preserved and searchable; the working view stays lean. `/status` is
+unaffected — it already shows only in-flight contracts.
+
+**What's kept vs. pruned on archive:**
+- **Kept** (lasting history): the contract `<ID>.md` and the final
+  `launch-report-day28.md` — the "what we built + did it land + cycle
+  time" record, useful for audits, onboarding, and your cycle-time
+  distribution.
+- **Pruned by default** (process exhaust): findings, implementation
+  plan, deploy reports, day-1/7/14 reports, bug-log (mirrored to
+  JIRA), interim revisions. Git history still has them if you ever
+  need them. Set `conventions.retention: keep-all` in `repos.yml` to
+  archive everything instead of pruning.
+
+**So is the folder needed after a product is live?** The *active*
+contracts folder only ever holds current work. The *archive* is
+optional long-term memory — keep it for audit/retro value (it's
+cheap), or `git rm -r .shipline/archive` if you decide the git
+history alone is enough. Nothing in the live product depends on
+`.shipline/` at runtime; it's a development-time record, not a runtime
+artifact.
+
+Archiving happens automatically at day-28, or manually any time via
+`/contract archive <ID>`.
+
+---
+
 ## 2. The four phases (for Small/Medium contracts)
 
 ### ① SPEC — author and verify

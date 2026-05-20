@@ -84,6 +84,10 @@ conventions:
   #   inventory — build a live route inventory and match (default; thorough)
   #   full      — scan EVERY repo for anything touching the contract (slowest, most thorough)
   scanDepth: inventory
+  # On day-28 landed, archive contracts to .shipline/archive/<year>/<ID>/.
+  #   prune-ephemeral (default) — keep contract + final report, prune the rest
+  #   keep-all              — move every file to the archive
+  retention: prune-ephemeral
 
   # If true, the critic escalates to a full sweep automatically whenever
   # it can't confidently map a frontend API call to an owning backend.

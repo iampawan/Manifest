@@ -44,6 +44,14 @@ node <plugin-root>/scripts/validate.mjs --cache-check .shipline/contracts/<ID>.m
 If the user passed `--force`, skip this cache check and always run a
 full verify.
 
+**Advisory lock check.** If the contract's `lockedBy` is someone other
+than the current user AND `lockedAt` is recent (< 2h), warn: "⚠️
+<lockedBy> took a lock on this contract <relative time> ago — they may
+be mid-edit. Coordinate before proceeding, or continue if you know
+it's free." This is advisory (git is the real arbiter); don't
+hard-block. Then set `lockedBy`/`lockedAt` to the current user, and
+clear them when verify completes.
+
 Then set status to `verifying`.
 
 ### 2. Run the deterministic validator FIRST

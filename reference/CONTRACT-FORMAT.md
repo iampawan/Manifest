@@ -113,6 +113,31 @@ Things the author needs answered before promote. Critics will flag these.
 | `implementation` | no | `agent` (default) or `human-led` (migrations/auth — speced + verified by Shipline, human writes the code) |
 | `slackThreadTs` | set on promote | Slack `thread_ts` of the contract's anchor message; later updates reply in this thread |
 | `slackChannel` | set on promote | The channel the thread lives in (default `#shipline`) |
+| `owner` | set at intake | Who owns this contract (email/handle) |
+| `lockedBy` | advisory | Who is actively working it right now; set on verify/implement, cleared on completion |
+| `lockedAt` | advisory | ISO time the lock was taken (a lock older than ~2h is treated as stale) |
+
+### Central state — where contracts live
+
+Contracts are the source of truth, so they need ONE home. For a
+multi-repo product, that home is a **dedicated specs repo** (e.g.
+`your-org/shipline-contracts`) on a single `main` branch — not the
+`.shipline/` of any one code repo. Git gives a total commit order on
+one branch, so that repo *is* a consistent central store: no two devs
+get diverging findings for the same contract. Code PRs in the product
+repos reference the contract by ID; they don't carry contract state.
+`/status` run in the specs repo is the live dashboard.
+
+The `owner` / `lockedBy` / `lockedAt` fields are an **advisory** layer
+on top: they help teammates avoid stepping on each other, but they're
+only meaningful in the single-branch specs-repo model (a lock in a
+git file across divergent branches diverges like anything else). They
+warn, they don't hard-block — git remains the real arbiter.
+
+A real-time, concurrent-edit-locked central *service* (Firestore/
+Postgres + API) is the v2+ upgrade if single-branch git ever causes
+real friction; the plugin is deliberately built so that service would
+wrap the same contract format rather than replace it.
 
 ### Large contracts → epics
 

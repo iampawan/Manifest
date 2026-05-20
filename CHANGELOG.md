@@ -12,6 +12,30 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.3.3] — lifecycle & retention
+
+### Added
+- **Archival/retention** — landed contracts (day-28) auto-archive to
+  `.shipline/archive/<year>/<ID>/`; keeps contract + final report,
+  prunes process exhaust (git history retains it). `retention: keep-all`
+  to archive everything. Manual `/contract archive <ID>`. Keeps the
+  active contracts folder lean as the team ships more features. GUIDE 1e.
+
+## [0.3.2] — central state (specs-repo model)
+
+### Added
+- **Dedicated specs-repo model** for central state — one repo on one
+  `main` branch is a consistent source of truth (no per-branch
+  divergence); also the home for cross-repo contracts. GUIDE 1d.
+- **Advisory locks** — `owner` / `lockedBy` / `lockedAt`; verify and
+  implement warn if someone else holds a recent lock (advisory, git
+  is the arbiter).
+
+### Notes
+- A real-time central *service* (locking + query API) remains a
+  deferred v2+; the plugin is built so it would wrap the same contract
+  format, not replace it.
+
 ## [0.3.1] — content-hash caching
 
 ### Added

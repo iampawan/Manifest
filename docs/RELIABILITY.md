@@ -87,18 +87,22 @@ Remaining: golden-contract recall tests for the LLM judgment critics
 - **Remaining**: add a `CHANGELOG.md`; wire release tagging.
 
 ### 6. State conflict across branches
-**Status: mitigated.**
-- Findings are now a deterministic function of (contract content +
-  plugin version + model) for the deterministic layer, and the
-  `contractHash` stamps which contract content was verified.
-- Two devs on different branches: compare `contractHash` — different
-  hash means they verified different contract content (expected). Same
-  hash + same pluginVersion + same model → identical deterministic
-  findings.
-- **Remaining (true central state)**: would need a shared store keyed
-  on contractHash. Out of scope for the plugin; a Phase 3 service
-  concern if it ever matters. The hash-stamping makes divergence
-  *detectable*, which is enough for now.
+**Status: addressed by convention (specs-repo); real service deferred.**
+- **The fix: a dedicated specs repo on a single `main` branch.** All
+  contracts live in one repo; git's total commit order makes it a
+  consistent central store — no two devs get diverging findings for
+  the same contract. This also solves "where do cross-repo contracts
+  live." See GUIDE 1d.
+- `contractHash` stamping still detects staleness (your findings vs a
+  newer committed version).
+- `owner` / `lockedBy` / `lockedAt` add advisory "someone's working
+  this" awareness on the single branch.
+- **What a real service would still add** (the deferred v2+): real-time
+  concurrent-edit locking and a query API without `git pull`. Two
+  people editing the *same* contract at once still get a normal git
+  merge conflict (rare). Deferred until single-branch git causes real
+  friction; the plugin is built so a service wraps the same contract
+  format rather than replacing it.
 
 ### 7. Silent integration failures (missing scopes)
 **Status: BUILT (v0.2.0).** Write-path skills declare `requiredScopes`

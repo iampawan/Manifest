@@ -248,6 +248,27 @@ the day's verdict. At day 28, set `landed: true | false | partial`.
   firing presence. Skip cohort analysis.
 - **Day 28 (final)**: this is the authoritative verdict. Be willing to
   say "not landed" — that's information, not failure. Include lessons.
+  After committing the verdict, **archive the contract** (next section).
+
+## Archive on day 28 (retention)
+
+Once the day-28 verdict + `landed` are committed, move the contract's
+files out of the active folder so it doesn't accumulate clutter (see
+GUIDE 1e). Default behavior:
+
+1. Create `.shipline/archive/<year>/<ID>/`.
+2. **Keep** (move to archive): `<ID>.md` and
+   `<ID>.launch-report-day28.md` — the lasting record.
+3. **Prune** (don't carry forward; git history retains them):
+   `<ID>.findings.md`, `<ID>.implementation-plan.md`,
+   `<ID>.deploy-*.md`, day-1/7/14 reports, `<ID>.bug-log.md`,
+   interim `<ID>.r*.md`. If `conventions.retention: keep-all` is set
+   in `repos.yml`, move ALL of them to the archive instead of pruning.
+4. `git rm` the originals from `.shipline/contracts/`, `git add` the
+   archive, commit `chore(shipline): archive <ID> (landed)`.
+
+This keeps `.shipline/contracts/` to in-flight + recently-landed work.
+Manual archival any time: `/contract archive <ID>`.
 
 ## Anti-patterns
 

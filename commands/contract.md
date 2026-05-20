@@ -107,6 +107,15 @@ isn't refused — it's made tractable.
 
 Invokes the **contract-decompose** skill.
 
+### /contract archive <ID>
+
+Move a landed contract's files to `.shipline/archive/<year>/<ID>/` so
+the active folder stays lean. Keeps the contract + final launch report,
+prunes the process exhaust (findings, deploy reports, interim reports —
+git history retains them; set `retention: keep-all` to keep everything).
+Happens automatically at day-28; this is the manual trigger. See
+GUIDE 1e (lifecycle & retention).
+
 ## Full example walkthrough
 
 ```

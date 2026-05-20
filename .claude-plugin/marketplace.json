@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
   "name": "shipline",
-  "version": "0.3.1",
+  "version": "0.3.3",
   "description": "Shipline \u2014 PRD-to-production pipeline with quality gates",
   "owner": {
     "name": "Pawan"
@@ -9,9 +9,9 @@
   "plugins": [
     {
       "name": "shipline",
-      "version": "0.3.1",
+      "version": "0.3.3",
       "description": "Author contracts, run critics, implement via agent, verify deploys, produce post-launch reports \u2014 all from markdown in your repo.",
-      "source": "github://YOUR-ORG/shipline",
+      "source": "github://iampawan/Shipline",
       "category": "productivity",
       "tags": [
         "prd",
