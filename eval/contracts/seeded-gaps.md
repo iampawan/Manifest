@@ -4,7 +4,7 @@ title: Contract with seeded gaps (validator must catch each)
 status: draft
 complexity: null
 platforms: [web, ios]
-createdBy: eval@shipline
+createdBy: eval@manifest
 revision: 1
 confidenceScore: 0.4
 ---

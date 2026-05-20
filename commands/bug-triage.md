@@ -23,13 +23,13 @@ The bug-triage skill normally runs every day automatically via the
   next cron tick.
 - You're preparing for a stakeholder update and want today's bug
   list, not yesterday's.
-- You're piloting Shipline without CI workflows installed yet and
+- You're piloting Manifest without CI workflows installed yet and
   the cron isn't firing — manual is your only option.
 - You're testing changes to the bug-triage skill itself.
 
 ## What it does
 
-1. Reads `.shipline/contracts/*.md` to find contracts currently in
+1. Reads `.manifest/contracts/*.md` to find contracts currently in
    their 4-week monitoring window.
 2. For each: queries Sentry for new issues in the last 24h filtered
    to that release.
@@ -39,7 +39,7 @@ The bug-triage skill normally runs every day automatically via the
 5. Dedupes against existing JIRA tickets (via Atlassian MCP).
 6. Files new tickets with contract back-references, severity, and
    reproduction steps inferred from stack traces.
-7. Appends to `.shipline/contracts/<ID>.bug-log.md`.
+7. Appends to `.manifest/contracts/<ID>.bug-log.md`.
 8. Posts a daily summary to the contract's Slack thread.
 
 ## Output

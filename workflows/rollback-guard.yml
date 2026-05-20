@@ -1,4 +1,4 @@
-name: Shipline rollback guard
+name: Manifest rollback guard
 
 # Tight-cadence health watch for features currently rolling out. For any
 # contract with canaryStartedAt set and prodRollout100At not yet set (or
@@ -22,7 +22,7 @@ on:
 # Share the state-writer concurrency group with launch-monitor so the
 # two crons never race on push to the specs repo.
 concurrency:
-  group: shipline-state-writer
+  group: manifest-state-writer
   cancel-in-progress: false
 
 jobs:
@@ -44,7 +44,7 @@ jobs:
             echo "ids=${{ github.event.inputs.contractId }}" >> $GITHUB_OUTPUT
             exit 0
           fi
-          IDS=$(find .shipline/contracts -name "*.md" \
+          IDS=$(find .manifest/contracts -name "*.md" \
             ! -name "*.findings.md" ! -name "*.r*.md" \
             ! -name "*.deploy-*.md" ! -name "*.launch-report-*.md" \
             ! -name "*.guard-*.md" ! -name "*.bug-log.md" ! -name "*.pr-review.md" \
@@ -72,10 +72,10 @@ jobs:
 
       - name: Commit guard reports
         run: |
-          git config user.name "shipline-bot"
-          git config user.email "shipline-bot@users.noreply.github.com"
-          git add .shipline/
+          git config user.name "manifest-bot"
+          git config user.email "manifest-bot@users.noreply.github.com"
+          git add .manifest/
           git diff --staged --quiet && exit 0
-          git commit -m "chore(shipline): rollback-guard check"
+          git commit -m "chore(manifest): rollback-guard check"
           git pull --rebase --autostash origin "$(git rev-parse --abbrev-ref HEAD)" || true
           git push || { git pull --rebase --autostash origin "$(git rev-parse --abbrev-ref HEAD)"; git push; }

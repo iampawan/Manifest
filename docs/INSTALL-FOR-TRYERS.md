@@ -1,4 +1,4 @@
-# Install Shipline (for teammates trying it out)
+# Install Manifest (for teammates trying it out)
 
 Two commands once Pawan has pushed the repo. Targeted at someone who
 just wants to install and try.
@@ -13,17 +13,17 @@ just wants to install and try.
 ## Install
 
 ```bash
-# 1. Add the Shipline marketplace
-/plugin marketplace add https://github.com/<your-org>/shipline
+# 1. Add the Manifest marketplace
+/plugin marketplace add https://github.com/<your-org>/manifest
 
 # 2. Install the plugin
-/plugin install shipline@shipline
+/plugin install manifest@manifest
 
 # 3. Verify
 /plugin
 ```
 
-You should see `shipline` listed as installed. Skills auto-discover
+You should see `manifest` listed as installed. Skills auto-discover
 from `skills/*/SKILL.md`; slash commands (`/contract`, `/implement`,
 `/verify-pr`, `/launch`) become available immediately.
 
@@ -37,11 +37,11 @@ a product repo, or a separate "specs" repo):
 
 ```bash
 # Make a contracts directory
-mkdir -p .shipline/contracts
+mkdir -p .manifest/contracts
 
 # Tell the regression critic about your repos
-cp ~/.claude/plugins/shipline/examples/repos.yml.example .shipline/repos.yml
-# Then edit .shipline/repos.yml — replace the org/repo names with yours
+cp ~/.claude/plugins/manifest/examples/repos.yml.example .manifest/repos.yml
+# Then edit .manifest/repos.yml — replace the org/repo names with yours
 ```
 
 ## Try it
@@ -51,7 +51,7 @@ cp ~/.claude/plugins/shipline/examples/repos.yml.example .shipline/repos.yml
 ```
 
 The intake skill will ask five questions and produce a draft contract
-in `.shipline/contracts/<ID>.md`. Then:
+in `.manifest/contracts/<ID>.md`. Then:
 
 ```
 /contract verify <ID>
@@ -66,8 +66,8 @@ gates aren't yet green.
 When Pawan pushes a new version:
 
 ```bash
-/plugin marketplace update shipline
-/plugin install shipline@shipline   # re-install to pull the latest
+/plugin marketplace update manifest
+/plugin install manifest@manifest   # re-install to pull the latest
 ```
 
 (Claude Code doesn't auto-update plugins by default; the re-install
@@ -86,6 +86,6 @@ pattern is the canonical way to refresh.)
 ## What to do next
 
 Read [`GUIDE.md`](GUIDE.md) for the full walkthrough, then read
-the retrospective-comparison demo (ask your Shipline owner for the internal demo plan). The single
+the retrospective-comparison demo (ask your Manifest owner for the internal demo plan). The single
 highest-value first move is the "retrospective comparison" pattern
 — run the critics against a recently-shipped feature's PRD and show the bugs they would have caught at spec time.

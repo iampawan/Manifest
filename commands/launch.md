@@ -26,7 +26,7 @@ Invokes the **launch-report** skill against the given contract.
    connected).
 5. Computes a verdict: `landed | partial | not-landed | rolled-back |
    unmeasurable-quant`.
-6. Writes `.shipline/contracts/<ID>.launch-report-day<N>.md` with a
+6. Writes `.manifest/contracts/<ID>.launch-report-day<N>.md` with a
    Cycle Time section showing intake → prod duration.
 7. Posts a 3-line summary to the contract's Slack thread.
 8. Updates the contract's `landingTrack` array and `slaHit` field.
@@ -42,5 +42,5 @@ cron handles it automatically.
 
 ## Output
 
-A markdown report at `.shipline/contracts/<ID>.launch-report-day<N>.md`
+A markdown report at `.manifest/contracts/<ID>.launch-report-day<N>.md`
 and a Slack message with the verdict line.

@@ -1,21 +1,21 @@
 ---
-name: shipline
-description: Shipline — welcome / help / tutorial. Run this when you're new, when you want to see what commands exist, or when you forgot the syntax.
+name: manifest
+description: Manifest — welcome / help / tutorial. Run this when you're new, when you want to see what commands exist, or when you forgot the syntax.
 ---
 
-# /shipline
+# /manifest
 
-The top-level entry point for Shipline. Invoke this when you're new
+The top-level entry point for Manifest. Invoke this when you're new
 to the plugin or want a quick refresher.
 
 ## Usage
 
 ```
-/shipline                 # tutorial + 3 paths to start
-/shipline tutorial        # same as above
-/shipline setup           # check MCPs and config (run this first time)
-/shipline help            # reference card only
-/shipline commands        # list all commands
+/manifest                 # tutorial + 3 paths to start
+/manifest tutorial        # same as above
+/manifest setup           # check MCPs and config (run this first time)
+/manifest help            # reference card only
+/manifest commands        # list all commands
 ```
 
 Invokes the **tutorial** skill which adapts to what you're asking
@@ -25,9 +25,9 @@ knows what to recommend.
 
 **First time installing?** Run `/setup` — on first run it's an
 interactive wizard that detects your repos and stacks and writes a
-complete config for you. Then `/shipline tutorial` for the orientation.
+complete config for you. Then `/manifest tutorial` for the orientation.
 
-## What Shipline does (in one paragraph)
+## What Manifest does (in one paragraph)
 
 Takes a feature idea — a JIRA ticket, a Linear issue, a Notion page,
 or a one-line description — and runs it through a quality-gated
@@ -41,7 +41,7 @@ markdown in your repo; git is the audit trail.
 ## First-time?
 
 ```
-/shipline tutorial
+/manifest tutorial
 ```
 
 Walks you through it in about 3 minutes. Then you'll be ready to
@@ -55,7 +55,7 @@ run `/contract new` against a real feature.
 | One-line bug, copy tweak, dep bump | `/fix` | triage → fix + regression test → PR |
 | New behavior, 1 platform, ≤3 behaviors | `/contract` (Small) | full ceremony, 24h |
 | 2 platforms, ≤8 behaviors, additive schema | `/contract` (Medium) | full ceremony, 72h |
-| Breaking change, migration, auth/billing | normal cycle (Large) | Shipline for spec only |
+| Breaking change, migration, auth/billing | normal cycle (Large) | Manifest for spec only |
 
 Process is proportional to risk. Don't run the full contract for a
 one-liner; don't `/fix` a multi-platform feature.
@@ -82,7 +82,7 @@ one-liner; don't `/fix` a multi-platform feature.
 
 # Status + meta
 /status [<ID>]                           Phase + SLA (IST+UTC) + next; or all in-flight
-/shipline                                This tutorial
+/manifest                                This tutorial
 /setup                                   Detection wizard / MCP check
 ```
 

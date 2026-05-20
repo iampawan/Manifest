@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Shipline deterministic validator.
+// Manifest deterministic validator.
 //
 // This is the DETERMINISTIC layer. Everything mechanically checkable
 // runs here as code — not as an LLM prompt — so it's 100% reproducible,

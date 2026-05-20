@@ -1,4 +1,4 @@
-# .shipline/repos.yml — example for a multi-stack product (native iOS +
+# .manifest/repos.yml — example for a multi-stack product (native iOS +
 # native Android + Flutter + web). Hand-written sample; in practice run
 # `/setup` and the init wizard generates this for you (it runs
 # scripts/detect.mjs to fill framework/SDK/test fields automatically).

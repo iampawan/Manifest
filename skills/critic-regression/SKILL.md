@@ -24,7 +24,7 @@ The contract, plus a repo configuration that tells you what to scan.
 
 ### Repo configuration
 
-Look for `.shipline/repos.yml` in the current working directory. It has
+Look for `.manifest/repos.yml` in the current working directory. It has
 this shape:
 
 ```yaml
@@ -57,7 +57,7 @@ Each repo entry needs either `github` (org/repo identifier) or `path`
 (local clone). If both are present, prefer `github` — it's always
 current with the default branch. Local path is a perf-only fallback.
 
-If `.shipline/repos.yml` is missing, fall back to scanning only the
+If `.manifest/repos.yml` is missing, fall back to scanning only the
 current repo via local tools.
 
 ## Process
@@ -306,6 +306,6 @@ state.
 - Don't auto-`git pull` local clones; the user owns clone freshness.
   If you suspect a clone is stale, fall back to GitHub MCP for that
   query.
-- If `.shipline/repos.yml` is missing, emit one info-severity finding:
-  "Multi-repo scanning disabled — configure .shipline/repos.yml to
+- If `.manifest/repos.yml` is missing, emit one info-severity finding:
+  "Multi-repo scanning disabled — configure .manifest/repos.yml to
   scan beyond this repo."

@@ -74,7 +74,7 @@ merge.
 - Read the contract ID from the PR title/body/branch; load the contract
   revision so you know what the change is *supposed* to do (review the
   diff against intent, not in a vacuum).
-- Read `.shipline/repos.yml` for the repo's `framework` / `languages`
+- Read `.manifest/repos.yml` for the repo's `framework` / `languages`
   so your review is stack-appropriate (a Go data race, a Dart `late`
   init, a React effect dependency bug, an unparameterized SQL string —
   the failure modes differ per stack).
@@ -147,15 +147,15 @@ contract critics').
 ### 4. Post the review
 
 1. Write your findings array to
-   `.shipline/contracts/<ID>.pr-review.json` — this is the canonical,
+   `.manifest/contracts/<ID>.pr-review.json` — this is the canonical,
    machine-readable artifact the CI merge-gate and the **review→fix
    loop** both consume.
 2. Validate it: `node <plugin-root>/scripts/validate.mjs --check-review
-   .shipline/contracts/<ID>.pr-review.json`. If it rejects, fix your
+   .manifest/contracts/<ID>.pr-review.json`. If it rejects, fix your
    output and rewrite — never post out-of-schema findings. (Optionally
    also write a `<ID>.pr-review.md` mirror with the table for humans.)
 3. Lead the PR comment with the SLA line:
-   `node <plugin-root>/scripts/validate.mjs --sla .shipline/contracts/<ID>.md`
+   `node <plugin-root>/scripts/validate.mjs --sla .manifest/contracts/<ID>.md`
 4. Post a PR review comment:
 
 ```markdown

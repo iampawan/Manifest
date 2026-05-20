@@ -1,11 +1,11 @@
 ---
 name: setup-init
-description: Interactive first-run setup. Auto-detects the user's repos, frameworks, event SDKs, and test patterns, asks ONLY the questions detection can't answer, then writes a complete .shipline/repos.yml with zero placeholders. Use on first run, when `/setup` finds no repos.yml, or when the user says "set up shipline", "configure shipline", "init".
+description: Interactive first-run setup. Auto-detects the user's repos, frameworks, event SDKs, and test patterns, asks ONLY the questions detection can't answer, then writes a complete .manifest/repos.yml with zero placeholders. Use on first run, when `/setup` finds no repos.yml, or when the user says "set up manifest", "configure manifest", "init".
 ---
 
 # Setup wizard
 
-Your job is to produce a COMPLETE, ready-to-use `.shipline/repos.yml`
+Your job is to produce a COMPLETE, ready-to-use `.manifest/repos.yml`
 with no `⚠️ FILL IN` placeholders left. Detect everything you can,
 ask only what you can't, confirm, and write. The user should never
 have to hand-edit YAML after this.
@@ -135,8 +135,8 @@ rounds as possible. Typical questions (only ask the ones still open):
 4. **Missing event SDK** — only if a repo had none detected: "What
    analytics does <repo> use? (firebase / amplitude / mixpanel /
    segment / server-logs / none)"
-5. **Slack channel** — "Which Slack channel should Shipline post to?
-   (default: #shipline)"
+5. **Slack channel** — "Which Slack channel should Manifest post to?
+   (default: #manifest)"
 6. **SLA targets** — "Use the default SLAs (Small 24h, Medium 72h)?"
    (default yes; only ask if you want confirmation)
 
@@ -146,7 +146,7 @@ sensible default and tell the user they can edit later.
 
 ## Step 5 — Write the complete config
 
-Write `.shipline/repos.yml` using the resolved values — every field
+Write `.manifest/repos.yml` using the resolved values — every field
 filled, NO `⚠️` placeholders. Use the structure from
 `examples/repos.yml.example`, including `framework`, `languages`,
 `eventSdk`, `testPattern`, `apiClientPattern`, `apiDependencies`, and
@@ -154,7 +154,7 @@ for backends `routePattern` + `serves`. Apply the native-vs-Flutter
 convention the user chose. Set `conventions` (scanDepth, SLA, Slack
 channel).
 
-Also create `.shipline/contracts/` if it doesn't exist.
+Also create `.manifest/contracts/` if it doesn't exist.
 
 ## Step 6 — Verify MCPs and scopes
 
@@ -168,7 +168,7 @@ Show the user:
 - The cross-repo API links inferred
 - The native/Flutter convention applied
 - What MCPs are connected and any gaps
-- "Config written to `.shipline/repos.yml`. Commit it so teammates
+- "Config written to `.manifest/repos.yml`. Commit it so teammates
   inherit it. Next: `/contract new <a small feature>`."
 
 ## Anti-patterns

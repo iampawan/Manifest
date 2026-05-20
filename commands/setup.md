@@ -1,18 +1,18 @@
 ---
 name: setup
-description: Check what MCPs and config Shipline needs that aren't yet connected. Tells you what's wired, what's missing, and what each gap would unlock. Run this first time you install, or any time something feels off.
+description: Check what MCPs and config Manifest needs that aren't yet connected. Tells you what's wired, what's missing, and what each gap would unlock. Run this first time you install, or any time something feels off.
 ---
 
-# /setup (alias: /shipline setup)
+# /setup (alias: /manifest setup)
 
-Configure or check your Shipline setup. Behaves differently based on
+Configure or check your Manifest setup. Behaves differently based on
 whether you've set up yet:
 
-- **No `.shipline/repos.yml` yet** → runs the **setup-init** wizard:
+- **No `.manifest/repos.yml` yet** → runs the **setup-init** wizard:
   auto-detects your repos, frameworks, event SDKs, and test patterns,
   asks only what it can't detect, and writes a complete config. Zero
   placeholders to hand-edit.
-- **`.shipline/repos.yml` exists** → runs the **setup-check** verifier:
+- **`.manifest/repos.yml` exists** → runs the **setup-check** verifier:
   reports which MCPs are connected, which scopes are granted, and what
   each gap would block.
 
@@ -22,7 +22,7 @@ whether you've set up yet:
 /setup                # auto-routes: init if unconfigured, check if configured
 /setup init           # force the detection wizard (re-run to add repos)
 /setup check          # force the verifier
-/shipline setup       # same as /setup
+/manifest setup       # same as /setup
 ```
 
 ## The init wizard (first run)
@@ -34,8 +34,8 @@ whether you've set up yet:
 3. Infers cross-repo API links (which frontend calls which backend).
 4. Asks ONLY the handful of things it can't detect — e.g., native-vs-
    Flutter convention, a missing backend repo, your Slack channel.
-5. Writes a complete `.shipline/repos.yml` and creates
-   `.shipline/contracts/`.
+5. Writes a complete `.manifest/repos.yml` and creates
+   `.manifest/contracts/`.
 6. Verifies MCPs + scopes.
 7. Summarizes and points you at `/contract new`.
 
@@ -57,8 +57,8 @@ connect next.
 - DB / Cloud Logging (optional — server-side metric fallbacks)
 
 **Local project config:**
-- Is `.shipline/contracts/` a directory?
-- Is `.shipline/repos.yml` present and pointing at your repos?
+- Is `.manifest/contracts/` a directory?
+- Is `.manifest/repos.yml` present and pointing at your repos?
 - Are the GitHub Actions workflow files in `.github/workflows/`?
 
 **Output:** a status table grouped by tier, plus ONE recommended
@@ -69,7 +69,7 @@ next action.
 - **First install** — confirms the plugin loaded and points at the
   first action.
 - **After connecting a new MCP** — verifies it's discoverable to
-  Shipline.
+  Manifest.
 - **Before sharing the plugin with teammates** — gives you a snapshot
   to hand off (e.g., "you need these 3 MCPs to run it").
 - **When something's failing weirdly** — usually the answer is "an
@@ -78,7 +78,7 @@ next action.
 ## Example output
 
 ```
-🛠  Shipline setup check
+🛠  Manifest setup check
 ━━━━━━━━━━━━━━━━━━━━━━━━
 
 REQUIRED

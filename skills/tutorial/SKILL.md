@@ -1,9 +1,9 @@
 ---
 name: tutorial
-description: Interactive 3-minute walkthrough of Shipline for first-time users. Use when a user types `/shipline`, `/shipline tutorial`, `/contract` (with no args), `/contract help`, asks "how do I use this", or otherwise signals they're new and want orientation. Adapts depth based on what the user wants to learn.
+description: Interactive 3-minute walkthrough of Manifest for first-time users. Use when a user types `/manifest`, `/manifest tutorial`, `/contract` (with no args), `/contract help`, asks "how do I use this", or otherwise signals they're new and want orientation. Adapts depth based on what the user wants to learn.
 ---
 
-# Shipline tutorial
+# Manifest tutorial
 
 You are giving a first-time user a quick orientation. Keep it
 conversational — they don't want a manual, they want to feel
@@ -14,7 +14,7 @@ their reading time.
 
 Read the user's input phrasing:
 
-- **"What is this?" / "/shipline" / "/contract" with no args** →
+- **"What is this?" / "/manifest" / "/contract" with no args** →
   Give the 30-second overview, then offer three paths.
 - **"How do I use this?" / "tutorial" / "walk me through"** →
   Give the guided walkthrough.
@@ -45,7 +45,7 @@ This way the user never gets surprised mid-flow by a missing MCP.
 Start with this exact framing (rephrase naturally; don't read it
 verbatim):
 
-> Shipline takes a feature idea — a PRD, a JIRA ticket, or a one-line
+> Manifest takes a feature idea — a PRD, a JIRA ticket, or a one-line
 > description — through a quality-gated pipeline from spec to
 > production. Critics check the spec for completeness. An agent
 > implements it. The system tracks whether the feature actually
@@ -96,7 +96,7 @@ findings in plain language and explain what each severity means:
 > instrumentation or undefined error states. Warnings are things to
 > address but not deal-breakers.
 >
-> Open `.shipline/contracts/<ID>.findings.md` to see them all. The
+> Open `.manifest/contracts/<ID>.findings.md` to see them all. The
 > typical workflow is: read findings → edit the contract to address
 > them → re-run /contract verify until readiness goes green.
 
@@ -156,8 +156,8 @@ Show this compact reference:
 /verify-pr <PR>                          Verify PR against contract
 /launch <ID> [--day N]                   Manual launch report
 
-/shipline                                This tutorial
-/shipline help                           Same as above
+/manifest                                This tutorial
+/manifest help                           Same as above
 ```
 
 Then add:
@@ -190,7 +190,7 @@ End with:
 - **User seems confused mid-tutorial** → Stop, ask "what's the part
   that's unclear?" Don't barrel forward.
 - **User has already run a command before** (check for
-  `.shipline/contracts/` existence) → Skip the welcome framing; go
+  `.manifest/contracts/` existence) → Skip the welcome framing; go
   straight to whatever they're asking about.
 
 ## Anti-patterns

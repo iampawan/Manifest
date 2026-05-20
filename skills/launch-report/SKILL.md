@@ -24,7 +24,7 @@ ties back to evidence.
 
 ### 1. Read the contract
 
-`.shipline/contracts/<ID>.md` and the latest revision. Pull:
+`.manifest/contracts/<ID>.md` and the latest revision. Pull:
 - Success metrics with their `eventName`, `target`, `window`
 - Behaviors with instrumentation events and perf budgets
 - The launch date (from the deploy record or the contract frontmatter)
@@ -171,7 +171,7 @@ contract frontmatter.
 
 ### 6. Write the report
 
-`.shipline/contracts/<ID>.launch-report-day<N>.md`:
+`.manifest/contracts/<ID>.launch-report-day<N>.md`:
 
 ```markdown
 ---
@@ -256,7 +256,7 @@ Once the day-28 verdict + `landed` are committed, move the contract's
 files out of the active folder so it doesn't accumulate clutter (see
 GUIDE 1e). Default behavior:
 
-1. Create `.shipline/archive/<year>/<ID>/`.
+1. Create `.manifest/archive/<year>/<ID>/`.
 2. **Keep** (move to archive): `<ID>.md` and
    `<ID>.launch-report-day28.md` — the lasting record.
 3. **Prune** (don't carry forward; git history retains them):
@@ -264,10 +264,10 @@ GUIDE 1e). Default behavior:
    `<ID>.deploy-*.md`, day-1/7/14 reports, `<ID>.bug-log.md`,
    interim `<ID>.r*.md`. If `conventions.retention: keep-all` is set
    in `repos.yml`, move ALL of them to the archive instead of pruning.
-4. `git rm` the originals from `.shipline/contracts/`, `git add` the
-   archive, commit `chore(shipline): archive <ID> (landed)`.
+4. `git rm` the originals from `.manifest/contracts/`, `git add` the
+   archive, commit `chore(manifest): archive <ID> (landed)`.
 
-This keeps `.shipline/contracts/` to in-flight + recently-landed work.
+This keeps `.manifest/contracts/` to in-flight + recently-landed work.
 Manual archival any time: `/contract archive <ID>`.
 
 ## Anti-patterns
@@ -283,6 +283,6 @@ Manual archival any time: `/contract archive <ID>`.
 Post Slack updates as a REPLY in the contract's thread, not a new
 top-level message: use `thread_ts: <contract.slackThreadTs>` in the
 channel `<contract.slackChannel>` (both set by contract-promote). This
-keeps `#shipline` to one line per contract. Exception: an overdue SLA,
+keeps `#manifest` to one line per contract. Exception: an overdue SLA,
 a `rollback`, or a canary auto-pause also posts a brief top-level alert
 linking back to the thread. (See reference/CONTRACT-FORMAT.md.)

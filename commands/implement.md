@@ -10,7 +10,7 @@ revision.
 
 ## New here?
 
-Run `/shipline tutorial` for the 3-minute orientation before invoking
+Run `/manifest tutorial` for the 3-minute orientation before invoking
 this. The Implementer is the heaviest agent in the system — it
 expects a verified, promoted contract and runs for up to 8 hours.
 Don't fire it casually.

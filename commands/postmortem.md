@@ -24,7 +24,7 @@ from it.
    write a postmortem for something still live).
 2. Reconstructs the timeline from the contract's cycle-time stamps, the
    `guard-*.md` reports, the deploy reports, and Sentry.
-3. Writes `.shipline/contracts/<ID>.postmortem.md` — blameless: what
+3. Writes `.manifest/contracts/<ID>.postmortem.md` — blameless: what
    happened, the breached signal, contributing factors, what went well
    (detection caught it before full rollout), action items, re-ship plan.
 4. Stamps the contract: `landed: rolled-back`, `rolledBackAt`.

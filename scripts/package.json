@@ -1,9 +1,9 @@
 {
-  "name": "shipline-validator",
+  "name": "manifest-validator",
   "version": "0.2.0",
-  "description": "Shipline deterministic validator — mechanical contract checks + critic output schema validation",
+  "description": "Manifest deterministic validator — mechanical contract checks + critic output schema validation",
   "type": "module",
-  "bin": { "shipline-validate": "./validate.mjs" },
+  "bin": { "manifest-validate": "./validate.mjs" },
   "scripts": {
     "test": "node --test"
   },

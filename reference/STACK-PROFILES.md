@@ -1,6 +1,6 @@
 # Stack profiles (toolchain reference)
 
-Shipline assumes NOTHING about your stack. Skills that build or test
+Manifest assumes NOTHING about your stack. Skills that build or test
 code (`implement`, `verify-deployment`) read the toolchain from
 `repos.yml`. If a repo declares an explicit `toolchain`, that wins. If
 it only declares a `framework`, skills infer sensible defaults from the

@@ -23,7 +23,7 @@ blame.
 - Contract ID
 - Optional: a one-line reason from the human ("iOS crash on cold start")
 - Optional: the guard report that triggered it
-  (`.shipline/contracts/<ID>.guard-*.md`)
+  (`.manifest/contracts/<ID>.guard-*.md`)
 
 ## Process
 
@@ -51,7 +51,7 @@ stamps plus the guard/deploy reports are the timeline:
 
 ### 3. Write the postmortem
 
-`.shipline/contracts/<ID>.postmortem.md`:
+`.manifest/contracts/<ID>.postmortem.md`:
 
 ```markdown
 ---

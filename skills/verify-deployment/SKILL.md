@@ -53,7 +53,7 @@ would be a lie if you couldn't run.
 
 ### 1. Read the contract revision
 
-`.shipline/contracts/<ID>.r<N>.md`. Extract:
+`.manifest/contracts/<ID>.r<N>.md`. Extract:
 - ACs
 - Success metrics with `eventName`, `target`, `window`
 - Behaviors with `instrumentation` and `perfBudget`
@@ -61,7 +61,7 @@ would be a lie if you couldn't run.
 
 ### 2. Read the repos.yml
 
-`.shipline/repos.yml`. For each platform in scope, look up the repo
+`.manifest/repos.yml`. For each platform in scope, look up the repo
 config — language, test framework, event SDK. This tells you which
 sub-mode to invoke per platform.
 
@@ -223,7 +223,7 @@ parity, so partial isn't acceptable.
 
 ## 5. Write the deployment report
 
-`.shipline/contracts/<ID>.deploy-<env>-<timestamp>.md`:
+`.manifest/contracts/<ID>.deploy-<env>-<timestamp>.md`:
 
 ```markdown
 ---
@@ -266,7 +266,7 @@ before progressing to next track.
 ## 6. Post to Slack and update PR
 
 **Lead with the SLA line.** Run
-`node <plugin-root>/scripts/validate.mjs --sla .shipline/contracts/<ID>.md`
+`node <plugin-root>/scripts/validate.mjs --sla .manifest/contracts/<ID>.md`
 and prepend its output to the verdict message, so every deploy update
 shows time-left/overdue at a glance.
 
@@ -307,6 +307,6 @@ blind — you just don't have the blast-radius control flags give.
 Post Slack updates as a REPLY in the contract's thread, not a new
 top-level message: use `thread_ts: <contract.slackThreadTs>` in the
 channel `<contract.slackChannel>` (both set by contract-promote). This
-keeps `#shipline` to one line per contract. Exception: an overdue SLA,
+keeps `#manifest` to one line per contract. Exception: an overdue SLA,
 a `rollback`, or a canary auto-pause also posts a brief top-level alert
 linking back to the thread. (See reference/CONTRACT-FORMAT.md.)

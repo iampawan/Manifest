@@ -26,7 +26,7 @@ manually when:
   (e.g., direct push to a static host, manual `vercel deploy`).
 - You want to re-verify after fixing something post-deploy without
   doing another full deploy.
-- You're piloting Shipline before installing the CI workflows.
+- You're piloting Manifest before installing the CI workflows.
 - A deploy succeeded but the verifier comment didn't show up and
   you want to manually re-run.
 
@@ -48,7 +48,7 @@ You typically run `/verify-pr` during code review and
 
 ## Output
 
-`.shipline/contracts/<ID>.deploy-<env>-<timestamp>.md` with:
+`.manifest/contracts/<ID>.deploy-<env>-<timestamp>.md` with:
 - Per-AC pass/fail
 - Event firing summary (which events fired, at what rate)
 - Error rate vs budget

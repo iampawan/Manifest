@@ -19,7 +19,7 @@ LLM guessing about phase or time. Powered by `validate.mjs --status`.
 Run:
 
 ```bash
-node <plugin-root>/scripts/validate.mjs --status .shipline/contracts/<ID>.md
+node <plugin-root>/scripts/validate.mjs --status .manifest/contracts/<ID>.md
 ```
 
 It prints (deterministically from the contract frontmatter):
@@ -37,7 +37,7 @@ call that out.
 
 ## All in-flight (the dashboard)
 
-1. List `.shipline/contracts/*.md` (exclude `.findings.md`, `.r*.md`,
+1. List `.manifest/contracts/*.md` (exclude `.findings.md`, `.r*.md`,
    `.deploy-*`, `.launch-report-*`, `.bug-log.md`, `.decomposition.md`,
    and `.fixes/`).
 2. For each whose `status` is `promoted` and `landed` is unset, run

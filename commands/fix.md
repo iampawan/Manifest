@@ -43,7 +43,7 @@ need either, skip it.
 
 ## Output
 
-- A lightweight fix record at `.shipline/fixes/<ID>.md`
+- A lightweight fix record at `.manifest/fixes/<ID>.md`
 - The fix + a regression test (in the repo's stack)
 - A PR titled `[FIX-NN] <title>`
 

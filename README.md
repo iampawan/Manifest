@@ -1,10 +1,10 @@
-# Shipline
+# Manifest
 
 A Claude Code / Cowork plugin that takes a PRD ("contract") through the full
 lifecycle — author → verify → implement → ship → land — with quality gates
 that won't let an under-specified spec progress.
 
-The contract lives as **markdown in your repo** at `.shipline/contracts/*.md`.
+The contract lives as **markdown in your repo** at `.manifest/contracts/*.md`.
 Critics produce findings as adjacent files. Reports are committed alongside.
 Git is your audit trail; no external database required.
 
@@ -13,7 +13,7 @@ playbooks — read **[GUIDE.md](GUIDE.md)**.
 
 ## Pick the right path — process proportional to risk
 
-Shipline scales the ceremony to the change. Four tiers:
+Manifest scales the ceremony to the change. Four tiers:
 
 | Change | Path | Process |
 |---|---|---|
@@ -27,8 +27,8 @@ Shipline scales the ceremony to the change. Four tiers:
 
 | Stage | What runs | Output |
 |---|---|---|
-| **Author** | `/contract new` (JIRA/Linear/Notion link or text) | `.shipline/contracts/<ID>.md` |
-| **Verify** | `/contract verify` (validator + only the relevant judgment critics) | `.shipline/contracts/<ID>.findings.md` (+ `.findings.json`) |
+| **Author** | `/contract new` (JIRA/Linear/Notion link or text) | `.manifest/contracts/<ID>.md` |
+| **Verify** | `/contract verify` (validator + only the relevant judgment critics) | `.manifest/contracts/<ID>.findings.md` (+ `.findings.json`) |
 | **Promote** | `/contract promote` | Frozen revision, JIRA epic, SLA timer (24h/72h) |
 | **Implement** | `/implement <ID>` (PR comment, runs in CI) | PR with code + tests in the repo's stack |
 | **Verify PR** | `pr-verify.yml` → `verify-pr` (AC conformance) + `code-review` (code-level defects) | coverage comment + `CR-` findings; open blockers gate merge |
@@ -48,9 +48,9 @@ The deterministic validator classifies each verified contract as
 **Small (24h)**, **Medium (72h)**, or **Large**. Small and Medium use
 the automated pipeline. **Large is decomposed** (via `/contract
 decompose`) into a dependency-ordered sequence of Small/Medium child
-contracts — Shipline doesn't refuse Large, it makes it tractable. The
+contracts — Manifest doesn't refuse Large, it makes it tractable. The
 truly tiny stuff goes through the `/fix` express lane (no contract at
-all). See "Pick the right path" in `/shipline` or GUIDE section 1b.
+all). See "Pick the right path" in `/manifest` or GUIDE section 1b.
 
 ## How verification works (two layers)
 
@@ -79,7 +79,7 @@ hardening plan and what's built vs still planned.
 
 # Installation
 
-Three ways to install Shipline depending on your situation. Pick one.
+Three ways to install Manifest depending on your situation. Pick one.
 
 | Method | When to use | Effort |
 |---|---|---|
@@ -94,19 +94,19 @@ plugins are visible in both.
 
 ## Method A — Marketplace install (recommended for teammates)
 
-If the plugin author has pushed Shipline to a GitHub repo (private or
+If the plugin author has pushed Manifest to a GitHub repo (private or
 public), this is the cleanest path. Two commands:
 
 ```
-/plugin marketplace add https://github.com/<your-org>/shipline
-/plugin install shipline@shipline
+/plugin marketplace add https://github.com/<your-org>/manifest
+/plugin install manifest@manifest
 ```
 
 Then verify:
 
 ```
 /plugin                       # shows installed plugins
-/shipline                     # runs the tutorial
+/manifest                     # runs the tutorial
 ```
 
 **Private repos:** authentication uses your existing git credentials
@@ -115,51 +115,51 @@ workaround is to clone the repo locally once and install from the
 local path:
 
 ```bash
-git clone https://github.com/<your-org>/shipline ~/work/shipline
+git clone https://github.com/<your-org>/manifest ~/work/manifest
 ```
 
 Then in Claude Code:
 
 ```
-/plugin marketplace add ~/work/shipline
-/plugin install shipline@shipline
+/plugin marketplace add ~/work/manifest
+/plugin install manifest@manifest
 ```
 
 **Updates:** Claude Code captures the commit hash at install time and
 doesn't auto-refresh. When the plugin author pushes a new version:
 
 ```
-/plugin marketplace update shipline
-/plugin install shipline@shipline     # re-install to pull the latest
+/plugin marketplace update manifest
+/plugin install manifest@manifest     # re-install to pull the latest
 ```
 
 ---
 
 ## Method B — Direct file install (recommended for first-time setup)
 
-If you have the `shipline/` folder on your machine (e.g., you cloned
+If you have the `manifest/` folder on your machine (e.g., you cloned
 it or were handed the folder), drop it into Claude Code's plugins
 directory:
 
 ```bash
 # 1. Copy the plugin into Claude Code's user-scope plugins directory
-cp -r shipline ~/.claude/plugins/shipline
+cp -r manifest ~/.claude/plugins/manifest
 
 # 2. Verify the structure — the manifest must be inside .claude-plugin/
-ls ~/.claude/plugins/shipline/.claude-plugin/plugin.json
-# Expected: ~/.claude/plugins/shipline/.claude-plugin/plugin.json
+ls ~/.claude/plugins/manifest/.claude-plugin/plugin.json
+# Expected: ~/.claude/plugins/manifest/.claude-plugin/plugin.json
 ```
 
 Then in Claude Code:
 
 ```
-/plugin                       # confirms shipline is loaded
-/shipline                     # runs the tutorial
+/plugin                       # confirms manifest is loaded
+/manifest                     # runs the tutorial
 ```
 
 Skills auto-discover from `skills/*/SKILL.md`; slash commands
 (`/contract`, `/implement`, `/verify-pr`, `/code-review`, `/verify-deploy`,
-`/canary`, `/rollback-check`, `/postmortem`, `/launch`, `/shipline`)
+`/canary`, `/rollback-check`, `/postmortem`, `/launch`, `/manifest`)
 become available immediately.
 
 ---
@@ -171,14 +171,14 @@ plugin pointed at your working folder so edits take effect without
 recopying:
 
 ```bash
-cd ~/path/to/shipline
+cd ~/path/to/manifest
 claude --plugin-dir .
 ```
 
 Or, if you want it loaded persistently while you develop, symlink:
 
 ```bash
-ln -s ~/path/to/shipline ~/.claude/plugins/shipline
+ln -s ~/path/to/manifest ~/.claude/plugins/manifest
 ```
 
 Edits to SKILL.md files are picked up on next invocation. Edits to
@@ -194,18 +194,18 @@ or a separate "specs" repo):
 
 ```bash
 # 1. Make a contracts directory
-mkdir -p .shipline/contracts
+mkdir -p .manifest/contracts
 
 # 2. Copy the example repos config and edit it
-cp ~/.claude/plugins/shipline/examples/repos.yml.example .shipline/repos.yml
-# Edit .shipline/repos.yml — replace org/repo placeholders with yours
+cp ~/.claude/plugins/manifest/examples/repos.yml.example .manifest/repos.yml
+# Edit .manifest/repos.yml — replace org/repo placeholders with yours
 
 # 3. (Optional, for CI later) Copy the GitHub Actions workflows
-cp ~/.claude/plugins/shipline/workflows/*.yml .github/workflows/
+cp ~/.claude/plugins/manifest/workflows/*.yml .github/workflows/
 
 # 4. Commit
-git add .shipline/ .github/workflows/
-git commit -m "chore: add Shipline pipeline"
+git add .manifest/ .github/workflows/
+git commit -m "chore: add Manifest pipeline"
 ```
 
 For the full setup — MCPs to connect, GitHub secrets, Slack channels,
@@ -241,17 +241,17 @@ isn't available, launch reports use whatever fallback is.
 After installing via any method, these should work:
 
 ```
-/plugin           # lists installed plugins, shipline should appear
-/shipline         # opens the tutorial / welcome flow
+/plugin           # lists installed plugins, manifest should appear
+/manifest         # opens the tutorial / welcome flow
 /setup            # checks what MCPs you have connected
 /skills           # auto-discovered skills
 ```
 
-If `/shipline` runs and gives you the welcome tutorial, you're set.
+If `/manifest` runs and gives you the welcome tutorial, you're set.
 Run `/setup` next — on first run it's an **interactive wizard** that
 auto-detects your repos, frameworks, event SDKs, and test patterns,
 asks only the few things it can't detect, and writes a complete
-`.shipline/repos.yml` for you (no placeholders to hand-edit). On later
+`.manifest/repos.yml` for you (no placeholders to hand-edit). On later
 runs `/setup` verifies your MCPs and scopes. Then try
 `/contract new "a small feature"`.
 
@@ -284,7 +284,7 @@ isn't triggering, its description may need to be more specific.
 Once installed:
 
 ```
-/shipline                     # 3-minute tutorial
+/manifest                     # 3-minute tutorial
 /contract new "your first feature"
 ```
 
@@ -299,7 +299,7 @@ on Method A.
 ## Files
 
 ```
-shipline/
+manifest/
 ├── .claude-plugin/
 │   └── plugin.json                      # manifest (Claude Code discovers from here)
 │       # marketplace.json.disabled — local-source marketplace; re-enable when publishing to GitHub
@@ -329,7 +329,7 @@ shipline/
 │   ├── repos.yml.example                # multi-repo configuration template
 │   └── repos.pocketfm.yml               # sample config for a multi-stack product
 ├── skills/
-│   ├── tutorial/SKILL.md                # /shipline welcome
+│   ├── tutorial/SKILL.md                # /manifest welcome
 │   ├── setup-init/SKILL.md              # /setup wizard — auto-detects + writes repos.yml
 │   ├── setup-check/SKILL.md             # /setup verify — MCPs + scopes
 │   ├── contract-status/SKILL.md         # /status — phase + SLA + next
@@ -354,7 +354,7 @@ shipline/
 │   ├── launch-report/SKILL.md           # the loop-closer
 │   └── bug-triage/SKILL.md
 ├── commands/
-│   ├── shipline.md                      # /shipline welcome + reference
+│   ├── manifest.md                      # /manifest welcome + reference
 │   ├── setup.md                         # /setup (init wizard or verify)
 │   ├── status.md                        # /status [<ID>]
 │   ├── contract.md                      # /contract new|verify|promote|decompose

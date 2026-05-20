@@ -23,7 +23,7 @@ overall success metric and tracks aggregate progress.
 
 ### 1. Read the Large contract
 
-Read `.shipline/contracts/<ID>.md`. Confirm `complexity: large`.
+Read `.manifest/contracts/<ID>.md`. Confirm `complexity: large`.
 Pull the goal, success metrics, all behaviors, and the critic findings
 (the critics still ran on the Large spec — use their edge cases and
 regression notes to inform the split).
@@ -65,7 +65,7 @@ Some children genuinely shouldn't be agent-implemented:
 
 Mark these `implementation: human-led`. They still get a full
 contract (spec + critics + ACs + tests), but a human writes the code;
-the pipeline does verify + ship. This is the honest part — Shipline
+the pipeline does verify + ship. This is the honest part — Manifest
 helps spec and verify the risky pieces without pretending to safely
 auto-implement them.
 
@@ -81,7 +81,7 @@ successMetric: <the overall metric — measured across the whole epic>
 ```
 
 Create each child as its own contract at
-`.shipline/contracts/<childId>.md`, with:
+`.manifest/contracts/<childId>.md`, with:
 - `parent: <ID>` in frontmatter
 - `dependsOn: [<other-childIds>]` for ordering
 - `implementation: agent | human-led`
@@ -89,7 +89,7 @@ Create each child as its own contract at
   Small/Medium contract — run `/contract verify` on each)
 - A slice of the parent's goal
 
-Write a decomposition plan to `.shipline/contracts/<ID>.decomposition.md`:
+Write a decomposition plan to `.manifest/contracts/<ID>.decomposition.md`:
 
 ```markdown
 # AUTH-12 decomposition

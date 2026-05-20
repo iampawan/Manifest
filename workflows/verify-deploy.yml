@@ -1,4 +1,4 @@
-name: Shipline verify deployment
+name: Manifest verify deployment
 
 # Runs after a successful deploy to QA or pre-prod. Reads the contract
 # behind the release, runs the Playwright suite against the live URL,
@@ -70,4 +70,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: verify-report-${{ steps.inputs.outputs.contractId }}-${{ steps.inputs.outputs.environment }}
-          path: .shipline/contracts/*.deploy-*.md
+          path: .manifest/contracts/*.deploy-*.md

@@ -1,8 +1,8 @@
-# Shipline reliability hardening
+# Manifest reliability hardening
 
 A v0.1 prompt-only prototype has predictable weaknesses: non-deterministic
 output, no eval coverage, cost, version drift. This doc tracks the plan to
-make Shipline production-grade, organized around one keystone idea.
+make Manifest production-grade, organized around one keystone idea.
 
 ## The keystone: deterministic core + judgment layer
 
@@ -79,7 +79,7 @@ Remaining: golden-contract recall tests for the LLM judgment critics
 ### 5. Loose versioning / no reproducibility
 **Status: planned.**
 - Adopt semver. Tag releases (`v0.2.0`).
-- Install by tag, not main: `/plugin install shipline@shipline` pinned
+- Install by tag, not main: `/plugin install manifest@manifest` pinned
   to a tag in the marketplace entry.
 - Every findings file records `verifiedWith: { pluginVersion, model,
   protocolVersion, contractHash }` (already in the contract-verify

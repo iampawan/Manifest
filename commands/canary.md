@@ -32,7 +32,7 @@ performs by flipping the flag.
 
 ## Important
 
-This is a **recommend-and-approve** loop. Shipline never advances or
+This is a **recommend-and-approve** loop. Manifest never advances or
 pauses the flag for you — advancing a rollout is a production change you
 own. `/canary` (and the `rollback-guard.yml` cron behind it) give you
 the call and the exact action; you flip the flag in your flag system,

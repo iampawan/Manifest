@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Shipline deterministic stack detector.
+// Manifest deterministic stack detector.
 //
 // Reads marker files from a repo and reports its framework, languages,
 // event SDK, and test framework — deterministically, in code. The

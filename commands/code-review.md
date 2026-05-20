@@ -27,7 +27,7 @@ the same PR; neither replaces the other.
 4. Emits `CR-` findings (closed severity enum: blocker/warning/info),
    validated by `scripts/validate.mjs --check-review` — out-of-schema
    output is rejected, open blockers gate the merge.
-5. Writes `.shipline/contracts/<ID>.pr-review.md` and posts a PR review
+5. Writes `.manifest/contracts/<ID>.pr-review.md` and posts a PR review
    comment with the findings table.
 
 ## When to use

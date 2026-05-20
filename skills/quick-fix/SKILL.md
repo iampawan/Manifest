@@ -62,13 +62,13 @@ fix.
 
 ## Step 3 — Resolve the stack (same as the Implementer)
 
-Read `.shipline/repos.yml` + `reference/STACK-PROFILES.md` to resolve
+Read `.manifest/repos.yml` + `reference/STACK-PROFILES.md` to resolve
 the repo's test/lint/build commands and test idiom. Don't assume a
 stack. If unresolvable, ask.
 
 ## Step 4 — Write a one-line fix record (lightweight, not a contract)
 
-`.shipline/fixes/<ID>.md` — minimal audit trail:
+`.manifest/fixes/<ID>.md` — minimal audit trail:
 
 ```markdown
 ---

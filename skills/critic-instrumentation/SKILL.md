@@ -61,7 +61,7 @@ plan for how this behavior will be measured post-launch:
 
 If missing → **blocker** with suggestion. The suggestion should default
 to the source the project actually has — read the project's
-`.shipline/repos.yml` to learn what's connected. Don't propose
+`.manifest/repos.yml` to learn what's connected. Don't propose
 Firebase Analytics if the project doesn't use it.
 
 The measurement plan is what the launch-report reads to know how to

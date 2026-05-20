@@ -4,7 +4,7 @@ title: Account settings — delete account, export data, sessions list
 status: draft
 complexity: null
 platforms: [web, ios]
-createdBy: eval@shipline
+createdBy: eval@manifest
 revision: 1
 ---
 

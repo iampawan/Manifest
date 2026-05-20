@@ -1,11 +1,11 @@
 # Changelog
 
-All notable changes to Shipline. Versions follow semver. Install a
+All notable changes to Manifest. Versions follow semver. Install a
 specific version by tag rather than tracking `main`, so your team gets
 reproducible behavior:
 
 ```
-/plugin install shipline@shipline   # pulls the tagged release in the marketplace
+/plugin install manifest@manifest   # pulls the tagged release in the marketplace
 ```
 
 Every findings file records the `pluginVersion` that produced it (see
@@ -71,7 +71,7 @@ the one place the end-to-end loop had no ending.
 
 ### Changed
 - **Workflow robustness.** `launch-monitor.yml` and `rollback-guard.yml`
-  share a `concurrency: shipline-state-writer` group and rebase before
+  share a `concurrency: manifest-state-writer` group and rebase before
   push, so concurrent crons no longer race on the specs repo.
   Launch-monitor gained **missed-cron catch-up**: it produces any
   reached-but-unwritten milestone report instead of requiring an exact
@@ -124,7 +124,7 @@ is safe": code-level review of the diff, and a watcher on the rollout.
 
 ### Added
 - **Archival/retention** — landed contracts (day-28) auto-archive to
-  `.shipline/archive/<year>/<ID>/`; keeps contract + final report,
+  `.manifest/archive/<year>/<ID>/`; keeps contract + final report,
   prunes process exhaust (git history retains it). `retention: keep-all`
   to archive everything. Manual `/contract archive <ID>`. Keeps the
   active contracts folder lean as the team ships more features. GUIDE 1e.

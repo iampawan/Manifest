@@ -1,4 +1,4 @@
-name: Shipline PR verify
+name: Manifest PR verify
 
 # Runs on every PR push. Also responds to `/implement <ID>` and
 # `/verify-pr` comments from authorized users.
@@ -49,11 +49,11 @@ jobs:
             --input '{ "prNumber": ${{ github.event.pull_request.number }} }'
 
       # Gate the merge on open code-review blockers. The skill writes the
-      # validated JSON to .shipline/contracts/<ID>.pr-review.json;
+      # validated JSON to .manifest/contracts/<ID>.pr-review.json;
       # `--check-review` exits 2 when an open blocker remains.
       - name: Gate on open code-review blockers
         run: |
-          REVIEW=$(ls .shipline/contracts/*.pr-review.json 2>/dev/null | head -1 || true)
+          REVIEW=$(ls .manifest/contracts/*.pr-review.json 2>/dev/null | head -1 || true)
           if [[ -z "$REVIEW" ]]; then
             echo "No code-review output found — skipping gate."
             exit 0

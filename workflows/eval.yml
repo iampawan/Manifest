@@ -1,11 +1,11 @@
-name: Shipline eval
+name: Manifest eval
 
 # Runs the deterministic validator's eval suite on every change to the
 # plugin. This is the regression gate: a change that alters validator
 # behavior, breaks the parser, or lets out-of-schema severities through
 # fails the build.
 #
-# Install this in the SHIPLINE PLUGIN repo (not your product repos).
+# Install this in the MANIFEST PLUGIN repo (not your product repos).
 
 on:
   push:
@@ -106,12 +106,12 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          mkdir -p .shipline/contracts
-          cp eval/contracts/judgment-gaps.md .shipline/contracts/JGAPS-001.md
+          mkdir -p .manifest/contracts
+          cp eval/contracts/judgment-gaps.md .manifest/contracts/JGAPS-001.md
           claude --skill contract-verify --input '{ "contractId": "JGAPS-001" }'
       - name: Score recall against the golden set
         if: steps.creds.outputs.has == 'true'
         run: |
           node scripts/recall.mjs \
-            .shipline/contracts/JGAPS-001.findings.json \
+            .manifest/contracts/JGAPS-001.findings.json \
             eval/golden/judgment-gaps.expected.json

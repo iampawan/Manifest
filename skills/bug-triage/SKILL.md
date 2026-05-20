@@ -23,7 +23,7 @@ already-filed tickets, and creates new tickets with proper context.
 
 ### 1. Identify contracts in monitoring
 
-Read `.shipline/contracts/*.md`. Find contracts where:
+Read `.manifest/contracts/*.md`. Find contracts where:
 - `landed` is not yet set (still in monitoring window), OR
 - `landingTrack` contains a verdict from the last 28 days
 
@@ -87,7 +87,7 @@ For each new cluster, create a JIRA ticket with:
 
 ### 7. Report
 
-Update `.shipline/contracts/<ID>.bug-log.md` (append-only) with each new
+Update `.manifest/contracts/<ID>.bug-log.md` (append-only) with each new
 cluster filed. Post a daily summary to the contract's Slack thread:
 
 > 🐛 Day 4 bug triage: 1 new S2 (BUG-101 — TypeError in SavedCardRow,
@@ -169,6 +169,6 @@ drop a routable bug.
 Post Slack updates as a REPLY in the contract's thread, not a new
 top-level message: use `thread_ts: <contract.slackThreadTs>` in the
 channel `<contract.slackChannel>` (both set by contract-promote). This
-keeps `#shipline` to one line per contract. Exception: an overdue SLA,
+keeps `#manifest` to one line per contract. Exception: an overdue SLA,
 a `rollback`, or a canary auto-pause also posts a brief top-level alert
 linking back to the thread. (See reference/CONTRACT-FORMAT.md.)

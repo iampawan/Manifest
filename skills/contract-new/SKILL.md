@@ -1,6 +1,6 @@
 ---
 name: contract-new
-description: Author a new Shipline contract from a rough idea, a one-liner, OR a link to an existing source of truth — JIRA ticket, Linear issue, Notion page, Confluence doc, GitHub issue, or Figma file. Use when the user says "new contract", "draft PRD", "spec out a feature", "pull contract from this JIRA ticket", or invokes `/contract new` with either prose or a URL. Pre-fills as much of the contract as possible from the source, then asks the user only what's still missing.
+description: Author a new Manifest contract from a rough idea, a one-liner, OR a link to an existing source of truth — JIRA ticket, Linear issue, Notion page, Confluence doc, GitHub issue, or Figma file. Use when the user says "new contract", "draft PRD", "spec out a feature", "pull contract from this JIRA ticket", or invokes `/contract new` with either prose or a URL. Pre-fills as much of the contract as possible from the source, then asks the user only what's still missing.
 ---
 
 # Contract intake
@@ -89,7 +89,7 @@ mcp__atlassian__get-page({ pageId: <extracted-from-url> })
 
 ### 2. Check existing contracts
 
-Read `.shipline/contracts/` to see used IDs. Pick the next unused ID
+Read `.manifest/contracts/` to see used IDs. Pick the next unused ID
 using a sensible prefix derived from:
 - The JIRA project key (e.g., `AUTH-` if the ticket is in the AUTH
   project)
@@ -173,7 +173,7 @@ sections:
 
 ### 7. Write the file
 
-Write to `.shipline/contracts/<ID>.md`.
+Write to `.manifest/contracts/<ID>.md`.
 
 ### 8. Link back to the source
 
@@ -183,7 +183,7 @@ ticket linking to the contract:
 ```
 mcp__atlassian__add-comment({
   issueKey: "PROD-1234",
-  body: "📋 Shipline contract drafted: [<ID>](<repo-url>/.shipline/contracts/<ID>.md). Run `/contract verify <ID>` to surface gaps."
+  body: "📋 Manifest contract drafted: [<ID>](<repo-url>/.manifest/contracts/<ID>.md). Run `/contract verify <ID>` to surface gaps."
 })
 ```
 
@@ -194,7 +194,7 @@ two-way link.
 
 After writing the file, tell the user:
 
-- "Draft saved to `.shipline/contracts/<ID>.md`."
+- "Draft saved to `.manifest/contracts/<ID>.md`."
 - "Pre-filled from: <source URL>. Confidence: <high|medium|low>
   based on how complete the source was."
 - "Open the file, edit anything off, then run `/contract verify <ID>`

@@ -1,6 +1,6 @@
 ---
 name: contract
-description: Author, verify, or promote a Shipline contract. Run with no args (or `help`) to get a quick tutorial. Subcommands: new, verify, promote.
+description: Author, verify, or promote a Manifest contract. Run with no args (or `help`) to get a quick tutorial. Subcommands: new, verify, promote.
 ---
 
 # /contract
@@ -14,8 +14,8 @@ quick tutorial. Invoke the **tutorial** skill — it adapts to what
 you want to learn:
 
 ```
-/shipline tutorial      # 3-minute walkthrough
-/shipline help          # reference card
+/manifest tutorial      # 3-minute walkthrough
+/manifest help          # reference card
 ```
 
 Or jump right in:
@@ -29,7 +29,7 @@ Or jump right in:
 ### /contract new <input>
 
 Starts intake and writes a draft contract to
-`.shipline/contracts/<ID>.md`. Accepts several input forms:
+`.manifest/contracts/<ID>.md`. Accepts several input forms:
 
 ```
 /contract new "Add CSV export to /admin/users"                   # free-text
@@ -75,7 +75,7 @@ the *relevant* judgment critics run (selected by change type):
 
 (Sizing is computed by the validator, not an LLM critic.)
 
-Output: `.shipline/contracts/<ID>.findings.md` plus updated frontmatter
+Output: `.manifest/contracts/<ID>.findings.md` plus updated frontmatter
 on the contract itself (`status`, `complexity`, readiness reasons).
 
 **Caching:** if the contract content + plugin version are unchanged
@@ -109,7 +109,7 @@ Invokes the **contract-decompose** skill.
 
 ### /contract archive <ID>
 
-Move a landed contract's files to `.shipline/archive/<year>/<ID>/` so
+Move a landed contract's files to `.manifest/archive/<year>/<ID>/` so
 the active folder stays lean. Keeps the contract + final launch report,
 prunes the process exhaust (findings, deploy reports, interim reports —
 git history retains them; set `retention: keep-all` to keep everything).
@@ -125,7 +125,7 @@ GUIDE 1e (lifecycle & retention).
 # Critics check it
 /contract verify AUTH-1234
 
-# Read .shipline/contracts/AUTH-1234.findings.md, edit the contract,
+# Read .manifest/contracts/AUTH-1234.findings.md, edit the contract,
 # re-run verify until green
 
 # Freeze and start the build phase
@@ -137,7 +137,7 @@ GUIDE 1e (lifecycle & retention).
 
 ## See also
 
-- `/shipline tutorial` for a guided 3-minute walkthrough
+- `/manifest tutorial` for a guided 3-minute walkthrough
 - `/implement` for triggering the implementer agent
 - `/verify-pr` for re-running AC coverage on an existing PR
 - `/launch` for manual launch reports

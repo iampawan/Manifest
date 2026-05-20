@@ -38,7 +38,7 @@ window; `/rollback-check <ID>` triggers you manually.
 
 ### 1. Read the contract's budgets
 
-From `.shipline/contracts/<ID>.r<N>.md`, pull the thresholds you'll
+From `.manifest/contracts/<ID>.r<N>.md`, pull the thresholds you'll
 judge against. These come from existing fields plus an optional
 `rollbackTriggers` block:
 
@@ -143,7 +143,7 @@ node <plugin-root>/scripts/validate.mjs --check-guard <verdict.json>
 
 ### 4. Write the guard report
 
-`.shipline/contracts/<ID>.guard-<timestamp>.md` with the verdict object,
+`.manifest/contracts/<ID>.guard-<timestamp>.md` with the verdict object,
 the signal table, and links to the top Sentry issues. Set
 `guardVerdict: <verdict>` and `guardCheckedAt: <ISO>` in the contract
 frontmatter so `/status` and the dashboards can show current health.

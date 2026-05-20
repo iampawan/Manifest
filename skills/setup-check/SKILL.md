@@ -1,11 +1,11 @@
 ---
 name: setup-check
-description: Check whether the user's environment has the MCPs, secrets, and config Shipline needs. Reports what's connected, what's missing, and what each missing piece would unlock. Invoked by `/shipline setup`, `/setup`, on first run, or whenever a skill detects a missing prerequisite. Tells the user what they can do today and what to connect next.
+description: Check whether the user's environment has the MCPs, secrets, and config Manifest needs. Reports what's connected, what's missing, and what each missing piece would unlock. Invoked by `/manifest setup`, `/setup`, on first run, or whenever a skill detects a missing prerequisite. Tells the user what they can do today and what to connect next.
 ---
 
 # Setup check
 
-Your job is to make Shipline self-explanatory at runtime. The user
+Your job is to make Manifest self-explanatory at runtime. The user
 shouldn't have to read three docs to know what's missing — they
 should run one command and see exactly what's wired, what's not,
 and what to do about each.
@@ -13,8 +13,8 @@ and what to do about each.
 ## When you run
 
 Triggered by any of:
-- User invokes `/shipline setup` or `/setup`
-- User invokes `/shipline` for the first time (no `.shipline/`
+- User invokes `/manifest setup` or `/setup`
+- User invokes `/manifest` for the first time (no `.manifest/`
   directory in the current working dir)
 - Another skill detects a missing required MCP and routes here
   ("you need the Atlassian MCP for that — let me check your setup")
@@ -32,7 +32,7 @@ mcp__mcp-registry__list_connectors()
 ```
 
 This returns the connectors the user has installed. Cross-reference
-against Shipline's MCP requirements below.
+against Manifest's MCP requirements below.
 
 **Fallback** — if `list_connectors` isn't available, probe each
 MCP by checking whether its tools appear in the current toolset.
@@ -40,9 +40,9 @@ If the user's environment doesn't expose tool listings, fall
 back to asking the user: "Which of these do you have connected?
 [checklist]".
 
-### 2. Cross-reference against Shipline's requirements
+### 2. Cross-reference against Manifest's requirements
 
-| MCP | Tier | What Shipline uses it for |
+| MCP | Tier | What Manifest uses it for |
 |---|---|---|
 | **GitHub** | Required | Read code across repos, open PRs, post comments. Required for regression critic (multi-repo scanning) and the Implementer. |
 | **Sentry** | Required | Errors, releases, performance per release. Required for verify-deployment, launch-report, bug-triage. |
@@ -60,7 +60,7 @@ Format the output as a clean status check. Use checkmarks and X's
 for visual clarity. Group by tier. Example output:
 
 ```
-🛠  Shipline setup check
+🛠  Manifest setup check
 ━━━━━━━━━━━━━━━━━━━━━━━━
 
 REQUIRED
@@ -143,8 +143,8 @@ to half-complete it.
 In addition to MCPs, verify the local project state:
 
 ```
-- Is .shipline/contracts/ a directory? (if not, suggest creating it)
-- Is .shipline/repos.yml present? (if not, suggest copying from examples/repos.yml.example)
+- Is .manifest/contracts/ a directory? (if not, suggest creating it)
+- Is .manifest/repos.yml present? (if not, suggest copying from examples/repos.yml.example)
 - Is the user's working directory inside a git repo? (some workflows assume yes)
 - Does .github/workflows/ contain pr-verify.yml? (only relevant for Phase 1+ — note as info)
 ```
@@ -159,9 +159,9 @@ next action without thinking.
 
 Examples:
 
-- All required connected, never used Shipline → `/contract new "<a small feature>"`
-- Some required missing → "Connect <MCP name> first, then run `/shipline setup` again."
-- Everything connected but no repos.yml → "Run `cp ~/.claude/plugins/shipline/examples/repos.yml.example .shipline/repos.yml` and edit it for your repos."
+- All required connected, never used Manifest → `/contract new "<a small feature>"`
+- Some required missing → "Connect <MCP name> first, then run `/manifest setup` again."
+- Everything connected but no repos.yml → "Run `cp ~/.claude/plugins/manifest/examples/repos.yml.example .manifest/repos.yml` and edit it for your repos."
 
 ## Tone
 

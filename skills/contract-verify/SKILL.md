@@ -20,7 +20,7 @@ A contract ID (e.g., `SC-005`) or path.
 
 ### 1. Read and guard
 
-Read `.shipline/contracts/<ID>.md`. If it doesn't exist or status is
+Read `.manifest/contracts/<ID>.md`. If it doesn't exist or status is
 already `promoted`, refuse.
 
 ### 1b. Cache check — skip the expensive critics if nothing changed
@@ -28,7 +28,7 @@ already `promoted`, refuse.
 Before doing any work, check whether a prior verify still applies:
 
 ```bash
-node <plugin-root>/scripts/validate.mjs --cache-check .shipline/contracts/<ID>.md
+node <plugin-root>/scripts/validate.mjs --cache-check .manifest/contracts/<ID>.md
 ```
 
 - **Exit 0 (cached)** — the contract content, plugin version, and
@@ -59,7 +59,7 @@ Then set status to `verifying`.
 Run the code validator via Bash:
 
 ```bash
-node <plugin-root>/scripts/validate.mjs .shipline/contracts/<ID>.md
+node <plugin-root>/scripts/validate.mjs .manifest/contracts/<ID>.md
 ```
 
 This returns JSON with:
@@ -134,7 +134,7 @@ rules (re-run sizing logic with the judgment findings if needed).
 
 ### 6. Write the findings file
 
-`.shipline/contracts/<ID>.findings.md` with frontmatter recording
+`.manifest/contracts/<ID>.findings.md` with frontmatter recording
 provenance per `reference/CRITIC-PROTOCOL.md`:
 
 ```yaml
@@ -154,7 +154,7 @@ Sections: Open blockers / Warnings / Info. Each finding shows its
 `source` (contract-only = deterministic, github-mcp/local-clone =
 judgment-with-code-reading).
 
-Also write `.shipline/contracts/<ID>.findings.json` — the merged
+Also write `.manifest/contracts/<ID>.findings.json` — the merged
 findings array (deterministic + judgment), exactly the JSON the critics
 returned, schema-validated by `--check-findings`. This machine-readable
 companion is what the recall harness (`scripts/recall.mjs`) and other

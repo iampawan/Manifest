@@ -27,7 +27,7 @@ pytest for Python, go test for Go, and so on.
 
 ## Inputs
 
-- Contract revision file: `.shipline/contracts/<ID>.r<N>.md` (immutable
+- Contract revision file: `.manifest/contracts/<ID>.r<N>.md` (immutable
   snapshot, not the live contract)
 - Target repository: cwd (or specified)
 - An existing PR or branch to push to, or instructions to create one
@@ -43,7 +43,7 @@ criterion, diagrams, and out-of-scope items (do NOT implement those).
 
 ### 2. Resolve the stack — DO THIS BEFORE WRITING ANY CODE
 
-Read `.shipline/repos.yml` for the target repo. Resolve its toolchain
+Read `.manifest/repos.yml` for the target repo. Resolve its toolchain
 using `reference/STACK-PROFILES.md` resolution order:
 
 1. Explicit `toolchain.<command>` in repos.yml wins.
@@ -82,7 +82,7 @@ requires it.
 
 ### 4. Plan
 
-Write `.shipline/contracts/<ID>.implementation-plan.md`:
+Write `.manifest/contracts/<ID>.implementation-plan.md`:
 - The resolved stack + toolchain commands you'll use
 - File-by-file changes (in this repo's structure)
 - Test files to add — one test per AC, in this stack's test framework
@@ -139,7 +139,7 @@ Re-read your diff before pushing:
 **Lead every PR comment / status update with the SLA line:**
 
 ```bash
-node <plugin-root>/scripts/validate.mjs --sla .shipline/contracts/<ID>.md
+node <plugin-root>/scripts/validate.mjs --sla .manifest/contracts/<ID>.md
 ```
 
 Prepend its output (e.g., `⏳ SLA: 14h 30m left (due ...)`) to the AC
@@ -175,7 +175,7 @@ human having to relay each comment back to you.
 
 ### F1. Read the open findings
 
-- `.shipline/contracts/<ID>.pr-review.json` — the `code-review` skill's
+- `.manifest/contracts/<ID>.pr-review.json` — the `code-review` skill's
   validated findings. Address every **open `blocker`** and, if the team
   has `conventions.autoFixWarnings: true` in `repos.yml`, open
   `warning`s too. Leave `info` alone unless trivial.
@@ -267,6 +267,6 @@ For everything else — make the call, document it, proceed.
 Post Slack updates as a REPLY in the contract's thread, not a new
 top-level message: use `thread_ts: <contract.slackThreadTs>` in the
 channel `<contract.slackChannel>` (both set by contract-promote). This
-keeps `#shipline` to one line per contract. Exception: an overdue SLA,
+keeps `#manifest` to one line per contract. Exception: an overdue SLA,
 a `rollback`, or a canary auto-pause also posts a brief top-level alert
 linking back to the thread. (See reference/CONTRACT-FORMAT.md.)

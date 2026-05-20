@@ -1,11 +1,11 @@
-# Publish checklist — ship Shipline to your team
+# Publish checklist — ship Manifest to your team
 
 One page. Gets you from "works on my laptop" to `/plugin install
-shipline` for teammates. ~15 minutes.
+manifest` for teammates. ~15 minutes.
 
 ## 0. Prerequisite — pick the org/repo name
 
-You'll publish to a GitHub repo, e.g. `your-org/shipline`. Decide it
+You'll publish to a GitHub repo, e.g. `your-org/manifest`. Decide it
 now; you'll substitute it below.
 
 ## 1. Fix the marketplace source
@@ -14,7 +14,7 @@ now; you'll substitute it below.
 `YOUR-ORG` with your real GitHub org/user:
 
 ```json
-"source": "github://your-org/shipline"
+"source": "github://your-org/manifest"
 ```
 
 Important: the source MUST be the `github://` form, not `"./"`. The
@@ -35,7 +35,7 @@ and errored once already — so verify on your machine first:
 
 ```bash
 # From the plugin folder
-cd /path/to/shipline
+cd /path/to/manifest
 
 # 2a. Validate the manifests are well-formed JSON
 cat .claude-plugin/plugin.json      | python3 -m json.tool > /dev/null && echo "plugin.json ok"
@@ -47,8 +47,8 @@ node --test eval/validate.test.mjs eval/detect.test.mjs   # expect 30 passing
 
 # 2c. Load it as a plugin and confirm commands appear
 claude --plugin-dir .
-#   then in Claude Code: /plugin   (shipline should list)
-#                        /shipline (tutorial should run)
+#   then in Claude Code: /plugin   (manifest should list)
+#                        /manifest (tutorial should run)
 ```
 
 If `--plugin-dir` throws the "source type" error again, the
@@ -60,11 +60,11 @@ https://code.claude.com/docs/en/plugin-marketplaces
 ## 3. Push to GitHub
 
 ```bash
-cd /path/to/shipline
+cd /path/to/manifest
 git init                      # if not already a repo
 git add -A
-git commit -m "Shipline v0.3.0"
-gh repo create your-org/shipline --private --source=. --push
+git commit -m "Manifest v0.3.0"
+gh repo create your-org/manifest --private --source=. --push
 #   (drop --private for a public repo)
 ```
 
@@ -80,11 +80,11 @@ git push origin v0.3.0
 ## 5. Teammates install (two commands)
 
 ```
-/plugin marketplace add your-org/shipline
-/plugin install shipline
+/plugin marketplace add your-org/manifest
+/plugin install manifest
 ```
 
-Then `/setup` (runs the detection wizard) and `/shipline` (tutorial).
+Then `/setup` (runs the detection wizard) and `/manifest` (tutorial).
 
 Hand them `docs/INSTALL-FOR-TRYERS.md` — it's the teammate-facing
 version of this.
@@ -93,12 +93,12 @@ version of this.
 
 ```bash
 # You: bump version in plugin.json + marketplace.json, update CHANGELOG
-git commit -am "Shipline v0.3.1"
+git commit -am "Manifest v0.3.1"
 git tag v0.3.1 && git push origin main v0.3.1
 
 # Teammates:
 /plugin refresh
-/plugin install shipline@v0.3.1     # or re-install to get latest tag
+/plugin install manifest@v0.3.1     # or re-install to get latest tag
 ```
 
 Claude Code doesn't auto-update plugins — teammates re-install to pull
@@ -109,10 +109,10 @@ a new version. Announce updates (Slack) so people know to refresh.
 In each repo where features get built:
 
 ```bash
-mkdir -p .shipline/contracts
-cp /path/to/shipline/workflows/*.yml .github/workflows/   # for CI later
-# Run /setup in that repo to auto-generate .shipline/repos.yml
-git add .shipline/ .github/workflows/ && git commit -m "chore: add Shipline"
+mkdir -p .manifest/contracts
+cp /path/to/manifest/workflows/*.yml .github/workflows/   # for CI later
+# Run /setup in that repo to auto-generate .manifest/repos.yml
+git add .manifest/ .github/workflows/ && git commit -m "chore: add Manifest"
 ```
 
 Set the CI secret (one of):

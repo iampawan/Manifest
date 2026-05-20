@@ -4,7 +4,7 @@ title: Clean reference contract (should pass deterministic checks)
 status: verified
 complexity: null
 platforms: [web]
-createdBy: eval@shipline
+createdBy: eval@manifest
 revision: 1
 confidenceScore: 0.9
 ---

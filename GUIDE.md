@@ -1,11 +1,11 @@
-# Shipline — how it works
+# Manifest — how it works
 
 Read this once. It's the only doc you need before running your first
 contract through the pipeline. The **[README](README.md)** is the
 table of contents and the installation reference; this is the
 manual for using it.
 
-**If you haven't installed Shipline yet, read [README.md
+**If you haven't installed Manifest yet, read [README.md
 Installation](README.md#installation) first.** Section 3 below
 assumes the plugin is installed and walks you through the rest of
 the setup (MCPs, secrets, repos.yml, picking a pilot feature).
@@ -14,7 +14,7 @@ the setup (MCPs, secrets, repos.yml, picking a pilot feature).
 
 ## 1. The mental model
 
-Shipline turns a PRD into a typed, machine-checkable artifact called a
+Manifest turns a PRD into a typed, machine-checkable artifact called a
 **contract**. The contract is the source of truth at every stage. The
 implementer reads it, the PR verifier checks the diff against it, the
 deployment verifier runs its acceptance criteria against a live URL,
@@ -33,10 +33,10 @@ SLA timer starts, and the build phase reads from the revision, not
 the live contract. Edits after promote fork a new revision; the
 running pipeline keeps using the snapshot it started with.
 
-Everything lives in your repo at `.shipline/contracts/`:
+Everything lives in your repo at `.manifest/contracts/`:
 
 ```
-.shipline/contracts/
+.manifest/contracts/
 ├── SC-005.md                              # the live contract
 ├── SC-005.r1.md                           # immutable revision snapshot
 ├── SC-005.findings.md                     # critic output (human view)
@@ -53,7 +53,7 @@ Everything lives in your repo at `.shipline/contracts/`:
 └── SC-005.postmortem.md                   # only if rolled back: blameless postmortem
 ```
 
-(At day 28 the contract auto-archives to `.shipline/archive/<year>/<ID>/`,
+(At day 28 the contract auto-archives to `.manifest/archive/<year>/<ID>/`,
 keeping the contract + final report and pruning the process exhaust —
 see section 1e.)
 
@@ -74,7 +74,7 @@ ceremony to the risk:
 | One-line bug, copy tweak, dep bump, localized fix | **`/fix`** (express lane) | triage → fix + regression test → PR, minutes; no critics/SLA/launch report |
 | New behavior, 1 platform, ≤3 behaviors | **`/contract`** → Small | full ceremony pays off; 24h target |
 | ≤2 platforms, ≤8 behaviors, additive schema | **`/contract`** → Medium | 72h target |
-| Breaking change, migration, auth/billing, 3+ platforms | normal cycle (Large) | too risky to agent-ship; use Shipline for the spec + critics only |
+| Breaking change, migration, auth/billing, 3+ platforms | normal cycle (Large) | too risky to agent-ship; use Manifest for the spec + critics only |
 
 The `/fix` express lane (the **quick-fix** skill) triages first: if a
 "quick fix" turns out to add a new event, span platforms, or change
@@ -82,7 +82,7 @@ the schema, it stops and routes you to `/contract new`. That gate is
 what keeps the fast path safe — you get speed on trivial changes
 without sneaking real features through unverified.
 
-Shipline's overhead is a feature, not a tax: it's the verification
+Manifest's overhead is a feature, not a tax: it's the verification
 that prevents prod bugs on *risky* changes. On trivial changes it gets
 out of the way.
 
@@ -90,7 +90,7 @@ out of the way.
 
 ## 1c. Works with whatever infrastructure you have
 
-Shipline degrades honestly. The spec/build half (which is where most
+Manifest degrades honestly. The spec/build half (which is where most
 bugs are prevented) needs NO infrastructure — only GitHub. The ship/
 land half uses whatever you have and is clear about what it can't do.
 
@@ -132,10 +132,10 @@ there's nothing to measure.
 Contracts are the source of truth, so they need one home. Pick based
 on your repo layout:
 
-- **Single product repo** → `.shipline/contracts/` in that repo, on
+- **Single product repo** → `.manifest/contracts/` in that repo, on
   `main`. Done.
 - **Multiple repos** (web + mobile + backend, like most teams) → a
-  **dedicated specs repo** (`your-org/shipline-contracts`). A
+  **dedicated specs repo** (`your-org/manifest-contracts`). A
   cross-repo contract can't sensibly live inside one code repo, and a
   single specs repo on one `main` branch gives you consistent central
   state for free: git's total commit order means no two devs get
@@ -145,11 +145,11 @@ on your repo layout:
 Set it up once:
 
 ```bash
-git init shipline-contracts && cd shipline-contracts
-mkdir -p .shipline/contracts
-cp ~/.claude/plugins/shipline/examples/repos.yml.example .shipline/repos.yml
+git init manifest-contracts && cd manifest-contracts
+mkdir -p .manifest/contracts
+cp ~/.claude/plugins/manifest/examples/repos.yml.example .manifest/repos.yml
 # edit repos.yml to point at your product repos (github: org/repo)
-git add -A && git commit -m "init shipline contracts" && git push
+git add -A && git commit -m "init manifest contracts" && git push
 ```
 
 Then author/verify/promote from there. `/status` run in this repo is
@@ -169,15 +169,15 @@ so that service would wrap the same contract format, not replace it.
 
 ---
 
-## 1e. Lifecycle & retention — does `.shipline/` grow forever?
+## 1e. Lifecycle & retention — does `.manifest/` grow forever?
 
 It grows, but it's text in git — thousands of contracts is tens of MB,
 not a storage problem. The real concern is *clutter*, and most
 per-contract files are **ephemeral** (useful during the cycle, not
-after). So Shipline archives, it doesn't hoard.
+after). So Manifest archives, it doesn't hoard.
 
 **When a contract lands** (day-28 final verdict), its files move to
-`.shipline/archive/<year>/<ID>/`. The active `.shipline/contracts/`
+`.manifest/archive/<year>/<ID>/`. The active `.manifest/contracts/`
 folder then holds only in-flight + recently-landed work. History is
 preserved and searchable; the working view stays lean. `/status` is
 unaffected — it already shows only in-flight contracts.
@@ -196,9 +196,9 @@ unaffected — it already shows only in-flight contracts.
 **So is the folder needed after a product is live?** The *active*
 contracts folder only ever holds current work. The *archive* is
 optional long-term memory — keep it for audit/retro value (it's
-cheap), or `git rm -r .shipline/archive` if you decide the git
+cheap), or `git rm -r .manifest/archive` if you decide the git
 history alone is enough. Nothing in the live product depends on
-`.shipline/` at runtime; it's a development-time record, not a runtime
+`.manifest/` at runtime; it's a development-time record, not a runtime
 artifact.
 
 Archiving happens automatically at day-28, or manually any time via
@@ -209,7 +209,7 @@ Archiving happens automatically at day-28, or manually any time via
 ## 2. The four phases (for Small/Medium contracts)
 
 ### ① SPEC — author and verify
-Where: in your editor with Shipline loaded (local Claude Code or Cowork).
+Where: in your editor with Manifest loaded (local Claude Code or Cowork).
 
 You write the contract using `/contract new` (from a JIRA/Linear/Notion
 link, or plain text). You review the draft. You run `/contract verify`,
@@ -319,15 +319,15 @@ verdict — the loop stays closed even after launch.
 Three install methods documented in detail in **[README.md
 Installation section](README.md#installation)**: marketplace
 (`/plugin marketplace add`), direct file copy
-(`cp -r shipline ~/.claude/plugins/`), or development mode
+(`cp -r manifest ~/.claude/plugins/`), or development mode
 (`claude --plugin-dir .`). Pick whichever matches your situation
 and come back here for the post-install configuration.
 
 After install, verify with:
 
 ```
-/plugin           # confirms shipline is loaded
-/shipline         # opens the tutorial
+/plugin           # confirms manifest is loaded
+/manifest         # opens the tutorial
 ```
 
 The same install works in **Cowork mode** — user-scoped plugins
@@ -335,7 +335,7 @@ are visible in both.
 
 ### 3.2 Connect required MCPs
 
-Shipline reads from the MCPs your client has connected. You need at
+Manifest reads from the MCPs your client has connected. You need at
 minimum:
 
 | MCP | What it's for |
@@ -366,15 +366,15 @@ In the repository where you'll ship features:
 
 ```bash
 # Contracts directory
-mkdir -p .shipline/contracts
-echo ".shipline/*.tmp" > .shipline/.gitignore
+mkdir -p .manifest/contracts
+echo ".manifest/*.tmp" > .manifest/.gitignore
 
 # Copy the workflows
-cp ~/.claude/plugins/shipline/workflows/*.yml .github/workflows/
+cp ~/.claude/plugins/manifest/workflows/*.yml .github/workflows/
 
 # Commit
-git add .shipline/ .github/workflows/
-git commit -m "chore: add Shipline pipeline"
+git add .manifest/ .github/workflows/
+git commit -m "chore: add Manifest pipeline"
 ```
 
 ### 3.4 Set GitHub secrets
@@ -393,7 +393,7 @@ The workflows reference these. Add them in repo Settings → Secrets:
 
 ### 3.5 Decide your Slack channel
 
-By convention, Shipline posts to `#shipline` for cross-contract events
+By convention, Manifest posts to `#manifest` for cross-contract events
 and a per-contract thread for everything else. Create the channel and
 invite the bot user that owns `SLACK_BOT_TOKEN`.
 
@@ -407,7 +407,7 @@ to test on something exciting.
 **Bonus criterion: pick a project that has some measurement infra
 in place.** Firebase Analytics is ideal; structured server logs are
 fine; a database the launch report can query also works. If none of
-your candidate projects has any of these, Shipline still works — the
+your candidate projects has any of these, Manifest still works — the
 critics, Implementer, Verifier, and Bug Watcher all run regardless —
 but the launch report will mark success metrics as "unmeasured"
 rather than confirming the feature landed. That's an honest verdict,
@@ -428,7 +428,7 @@ Open Claude Code in your repo. Run:
 ```
 
 The intake skill asks five questions. You answer in ~5 minutes. A
-draft contract lands at `.shipline/contracts/AU-007.md`.
+draft contract lands at `.manifest/contracts/AU-007.md`.
 
 ### T+0:15 — Verify
 ```
@@ -453,7 +453,7 @@ Findings file shows `readiness: verified`, complexity: `small`.
 A revision file is created at `AU-007.r1.md`. A JIRA epic gets
 opened. A GitHub tracking issue lands with the SLA timer prominently
 shown: "Due: 2026-05-20 09:30 (T+24h)". A Slack message hits
-`#shipline`: "🚀 *Add CSV export to admin users* (AU-007) promoted —
+`#manifest`: "🚀 *Add CSV export to admin users* (AU-007) promoted —
 small · SLA 24h".
 
 ### T+0:45 — Open the PR
@@ -471,7 +471,7 @@ appear in the PR's Checks tab.
 You go about your day. The Implementer:
 1. Clones the repo
 2. Reads `AU-007.r1.md`
-3. Writes `.shipline/contracts/AU-007.implementation-plan.md`
+3. Writes `.manifest/contracts/AU-007.implementation-plan.md`
 4. Adds the CSV export button, the export endpoint, and the
    instrumentation event
 5. Generates `tests/AU-007.spec.ts` with one Playwright test per AC
@@ -678,7 +678,7 @@ bug auto-filing. Each addition unlocks more.
 exploration, A/B tests?**
 Those use the regular cycle. The critic-sizing skill will refuse
 to size them as Small or Medium, and Large bucket exits the
-pipeline. Shipline is for "we know what we want, ship it" features.
+pipeline. Manifest is for "we know what we want, ship it" features.
 
 **Q: Can multiple contracts run through the pipeline at once?**
 Yes. They're independent. The orchestrator handles them in parallel.
@@ -718,6 +718,6 @@ end in 24h):
 5. **Don't touch Large bucket** until you've done at least 5 Small
    and 3 Medium successfully.
 
-The whole point of Shipline being a plugin is that you can iterate on
+The whole point of Manifest being a plugin is that you can iterate on
 it. Skills are markdown. Workflows are YAML. Commit and the team gets
 the upgrade. Start small. Improve in flight.

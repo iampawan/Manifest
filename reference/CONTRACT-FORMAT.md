@@ -1,6 +1,6 @@
 # Contract format
 
-A contract is a markdown file at `.shipline/contracts/<ID>.md` with YAML
+A contract is a markdown file at `.manifest/contracts/<ID>.md` with YAML
 frontmatter and structured sections. The format is designed to be both
 human-readable and machine-parseable.
 
@@ -132,9 +132,9 @@ Things the author needs answered before promote. Critics will flag these.
 | `parent` | no | On a child: the epic ID it belongs to |
 | `children` | no | On an epic: ordered list of child contract IDs |
 | `dependsOn` | no | On a child: child IDs that must ship first |
-| `implementation` | no | `agent` (default) or `human-led` (migrations/auth — speced + verified by Shipline, human writes the code) |
+| `implementation` | no | `agent` (default) or `human-led` (migrations/auth — speced + verified by Manifest, human writes the code) |
 | `slackThreadTs` | set on promote | Slack `thread_ts` of the contract's anchor message; later updates reply in this thread |
-| `slackChannel` | set on promote | The channel the thread lives in (default `#shipline`) |
+| `slackChannel` | set on promote | The channel the thread lives in (default `#manifest`) |
 | `owner` | set at intake | Who owns this contract (email/handle) |
 | `lockedBy` | advisory | Who is actively working it right now; set on verify/implement, cleared on completion |
 | `lockedAt` | advisory | ISO time the lock was taken (a lock older than ~2h is treated as stale) |
@@ -143,8 +143,8 @@ Things the author needs answered before promote. Critics will flag these.
 
 Contracts are the source of truth, so they need ONE home. For a
 multi-repo product, that home is a **dedicated specs repo** (e.g.
-`your-org/shipline-contracts`) on a single `main` branch — not the
-`.shipline/` of any one code repo. Git gives a total commit order on
+`your-org/manifest-contracts`) on a single `main` branch — not the
+`.manifest/` of any one code repo. Git gives a total commit order on
 one branch, so that repo *is* a consistent central store: no two devs
 get diverging findings for the same contract. Code PRs in the product
 repos reference the contract by ID; they don't carry contract state.
@@ -204,7 +204,7 @@ single SLA promise.
 
 ### Slack threading — one channel, no spam (convention)
 
-All Shipline updates post to ONE channel (`#shipline` by default), but
+All Manifest updates post to ONE channel (`#manifest` by default), but
 they DON'T flood it. Each contract gets exactly **one top-level
 message** (the promotion announcement); every later update — implement
 done, verify verdict, canary approval, launch reports day 1/7/14/28,
@@ -215,7 +215,7 @@ its Slack `thread_ts` on the contract:
 
 ```yaml
 slackThreadTs: "1716192000.123456"   # set by contract-promote
-slackChannel: "#shipline"            # the channel the thread lives in
+slackChannel: "#manifest"            # the channel the thread lives in
 ```
 
 Every later skill that posts (implement, verify-deploy, launch-report,
@@ -235,7 +235,7 @@ Slack messages, command output — leads with the current SLA line so
 the dev always knows where they stand. Get it deterministically:
 
 ```bash
-node <plugin-root>/scripts/validate.mjs --sla .shipline/contracts/<ID>.md
+node <plugin-root>/scripts/validate.mjs --sla .manifest/contracts/<ID>.md
 ```
 
 It prints one of:
@@ -264,7 +264,7 @@ perf-budget, and comms-completeness critics enforce this.
 
 ## Findings file
 
-Verification produces `.shipline/contracts/<ID>.findings.md`:
+Verification produces `.manifest/contracts/<ID>.findings.md`:
 
 ```markdown
 ---

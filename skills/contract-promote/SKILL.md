@@ -39,7 +39,7 @@ a silent pass.
 
 ## Process
 
-1. **Read** `.shipline/contracts/<ID>.md`. Confirm `status: verified` and
+1. **Read** `.manifest/contracts/<ID>.md`. Confirm `status: verified` and
    `complexity` is one of `small | medium | large`.
 
 2. **If Large, route to decomposition — don't refuse.** A Large
@@ -52,7 +52,7 @@ a silent pass.
    contract itself into the build phase.
 
 3. **Create the revision.** Copy the current contract to
-   `.shipline/contracts/<ID>.r<N>.md` where N is `revision`. This is the
+   `.manifest/contracts/<ID>.r<N>.md` where N is `revision`. This is the
    immutable snapshot the build phase reads against. Future edits to the
    main contract fork a new revision.
 
@@ -82,13 +82,13 @@ a silent pass.
 9. **Post the Slack ANCHOR message** (if Slack MCP is connected).
    This is the ONE top-level message for this contract — every later
    update threads under it (see `reference/CONTRACT-FORMAT.md` Slack
-   threading). Channel is `#shipline` by convention; user can override.
+   threading). Channel is `#manifest` by convention; user can override.
 
    > 🚀 *<title>* (<ID>) promoted — *<complexity>* · ⏳ SLA: 24h left (due <IST / UTC>)
    > <revision file link> · <jira epic link> · <github issue link>
 
    Generate the SLA line with
-   `node <plugin-root>/scripts/validate.mjs --sla .shipline/contracts/<ID>.md`
+   `node <plugin-root>/scripts/validate.mjs --sla .manifest/contracts/<ID>.md`
    (just after stamping `promotedAt` + `slaDeadline`).
 
    **Capture the posted message's `thread_ts` and stamp it on the
