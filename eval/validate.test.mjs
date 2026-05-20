@@ -153,9 +153,45 @@ test("seeded-gaps: all findings use only the closed severity enum", () => {
 test("seeded-gaps: readiness is not_ready (has blockers)", () => {
   const c = parseContract(read("seeded-gaps.md"));
   const findings = checkContract(c);
-  const { readiness, openBlockers } = computeReadiness(c, findings);
+  const { readiness, openBlockers, promotable } = computeReadiness(c, findings);
   assert.ok(openBlockers > 0);
   assert.equal(readiness, "not_ready");
+  assert.equal(promotable, false); // blockers block promotion
+});
+
+// ─── The hard gate is blockers only (anti-stuck) ─────────────────────
+
+const findingsList = (specs) => specs.map((s, i) => ({
+  id: `T-${i}`, critic: "edge-cases", severity: s.sev, message: "m",
+  suggestion: "s", fragmentRef: "B1", status: s.status || "open",
+}));
+
+test("gate: 0 blockers + open warnings is PROMOTABLE (warnings are advisory)", () => {
+  const c = parseContract(read("clean.md"));
+  const f = findingsList([{ sev: "warning" }, { sev: "warning" }, { sev: "info" }]);
+  const r = computeReadiness(c, f);
+  assert.equal(r.openBlockers, 0);
+  assert.equal(r.promotable, true, "0 blockers should be promotable even with warnings");
+  assert.equal(r.readiness, "review_needed"); // warnings still lower the signal
+});
+
+test("gate: an open blocker is NOT promotable", () => {
+  const c = parseContract(read("clean.md"));
+  const r = computeReadiness(c, findingsList([{ sev: "blocker" }]));
+  assert.equal(r.promotable, false);
+});
+
+test("gate: acknowledged warning drops out of the open counts", () => {
+  const c = parseContract(read("clean.md"));
+  const f = findingsList([{ sev: "warning", status: "acknowledged" }, { sev: "warning" }]);
+  const r = computeReadiness(c, f);
+  assert.equal(r.openWarnings, 1, "acknowledged warning is not counted as open");
+  assert.equal(r.promotable, true);
+});
+
+test("status: validateFindings accepts the acknowledged status", () => {
+  const ok = [{ id: "EC-1", critic: "edge-cases", severity: "warning", message: "m", suggestion: "s", fragmentRef: "B1", status: "acknowledged" }];
+  assert.equal(validateFindings(ok).length, 0);
 });
 
 // ─── Sizing rules ────────────────────────────────────────────────────

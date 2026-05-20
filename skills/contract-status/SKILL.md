@@ -28,12 +28,16 @@ It prints (deterministically from the contract frontmatter):
 AUTH-12 — Resend OTP on login
   phase:     ② In review
   ⏳ SLA: 23h 14m left (due 2026-05-21 13:30 IST / 2026-05-21 08:00 UTC)
-  readiness: verified
-  next:      review the PR and merge
+  readiness: review_needed  ·  promotable: ✅ (0 blockers, 2 advisory warnings)
+  next:      promote, or address warnings first
 ```
 
 Relay it as-is. If `--status` exits non-zero, the SLA is overdue —
-call that out.
+call that out. **Lead with `promotable` (0 open blockers) — that's the
+real gate.** When `promotable` is true, say so even if readiness is
+`review_needed`; open warnings are advisory and never block, so a dev
+isn't stuck. (Read open blocker/warning counts from the latest
+`<ID>.findings.json` if present.)
 
 ## All in-flight (the dashboard)
 

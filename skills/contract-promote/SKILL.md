@@ -11,7 +11,12 @@ requiredScopes:
 # Contract promoter
 
 Promote freezes a verified contract into a revision and starts the
-build phase. Refuse to promote anything not in `verified` status.
+build phase. **The hard gate is blockers, not warnings:** promote any
+contract that is *promotable* (zero open blockers). Warnings and info
+are advisory — they don't block promotion, so a dev is never stuck
+chasing run-to-run-variable warnings to zero. Surface the open warnings
+so the human is choosing knowingly; they can fix or `acknowledge` them,
+but they don't have to.
 
 ## Precondition: verify required scopes BEFORE making changes
 
@@ -39,8 +44,14 @@ a silent pass.
 
 ## Process
 
-1. **Read** `.manifest/contracts/<ID>.md`. Confirm `status: verified` and
-   `complexity` is one of `small | medium | large`.
+1. **Read** `.manifest/contracts/<ID>.md`. Confirm it is **promotable**
+   — the latest verify's readiness has `promotable: true` (zero open
+   blockers) — and `complexity` is one of `small | medium | large`. If
+   there are open blockers, refuse and list them: those are the finite,
+   stable set that must be resolved. If there are open *warnings*, list
+   them too but proceed (note: "promoting with N advisory warnings — fix
+   or `acknowledge` later if you want"). Do NOT require warnings to be
+   zero.
 
    **Reject a fast-only verify.** Check the latest
    `<ID>.findings.md` frontmatter: if `verifyMode: fast`, the contract
@@ -109,7 +120,8 @@ a silent pass.
 
 ## Refuse conditions
 
-- Contract status is not `verified`.
+- Contract is not promotable — it has open **blockers**. (Open warnings
+  do NOT block promotion; they're advisory.)
 - The latest verify was `--fast` (`verifyMode: fast`) — run a full verify first.
 - Complexity is `large` or not set.
 - The revision file already exists (means someone promoted in parallel).

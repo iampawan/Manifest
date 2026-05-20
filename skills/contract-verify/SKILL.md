@@ -182,6 +182,16 @@ set — NOT from LLM judgment. Apply:
 - `verified` if 0 blockers, 0 warnings, confidence ≥ 0.8
 - `review_needed` otherwise
 
+**The gate that matters is `promotable` (0 open blockers), not
+`verified`.** Blockers are the finite, stable set a dev must clear;
+warnings/info are advisory and never block promotion (see
+[Anti-stuck](#why-this-doesnt-become-endless)). When you report the
+verdict, lead with promotable, then list blockers (must-fix) separately
+from warnings (advisory). A finding the human reviews and accepts is
+marked `acknowledged` (not `open`), so it drops out of the counts and
+never re-litigates. Carry forward `acknowledged`/`dismissed` statuses
+from the prior `.findings.json` when you merge — don't reset them.
+
 Sizing comes from the validator's `sizing` field. If a security blocker
 exists in the judgment findings, sizing escalates per the validator's
 rules (re-run sizing logic with the judgment findings if needed).
@@ -227,8 +237,42 @@ prior run.
 
 ### 7. Update the contract and report
 
-Set `status` (verified or back to draft), `complexity`. Tell the user
-the verdict, finding counts by severity, and the next step.
+Set `status` and `complexity`. Lead the report with the gate that
+matters:
+
+```
+Promotable: ✅ yes (0 blockers)   ·   readiness: review_needed
+Blockers: 0
+Warnings: 3 (advisory — fix, or `acknowledge` to put to rest)
+Info: 5
+Next: promote now, or address warnings first — your call.
+```
+
+If there are open blockers, say "Not promotable — N blockers to fix"
+and list them; those are the finite, stable must-fix set. If 0 blockers,
+say it's promotable even when warnings remain — don't imply the dev must
+drive warnings to zero.
+
+## Why this doesn't become endless
+
+The deterministic findings are stable and converge to zero. The LLM
+judgment findings vary run-to-run — so the gate is **blockers only**
+(`promotable`), not every finding:
+
+- **Blockers** (deterministic facts + serious judgment issues) are the
+  finite set you must clear. They don't flip-flop.
+- **Warnings / info** are advisory. They never block promotion. Fix them
+  if you want, or mark `acknowledged` to put one to rest — an
+  acknowledged finding isn't `open`, so it drops out of the gate and
+  won't resurface.
+- **Caching + incremental re-verify** mean unchanged content reuses
+  prior findings — re-verifying without editing doesn't invent new
+  issues, and editing one behavior only re-checks that behavior.
+- **Don't `--force` re-verify to chase nits** — that's the only way to
+  deliberately re-roll judgment variance. Use the normal re-verify.
+
+So the loop converges: blockers → 0 (stable), warnings → fixed or
+acknowledged (don't resurface), unchanged content → no fresh noise.
 
 ## Why this split matters
 

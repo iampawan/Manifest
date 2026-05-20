@@ -12,6 +12,34 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.9.0] — blockers are the only hard gate (no more endless verify)
+
+Verify could feel endless because reaching `verified` required **0
+warnings**, and warnings are the LLM-variable findings that reshuffle
+run-to-run. Now a dev clears a finite, stable set and ships.
+
+### Changed
+- **`promotable` = zero open blockers** is the real gate
+  (`computeReadiness` now returns it). Warnings and info are advisory —
+  they refine the `readiness` signal but **never block promotion**.
+  `contract-promote` now gates on `promotable`, not `status: verified`;
+  it surfaces open warnings and proceeds (you can fix or acknowledge
+  them, but you don't have to).
+- **New `acknowledged` finding status** — a human reviews a warning and
+  accepts it; it leaves the open set and never re-litigates. Added to
+  the finding-status enum (`open | resolved | dismissed | acknowledged`)
+  in both `validateFindings` and `validateReviewFindings`.
+- `contract-verify` and `/status` now lead with `promotable` and list
+  blockers (must-fix) separately from warnings (advisory); verify
+  carries `acknowledged`/`dismissed` statuses forward across re-verifies.
+
+### Why it converges
+Blockers (deterministic facts + serious judgment issues) are stable and
+finite → drive to zero. Warnings → fix or acknowledge → don't resurface.
+Unchanged content → caching + incremental re-verify reuse prior findings.
+So the loop terminates instead of chasing run-to-run variance. 4 new
+tests (82 total).
+
 ## [0.8.0] — faster verify & re-verify
 
 The deterministic validator was already <1s; the wall-clock is the LLM

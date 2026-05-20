@@ -30,10 +30,25 @@ violates it — out-of-schema output is a bug, not a finding.
     "fragmentRef": "string — B2 | AC3 | frontmatter | <section>",
     "references": ["string — optional, repo:path:line entries"],
     "source": "github-mcp | local-clone | contract-only",
-    "status": "open"
+    "status": "open | resolved | dismissed | acknowledged"
   }
 ]
 ```
+
+### Finding status + the gate
+
+`status` is one of: `open` (live), `resolved` (fixed in the contract),
+`dismissed` (the finding was wrong, with a reason), `acknowledged` (a
+human reviewed it and accepts it as-is). Only `open` findings count.
+
+**The hard gate is blockers, not all findings.** A contract is
+*promotable* when it has **zero open blockers** — that's the finite,
+deterministic-plus-serious-judgment set. Warnings and info are advisory:
+they refine the readiness signal but never block promotion. This is what
+stops verify from feeling endless — a dev clears the stable blocker set
+and ships; they don't chase run-to-run-variable warnings to zero. A
+warning a human accepts is marked `acknowledged` so it leaves the open
+set and never re-litigates.
 
 ### Severity is a CLOSED enum
 

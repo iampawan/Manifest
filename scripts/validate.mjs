@@ -22,6 +22,12 @@ import { dirname, join } from "node:path";
 import yaml from "js-yaml";
 
 const SEVERITIES = new Set(["blocker", "warning", "info"]);
+// Finding lifecycle. Only "open" findings count toward the gate.
+//   resolved     — fixed in the contract
+//   dismissed    — the finding was wrong (with a reason)
+//   acknowledged — reviewed and accepted as-is (a human signed off); a
+//                  warning put to rest this way never re-litigates
+const FINDING_STATUSES = new Set(["open", "resolved", "dismissed", "acknowledged"]);
 const REQUIRED_COMMS = ["empty", "loading", "success", "error"];
 const PROTOCOL_VERSION = 1;
 
@@ -298,7 +304,16 @@ function computeReadiness(contract, allFindings) {
   else if (openWarnings > 0 || confidence < 0.8) readiness = "review_needed";
   else readiness = "verified";
 
-  return { readiness, reasons, openBlockers, openWarnings };
+  // The ONLY hard gate is blockers. Warnings/info are advisory — they
+  // refine `readiness` for signal, but they never stop a dev from
+  // promoting. This is what keeps verify from feeling endless: drive the
+  // finite, stable set of blockers to zero and you're promotable; you
+  // don't have to chase run-to-run-variable warnings to zero. A warning
+  // marked `acknowledged` (or `dismissed`) is no longer "open" and drops
+  // out of these counts, so it can't re-litigate forever.
+  const promotable = openBlockers === 0;
+
+  return { readiness, promotable, reasons, openBlockers, openWarnings };
 }
 
 // ─── SLA status (deterministic given deadline + now) ─────────────────
@@ -501,7 +516,7 @@ function validateFindings(findings) {
     for (const k of ["id", "critic", "message", "suggestion", "fragmentRef"])
       if (typeof f[k] !== "string" || !f[k])
         errors.push(`[${i}] missing/invalid "${k}"`);
-    if (f.status !== "open" && f.status !== "resolved" && f.status !== "dismissed")
+    if (!FINDING_STATUSES.has(f.status))
       errors.push(`[${i}] invalid status "${f.status}"`);
   });
   return errors;
@@ -528,7 +543,7 @@ function validateReviewFindings(findings) {
       errors.push(`[${i}] id "${f.id}" must use the CR- prefix`);
     if (f.line != null && typeof f.line !== "number")
       errors.push(`[${i}] "line" must be a number or null`);
-    if (f.status !== "open" && f.status !== "resolved" && f.status !== "dismissed")
+    if (!FINDING_STATUSES.has(f.status))
       errors.push(`[${i}] invalid status "${f.status}"`);
   });
   return errors;
@@ -579,6 +594,7 @@ export {
   hashOf,
   readFrontmatter,
   SEVERITIES,
+  FINDING_STATUSES,
   REVIEW_CATEGORIES,
   GUARD_VERDICTS,
   PROTOCOL_VERSION,
