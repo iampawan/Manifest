@@ -250,3 +250,92 @@ test("cache: hashOf is deterministic + content-sensitive", () => {
   assert.equal(hashOf("hello"), hashOf("hello"));
   assert.notEqual(hashOf("hello"), hashOf("hello "));
 });
+
+// ─── PR-stage code-review findings schema ────────────────────────────
+
+import { validateReviewFindings } from "../scripts/validate.mjs";
+
+const goodReview = () => ([
+  {
+    id: "CR-001", category: "security", severity: "blocker",
+    message: "SQL string built from input", suggestion: "parameterize",
+    file: "api/cards.ts", line: 88, status: "open",
+  },
+  {
+    id: "CR-002", category: "correctness", severity: "warning",
+    message: "deref of possibly-undefined card", suggestion: "guard card?.last4",
+    file: "SavedCardRow.tsx", line: null, status: "open",
+  },
+]);
+
+test("review: a well-formed findings array passes", () => {
+  assert.equal(validateReviewFindings(goodReview()).length, 0);
+});
+
+test("review: forbidden severity is rejected", () => {
+  const f = goodReview(); f[0].severity = "high";
+  const errs = validateReviewFindings(f);
+  assert.ok(errs.some((e) => e.includes("invalid severity")));
+});
+
+test("review: unknown category is rejected", () => {
+  const f = goodReview(); f[0].category = "vibes";
+  const errs = validateReviewFindings(f);
+  assert.ok(errs.some((e) => e.includes("invalid category")));
+});
+
+test("review: id must use CR- prefix", () => {
+  const f = goodReview(); f[0].id = "EC-001";
+  const errs = validateReviewFindings(f);
+  assert.ok(errs.some((e) => e.includes("CR- prefix")));
+});
+
+test("review: line must be a number or null", () => {
+  const f = goodReview(); f[0].line = "88";
+  const errs = validateReviewFindings(f);
+  assert.ok(errs.some((e) => e.includes('"line"')));
+});
+
+test("review: non-array input is rejected", () => {
+  assert.ok(validateReviewFindings({}).length > 0);
+});
+
+// ─── rollback-guard verdict schema ───────────────────────────────────
+
+import { validateGuardVerdict } from "../scripts/validate.mjs";
+
+const goodGuard = () => ({
+  verdict: "hold",
+  reason: "error rate approaching budget at 18% adoption",
+  signals: [
+    { name: "error-rate", observed: "2.4x", budget: "<=3x", status: "warning" },
+    { name: "crash-free", observed: "99.6%", budget: ">=99.0%", status: "ok" },
+  ],
+  generatedAt: "2026-05-20T10:00:00Z",
+});
+
+test("guard: a well-formed verdict passes", () => {
+  assert.equal(validateGuardVerdict(goodGuard()).length, 0);
+});
+
+test("guard: forbidden verdict value is rejected", () => {
+  const v = goodGuard(); v.verdict = "rollback-now";
+  const errs = validateGuardVerdict(v);
+  assert.ok(errs.some((e) => e.includes("invalid verdict")));
+});
+
+test("guard: signals must be an array", () => {
+  const v = goodGuard(); v.signals = "lots";
+  const errs = validateGuardVerdict(v);
+  assert.ok(errs.some((e) => e.includes("signals")));
+});
+
+test("guard: bad signal status is rejected", () => {
+  const v = goodGuard(); v.signals[0].status = "fine";
+  const errs = validateGuardVerdict(v);
+  assert.ok(errs.some((e) => e.includes("signal[0]")));
+});
+
+test("guard: an array (not object) is rejected", () => {
+  assert.ok(validateGuardVerdict([]).length > 0);
+});

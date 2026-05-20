@@ -12,6 +12,44 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.4.0] — code review, the fix loop, and a rollout guard
+
+Closes the two gaps between "the spec is good" and "the running feature
+is safe": code-level review of the diff, and a watcher on the rollout.
+
+### Added
+- **`code-review` skill (PR stage)** — reviews the diff for security,
+  correctness, performance, and maintainability defects, distinct from
+  `verify-pr`'s AC/contract conformance. Emits `CR-` findings on the
+  shared `blocker/warning/info` enum, schema-checked by
+  `validate.mjs --check-review`; open blockers gate the merge. Runs in
+  `pr-verify.yml` alongside verify-pr; `/code-review <PR>` to run it
+  manually. GUIDE ②.
+- **Review→fix loop** — `@claude /fix-pr <ID>` runs the Implementer in
+  fix-mode: it reads the open `code-review` / `verify-pr` findings,
+  fixes them narrowly, re-pushes, and CI re-verifies. Bounded by
+  `maxFixIterations` (default 3) then escalates to a human — no churn.
+- **`rollback-guard` skill + `rollback-guard.yml`** — during the rollout
+  window, samples Sentry errors, crash-free rate, and release adoption
+  against the contract's budgets + optional `rollbackTriggers`, and
+  RECOMMENDS `proceed | hold | recommend-rollback`. It never executes a
+  rollback — a `recommend-rollback` posts a top-level Slack alert to the
+  owner with the breached signal and the exact action. `/rollback-check
+  <ID>` to run on demand. GUIDE ③.
+- New contract frontmatter: `fixIterations` / `maxFixIterations` (loop
+  cap), `guardVerdict` / `guardCheckedAt`, and a `rollbackTriggers`
+  block. CONTRACT-FORMAT updated.
+- `validate.mjs` gains `validateReviewFindings` + `validateGuardVerdict`
+  with `--check-review` / `--check-guard` CLI modes (exit codes gate CI:
+  2 = open review blockers, 3 = recommend-rollback). 11 new tests (56
+  total).
+
+### Notes
+- The guard deliberately recommends rather than acts — pausing a canary,
+  flipping a flag, or reverting is a production change a human owns.
+  This matches `verify-deployment`'s long-standing "don't auto-rollback"
+  stance.
+
 ## [0.3.3] — lifecycle & retention
 
 ### Added

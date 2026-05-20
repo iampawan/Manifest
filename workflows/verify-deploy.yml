@@ -1,4 +1,4 @@
-name: Failsafe verify deployment
+name: Shipline verify deployment
 
 # Runs after a successful deploy to QA or pre-prod. Reads the contract
 # behind the release, runs the Playwright suite against the live URL,

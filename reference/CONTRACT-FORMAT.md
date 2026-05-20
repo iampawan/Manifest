@@ -30,6 +30,19 @@ prodRollout100At: null                  # feature flag hits 100%
 landedAt: null                          # day-28 verdict committed
 landed: null                            # true | false | partial | rolled-back
 slaHit: null                            # promotedAt → prodRollout100At within SLA?
+
+# PR-stage review→fix loop (set by code-review + implement fix-mode)
+fixIterations: 0                        # how many fix passes the Implementer has run
+maxFixIterations: 3                     # cap; override via repos.yml conventions
+
+# Rollout health (set by rollback-guard while the feature is ramping)
+guardVerdict: null                      # proceed | hold | recommend-rollback
+guardCheckedAt: null                    # last rollback-guard sample (ISO)
+rollbackTriggers:                       # optional explicit guardrails; defaults used if absent
+  errorRateMultiplier: 3                # error rate > N× baseline → breach
+  crashFreeFloor: 99.0                  # crash-free users % must stay ≥ this
+  newIssueSeverity: blocker             # new Sentry issue at/above this → breach
+  minAdoptionForSignal: 0.05            # ignore signals until ≥ this fraction on the release
 ---
 
 ## Goal

@@ -1,4 +1,4 @@
-name: Failsafe launch monitor
+name: Shipline launch monitor
 
 # Daily cron that produces launch reports at day 1/7/14/28 and runs
 # bug triage every day in between, for any contract currently in its

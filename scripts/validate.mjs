@@ -25,6 +25,15 @@ const SEVERITIES = new Set(["blocker", "warning", "info"]);
 const REQUIRED_COMMS = ["empty", "loading", "success", "error"];
 const PROTOCOL_VERSION = 1;
 
+// PR-stage code-review findings (distinct from contract critics): they
+// operate on a diff and propose code changes. They share the severity
+// enum but carry a category + file/line instead of a fragmentRef.
+const REVIEW_CATEGORIES = new Set([
+  "security", "correctness", "performance", "maintainability", "style",
+]);
+// rollback-guard verdicts. The guard NEVER executes — it recommends.
+const GUARD_VERDICTS = new Set(["proceed", "hold", "recommend-rollback"]);
+
 const hashOf = (md) =>
   "sha256:" + createHash("sha256").update(md).digest("hex").slice(0, 16);
 
@@ -363,6 +372,58 @@ function validateFindings(findings) {
   return errors;
 }
 
+// ─── PR-stage code-review schema validation ──────────────────────────
+// Code-review findings reuse the closed severity enum but operate on a
+// diff: they carry a `category`, a `file`, and an optional `line`. IDs
+// use the CR- prefix. Out-of-schema output is a bug, not a finding.
+
+function validateReviewFindings(findings) {
+  const errors = [];
+  if (!Array.isArray(findings)) return ["review findings is not an array"];
+  findings.forEach((f, i) => {
+    if (!f || typeof f !== "object") { errors.push(`[${i}] not an object`); return; }
+    if (!SEVERITIES.has(f.severity))
+      errors.push(`[${i}] invalid severity "${f.severity}" — must be blocker|warning|info`);
+    if (!REVIEW_CATEGORIES.has(f.category))
+      errors.push(`[${i}] invalid category "${f.category}" — must be one of ${[...REVIEW_CATEGORIES].join("|")}`);
+    for (const k of ["id", "message", "suggestion", "file"])
+      if (typeof f[k] !== "string" || !f[k])
+        errors.push(`[${i}] missing/invalid "${k}"`);
+    if (typeof f.id === "string" && !f.id.startsWith("CR-"))
+      errors.push(`[${i}] id "${f.id}" must use the CR- prefix`);
+    if (f.line != null && typeof f.line !== "number")
+      errors.push(`[${i}] "line" must be a number or null`);
+    if (f.status !== "open" && f.status !== "resolved" && f.status !== "dismissed")
+      errors.push(`[${i}] invalid status "${f.status}"`);
+  });
+  return errors;
+}
+
+// ─── rollback-guard verdict validation ───────────────────────────────
+// The guard recommends; it does not act. A verdict is a single object,
+// not an array, with a closed verdict enum and grounded signals.
+
+function validateGuardVerdict(v) {
+  const errors = [];
+  if (!v || typeof v !== "object" || Array.isArray(v))
+    return ["guard verdict is not an object"];
+  if (!GUARD_VERDICTS.has(v.verdict))
+    errors.push(`invalid verdict "${v.verdict}" — must be ${[...GUARD_VERDICTS].join("|")}`);
+  if (typeof v.reason !== "string" || !v.reason)
+    errors.push(`missing/invalid "reason"`);
+  if (!Array.isArray(v.signals))
+    errors.push(`"signals" must be an array`);
+  else
+    v.signals.forEach((s, i) => {
+      if (!s || typeof s !== "object") { errors.push(`signal[${i}] not an object`); return; }
+      for (const k of ["name", "observed", "budget", "status"])
+        if (!(k in s)) errors.push(`signal[${i}] missing "${k}"`);
+      if (s.status && !["ok", "warning", "breach"].includes(s.status))
+        errors.push(`signal[${i}] invalid status "${s.status}" — must be ok|warning|breach`);
+    });
+  return errors;
+}
+
 // Exports for the eval harness / unit tests.
 export {
   parseContract,
@@ -370,6 +431,8 @@ export {
   computeSizing,
   computeReadiness,
   validateFindings,
+  validateReviewFindings,
+  validateGuardVerdict,
   slaStatus,
   derivePhase,
   fmtBothZones,
@@ -377,6 +440,8 @@ export {
   hashOf,
   readFrontmatter,
   SEVERITIES,
+  REVIEW_CATEGORIES,
+  GUARD_VERDICTS,
   PROTOCOL_VERSION,
 };
 
@@ -394,6 +459,32 @@ function main() {
     }
     console.log(JSON.stringify({ valid: true, count: findings.length }, null, 2));
     process.exit(0);
+  }
+
+  if (args[0] === "--check-review") {
+    // Validate code-review skill output (CR- findings on a diff).
+    const findings = JSON.parse(readFileSync(args[1], "utf8"));
+    const errors = validateReviewFindings(findings);
+    if (errors.length) {
+      console.error(JSON.stringify({ valid: false, errors }, null, 2));
+      process.exit(1);
+    }
+    const blockers = findings.filter((f) => f.severity === "blocker" && f.status === "open").length;
+    console.log(JSON.stringify({ valid: true, count: findings.length, openBlockers: blockers }, null, 2));
+    // Non-zero exit when open blockers exist so CI can gate the merge.
+    process.exit(blockers > 0 ? 2 : 0);
+  }
+
+  if (args[0] === "--check-guard") {
+    // Validate rollback-guard verdict output.
+    const verdict = JSON.parse(readFileSync(args[1], "utf8"));
+    const errors = validateGuardVerdict(verdict);
+    if (errors.length) {
+      console.error(JSON.stringify({ valid: false, errors }, null, 2));
+      process.exit(1);
+    }
+    console.log(JSON.stringify({ valid: true, verdict: verdict.verdict }, null, 2));
+    process.exit(verdict.verdict === "recommend-rollback" ? 3 : 0);
   }
 
   if (args[0] === "--sla") {

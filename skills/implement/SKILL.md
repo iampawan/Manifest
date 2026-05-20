@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implement a promoted contract — write code in the target repo's stack, generate tests in that stack's idiom, iterate until they pass, open the PR. Stack-agnostic: works for web (React/Next/Vue/...), mobile (Flutter/Swift/Kotlin/RN), and backend (Node/Python/Go/...). Use when the user says "implement contract", or in CI when a PR comment matches `@claude /implement <ID>`.
+description: Implement a promoted contract — write code in the target repo's stack, generate tests in that stack's idiom, iterate until they pass, open the PR. Also runs in fix-mode (review→fix loop) to address open PR-review/verify-pr findings on an existing PR. Stack-agnostic: works for web (React/Next/Vue/...), mobile (Flutter/Swift/Kotlin/RN), and backend (Node/Python/Go/...). Use when the user says "implement contract", or in CI when a PR comment matches `@claude /implement <ID>` or `@claude /fix-pr <ID>`.
 requiredScopes:
   - github:contents:write
   - github:pull_requests:write
@@ -15,12 +15,23 @@ stack.** You read the target repo's toolchain from `repos.yml` +
 that repo — npm for Node, flutter for Flutter, gradlew for Android,
 pytest for Python, go test for Go, and so on.
 
+## Two modes
+
+- **Build mode (default)** — turn a freshly-promoted contract into a new
+  PR. This is the main flow below (steps 1–9).
+- **Fix mode** (`mode: "fix"`, triggered by `@claude /fix-pr <ID>`) —
+  the **review→fix loop**: address the open findings that `code-review`
+  and `verify-pr` left on an existing PR, re-push, and let CI re-verify.
+  See "Fix mode: the review→fix loop" near the end. Skip straight there
+  when invoked with `mode: "fix"`.
+
 ## Inputs
 
 - Contract revision file: `.shipline/contracts/<ID>.r<N>.md` (immutable
   snapshot, not the live contract)
 - Target repository: cwd (or specified)
 - An existing PR or branch to push to, or instructions to create one
+- `mode`: `"build"` (default) or `"fix"`
 
 ## Process
 
@@ -154,6 +165,79 @@ Plus "Files changed" and "Tests added (using <test framework>)".
 
 Tell the user (or post in the PR) that the implementation is ready for
 human review, noting the stack and toolchain used.
+
+## Fix mode: the review→fix loop
+
+When invoked with `mode: "fix"` (via `@claude /fix-pr <ID>`), you are
+closing the loop on an existing PR instead of building a new one. The
+goal: turn a PR with open review findings into a green one without a
+human having to relay each comment back to you.
+
+### F1. Read the open findings
+
+- `.shipline/contracts/<ID>.pr-review.json` — the `code-review` skill's
+  validated findings. Address every **open `blocker`** and, if the team
+  has `conventions.autoFixWarnings: true` in `repos.yml`, open
+  `warning`s too. Leave `info` alone unless trivial.
+- The latest `verify-pr` PR comment — any unmet AC, missing
+  instrumentation call, or absent flag gate it flagged.
+
+If both are clean, post "nothing to fix — PR is green" and stop.
+
+### F2. Check the iteration budget — STOP if exhausted
+
+The loop is bounded so it can never churn forever. Read
+`fixIterations` from the live contract frontmatter (default 0) and
+`maxFixIterations` (default **3**; override in `repos.yml`
+`conventions.maxFixIterations`).
+
+- If `fixIterations >= maxFixIterations`: **do not fix.** Post a PR
+  comment + a top-level Slack alert summarizing the still-open findings
+  and asking a human to take over, and stop. Looping past the cap
+  usually means the finding needs a judgment call you shouldn't make
+  silently.
+- Otherwise increment `fixIterations` by 1 and record it in the
+  contract frontmatter before you push.
+
+### F3. Fix — narrowly
+
+Resolve the source repo's stack (same as build mode step 2). For each
+open finding:
+- Make the smallest correct change that resolves it, in the repo's
+  existing idiom. Don't refactor beyond the finding.
+- If a finding reflects a missing test (unmet AC), add the test in this
+  stack's framework, tagged so verify can map it.
+- **Do not expand scope.** A review finding is not license to redesign.
+  If fixing it properly requires out-of-scope changes or contradicts an
+  AC, stop and escalate to a human instead of guessing.
+
+Mark each addressed finding `resolved` in `<ID>.pr-review.json`.
+
+### F4. Re-run locally, then push
+
+Run the resolved test/lint/typecheck/build commands (build mode step
+6). Green or nothing — never push a fix that breaks the suite. Push to
+the same PR branch. The push fires `pr-verify.yml` (synchronize), which
+re-runs `verify-pr` + `code-review` and regenerates the findings. If
+blockers remain and the budget isn't spent, the loop runs again on the
+next `@claude /fix-pr`.
+
+### F5. Report
+
+Lead with the SLA line. Post a PR comment listing what you fixed
+(finding ID → change) and what (if anything) you escalated, e.g.:
+
+```markdown
+⏳ SLA: 9h 05m left (due 2026-05-21 13:30 IST / 08:00 UTC)
+
+## Fix pass 2 of 3
+
+Resolved:
+- CR-001 (security) — parameterized the cards query (api/cards.ts:88)
+- CR-002 (correctness) — guarded `card?.last4` (SavedCardRow.tsx:142)
+
+Re-running verify-pr + code-review on this push.
+```
 
 ## When to ask the user instead of proceeding
 

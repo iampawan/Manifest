@@ -29,7 +29,7 @@ jobs:
           fetch-depth: 0
       - name: Install Claude CLI
         run: npm install -g @anthropic-ai/claude-code
-      - name: Run verify-pr skill
+      - name: Run verify-pr skill (AC / contract conformance)
         env:
           # Prefer subscription auth; fall back to API key.
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -38,6 +38,71 @@ jobs:
         run: |
           claude --skill verify-pr \
             --input '{ "prNumber": ${{ github.event.pull_request.number }} }'
+
+      - name: Run code-review skill (code-level defects)
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          claude --skill code-review \
+            --input '{ "prNumber": ${{ github.event.pull_request.number }} }'
+
+      # Gate the merge on open code-review blockers. The skill writes the
+      # validated JSON to .shipline/contracts/<ID>.pr-review.json;
+      # `--check-review` exits 2 when an open blocker remains.
+      - name: Gate on open code-review blockers
+        run: |
+          REVIEW=$(ls .shipline/contracts/*.pr-review.json 2>/dev/null | head -1 || true)
+          if [[ -z "$REVIEW" ]]; then
+            echo "No code-review output found — skipping gate."
+            exit 0
+          fi
+          set +e
+          node scripts/validate.mjs --check-review "$REVIEW"
+          code=$?
+          set -e
+          if [[ "$code" == "2" ]]; then
+            echo "::error::Code review found open blockers. Comment '@claude /fix-pr <ID>' to have the Implementer address them, or fix manually."
+            exit 1
+          elif [[ "$code" != "0" ]]; then
+            echo "::error::Code-review output failed schema validation."
+            exit 1
+          fi
+
+  # Review→fix loop: an authorized comment re-invokes the Implementer in
+  # fix-mode against the open PR-review findings. Explicit (not automatic
+  # on every push) so a human stays in control of pushed code. The
+  # Implementer enforces the maxFixIterations cap and escalates when hit.
+  fix-on-comment:
+    if: |
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '@claude /fix-pr') &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ github.event.issue.number }}/head
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Claude CLI
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Parse contract ID from comment
+        id: parse
+        run: |
+          ID=$(echo "${{ github.event.comment.body }}" | grep -oP '/fix-pr\s+\K[A-Z]+-\d+')
+          echo "contractId=$ID" >> $GITHUB_OUTPUT
+      - name: Run implement skill in fix-mode
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          claude --skill implement \
+            --input '{ "contractId": "${{ steps.parse.outputs.contractId }}", "prNumber": ${{ github.event.issue.number }}, "mode": "fix" }'
 
   implement-on-comment:
     if: |

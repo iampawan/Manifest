@@ -227,14 +227,29 @@ Where: GitHub (the heavy work runs in CI, not on your laptop).
 You open a draft PR. From the PR, comment `@claude /implement SC-005`.
 The `pr-verify.yml` workflow picks this up and runs the Implementer
 agent headlessly in CI. It clones the repo, reads the revision,
-plans the changes, writes code + Playwright tests, iterates until
-local tests pass, and pushes commits to your PR. On completion, it
-posts an AC coverage comment.
+plans the changes, writes code + tests in the repo's stack, iterates
+until local tests pass, and pushes commits to your PR. On completion,
+it posts an AC coverage comment.
+
+On every push the workflow runs **two checks**:
+- **`verify-pr`** — *did they build the right thing?* AC coverage,
+  instrumentation events, flag gate, no hardcoded strings.
+- **`code-review`** — *is the code itself sound?* Security, correctness,
+  performance, and maintainability defects on the diff, as `CR-`
+  findings (same blocker/warning/info enum, schema-checked). Open
+  blockers fail the check and gate the merge.
+
+If code-review (or verify-pr) leaves open blockers, comment
+`@claude /fix-pr SC-005` to run the **review→fix loop**: the Implementer
+reads the open findings, fixes them narrowly, re-pushes, and CI
+re-verifies. The loop is bounded by `maxFixIterations` (default 3) —
+after the cap it stops and pings a human rather than churning.
 
 A human reviewer looks at the PR — usually about 30 minutes for a
 small contract — and merges. The reviewer's job is "does this look
-sane," not "did the tests pass" (they did) and not "does it match
-the spec" (the AC coverage comment shows that).
+sane," not "did the tests pass" (they did), "does it match the spec"
+(verify-pr shows that), or "is the code dangerous" (code-review caught
+the blockers).
 
 ### ③ SHIP — deploy and canary
 Where: GitHub Actions and your hosting provider.
@@ -246,9 +261,18 @@ samples telemetry from Sentry and Amplitude, and posts a verdict:
 
 If ready, you get a Slack ping asking you to approve canary start.
 You click. Remote Config (or your flag system) rolls out 1% → 10%
-→ 50% → 100% with the orchestrator watching Sentry and pausing on
-breach. Manual rollback in v1; auto-rollback in v2 once telemetry
-confidence is high.
+→ 50% → 100%.
+
+While it ramps, **`rollback-guard.yml`** runs on a tight cadence
+(every 30 min). The guard samples Sentry errors, crash-free rate, and
+release adoption against the contract's budgets (and any
+`rollbackTriggers` you set) and posts a recommendation: `proceed`
+(healthy, keep ramping), `hold` (a warning or too-little data — pause
+the ramp), or `recommend-rollback` (a clear breach — it posts a
+top-level Slack alert to the owner with the breached signal and the
+exact action). **The guard recommends; it never acts** — a human flips
+the flag or reverts. Run it on demand any time with
+`/rollback-check SC-005`.
 
 ### ④ LAND — monitor and verify
 Where: the `launch-monitor.yml` cron in GitHub Actions.

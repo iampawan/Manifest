@@ -154,8 +154,8 @@ Then in Claude Code:
 ```
 
 Skills auto-discover from `skills/*/SKILL.md`; slash commands
-(`/contract`, `/implement`, `/verify-pr`, `/launch`, `/shipline`)
-become available immediately.
+(`/contract`, `/implement`, `/verify-pr`, `/code-review`, `/launch`,
+`/rollback-check`, `/shipline`) become available immediately.
 
 ---
 
@@ -239,7 +239,7 @@ After installing via any method, these should work:
 /plugin           # lists installed plugins, shipline should appear
 /shipline         # opens the tutorial / welcome flow
 /setup            # checks what MCPs you have connected
-/skills           # auto-discovered skills (17 of them)
+/skills           # auto-discovered skills
 ```
 
 If `/shipline` runs and gives you the welcome tutorial, you're set.
@@ -315,7 +315,7 @@ shipline/
 │   └── PUBLISH-CHECKLIST.md             # ship to your team (publish + install)
 ├── eval/
 │   ├── validate.test.mjs                # validator + SLA + phase tests
-│   ├── detect.test.mjs                  # stack-detector tests  (40 total, all green)
+│   ├── detect.test.mjs                  # stack-detector tests  (56 total, all green)
 │   └── contracts/                       # golden contracts (clean + seeded-gaps)
 ├── scripts/
 │   ├── validate.mjs                     # DETERMINISTIC: checks, schema, sizing, readiness, --sla, --status
@@ -343,8 +343,10 @@ shipline/
 │   ├── critic-regression/SKILL.md       # multi-repo + cross-repo API tracing
 │   ├── critic-security/SKILL.md
 │   ├── critic-scalability/SKILL.md
-│   ├── implement/SKILL.md               # the heavy agent — stack-agnostic
+│   ├── implement/SKILL.md               # the heavy agent — stack-agnostic; build + fix modes
+│   ├── code-review/SKILL.md             # PR-stage code-level review (CR- findings)
 │   ├── verify-deployment/SKILL.md       # platform-aware (web / Flutter / backend)
+│   ├── rollback-guard/SKILL.md          # rollout-window health watch (recommends only)
 │   ├── launch-report/SKILL.md           # the loop-closer
 │   └── bug-triage/SKILL.md
 ├── commands/
@@ -355,12 +357,15 @@ shipline/
 │   ├── fix.md                           # /fix <bug-or-change>
 │   ├── implement.md                     # /implement <ID>
 │   ├── verify-pr.md                     # /verify-pr <PR>
+│   ├── code-review.md                   # /code-review <PR>
 │   ├── verify-deploy.md                 # /verify-deploy <ID> <URL>
+│   ├── rollback-check.md                # /rollback-check <ID>
 │   ├── bug-triage.md                    # /bug-triage <ID>
 │   └── launch.md                        # /launch <ID>
 └── workflows/
-    ├── pr-verify.yml                    # PR-triggered Implementer + verifier
+    ├── pr-verify.yml                    # PR-triggered Implementer + verify-pr + code-review + fix loop
     ├── verify-deploy.yml                # post-deploy verification + telemetry
+    ├── rollback-guard.yml               # rollout-window health watch (every 30 min)
     ├── launch-monitor.yml               # 28-day landing cron
     └── eval.yml                         # runs the test suite on every change
 ```
