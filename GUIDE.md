@@ -439,7 +439,7 @@ place. This is the *whole point* of skills being editable.
 | Skill | Purpose |
 |---|---|
 | `contract-new` | Five-question intake → draft contract markdown |
-| `contract-verify` | Orchestrate 9 critics in parallel, compute readiness |
+| `contract-verify` | Validator + relevant judgment critics; compute readiness |
 | `contract-promote` | Freeze revision, start SLA, create JIRA epic + GH issue |
 
 ### Critics (run by `contract-verify`)

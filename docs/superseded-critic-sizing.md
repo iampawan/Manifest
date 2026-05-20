@@ -1,3 +1,7 @@
+> SUPERSEDED in v0.3.0. Sizing is now computed deterministically by
+> scripts/validate.mjs (computeSizing). This LLM critic is no longer
+> registered. Kept as a record of the original rubric.
+
 ---
 name: critic-sizing
 description: Critic that classifies a verified contract as Small (24h), Medium (72h), or Large (no SLA). The keystone that routes work to the right pipeline path. Runs LAST in contract-verify, after all other critics have produced their findings.

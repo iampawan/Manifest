@@ -103,3 +103,12 @@ If zero new bugs, post a quieter line: "Day 4 bug triage: clean."
 - Don't assign without checking the team is on-call.
 - Don't file a ticket the same engineer just filed manually 10 minutes
   earlier — be willing to wait and dedupe in the next pass.
+
+## Slack threading
+
+Post Slack updates as a REPLY in the contract's thread, not a new
+top-level message: use `thread_ts: <contract.slackThreadTs>` in the
+channel `<contract.slackChannel>` (both set by contract-promote). This
+keeps `#shipline` to one line per contract. Exception: an overdue SLA,
+a `rollback`, or a canary auto-pause also posts a brief top-level alert
+linking back to the thread. (See reference/CONTRACT-FORMAT.md.)

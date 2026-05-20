@@ -125,6 +125,16 @@ Re-read your diff before pushing:
 
 ### 8. Open / update the PR
 
+**Lead every PR comment / status update with the SLA line:**
+
+```bash
+node <plugin-root>/scripts/validate.mjs --sla .shipline/contracts/<ID>.md
+```
+
+Prepend its output (e.g., `⏳ SLA: 14h 30m left (due ...)`) to the AC
+coverage comment and any Slack ping, so the reviewer sees the
+countdown at a glance.
+
 Via the GitHub MCP: push commits, create/update the PR with title from
 `contract.title` and body referencing the revision file. Post an AC
 coverage comment mapping each AC to its test file in this stack:
@@ -167,3 +177,12 @@ For everything else — make the call, document it, proceed.
 - Don't push partial work — green or nothing.
 - Don't write a Playwright test for a Flutter repo, or a pytest for a
   Go repo. Match the stack.
+
+## Slack threading
+
+Post Slack updates as a REPLY in the contract's thread, not a new
+top-level message: use `thread_ts: <contract.slackThreadTs>` in the
+channel `<contract.slackChannel>` (both set by contract-promote). This
+keeps `#shipline` to one line per contract. Exception: an overdue SLA,
+a `rollback`, or a canary auto-pause also posts a brief top-level alert
+linking back to the thread. (See reference/CONTRACT-FORMAT.md.)

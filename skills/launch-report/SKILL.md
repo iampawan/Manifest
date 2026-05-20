@@ -256,3 +256,12 @@ the day's verdict. At day 28, set `landed: true | false | partial`.
 - Don't claim correlation as causation — a metric moving up after
   launch could be seasonality.
 - Don't hide bad news in passive voice.
+
+## Slack threading
+
+Post Slack updates as a REPLY in the contract's thread, not a new
+top-level message: use `thread_ts: <contract.slackThreadTs>` in the
+channel `<contract.slackChannel>` (both set by contract-promote). This
+keeps `#shipline` to one line per contract. Exception: an overdue SLA,
+a `rollback`, or a canary auto-pause also posts a brief top-level alert
+linking back to the thread. (See reference/CONTRACT-FORMAT.md.)

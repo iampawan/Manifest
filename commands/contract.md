@@ -57,20 +57,23 @@ Invokes the **contract-new** skill.
 
 ### /contract verify <ID>
 
-Runs all 9 critics in parallel against the contract. Writes a findings
+Runs the deterministic validator, then only the relevant judgment critics. Writes a findings
 file. Sets readiness verdict and complexity.
 
-Takes about 90 seconds. Critics that run:
+Takes about 90 seconds. The deterministic validator handles field
+presence, AC coverage, sizing, and the readiness verdict. Then only
+the *relevant* judgment critics run (selected by change type):
 
-- **edge-cases** — missing scenarios, state transitions, error paths
-- **platform-parity** — every behavior specified per platform in scope
-- **instrumentation** — every behavior has a measurement plan
-- **comms-completeness** — empty/loading/success/error states + notifications
-- **perf-budget** — explicit TTI / latency / error thresholds
-- **regression** — scans your other repos for conflicts
-- **security** — auth, PII, injection, audit logging
-- **scalability** — N+1, unbounded growth, hot paths
-- **sizing** — runs last; classifies Small / Medium / Large
+- **edge-cases** — always; missing scenarios, state transitions
+- **regression** — always; scans your other repos for conflicts
+- **security** — always (unless purely cosmetic); auth, PII, injection
+- **instrumentation** — if metrics/events exist; naming + collisions
+- **comms-completeness** — if user-facing; copy quality
+- **platform-parity** — if >1 platform; platform-specific UX
+- **scalability** — if it touches data/server; N+1, growth, hot paths
+- **perf-budget** — if non-default budgets / hot paths
+
+(Sizing is computed by the validator, not an LLM critic.)
 
 Output: `.shipline/contracts/<ID>.findings.md` plus updated frontmatter
 on the contract itself (`status`, `complexity`, readiness reasons).
@@ -81,12 +84,23 @@ Invokes the **contract-verify** skill.
 
 Freezes a verified contract into a revision. Creates a JIRA epic
 (if Atlassian MCP connected), opens a GitHub tracking issue, starts
-the SLA timer (24h Small, 72h Medium). Refuses Large complexity.
+the SLA timer (24h Small, 72h Medium). For Small/Medium only — a Large
+contract is routed to `/contract decompose` instead.
 
 This is a one-way commitment. Edits after promote fork a new revision
 but the running pipeline reads the snapshot.
 
 Invokes the **contract-promote** skill.
+
+### /contract decompose <ID>
+
+For a Large contract: breaks it into a dependency-ordered sequence of
+Small/Medium child contracts, with migrations/auth flagged human-led.
+The Large contract becomes an epic that owns the overall success
+metric; each child is verified and promoted normally, in order. Large
+isn't refused — it's made tractable.
+
+Invokes the **contract-decompose** skill.
 
 ## Full example walkthrough
 

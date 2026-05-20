@@ -136,3 +136,83 @@ test("schema: rejects missing required fields", () => {
   assert.ok(errors.some((e) => e.includes("message")));
   assert.ok(errors.some((e) => e.includes("suggestion")));
 });
+
+test("epic contract skips behavior-level checks", () => {
+  const epic = `---
+id: EPIC-1
+title: Big thing
+status: verified
+type: epic
+complexity: large
+platforms: [web, ios]
+children: [EPIC-1a, EPIC-1b]
+revision: 1
+---
+
+## Goal
+A decomposed Large contract. Behaviors live in the children.
+`;
+  const c = parseContract(epic);
+  const findings = checkContract(c);
+  assert.equal(findings.length, 0, "epic should produce no behavior-level findings");
+});
+
+// ─── SLA status ──────────────────────────────────────────────────────
+
+import { slaStatus } from "../scripts/validate.mjs";
+
+const HOUR = 3_600_000;
+
+test("sla: not started when no slaDeadline", () => {
+  const s = slaStatus({});
+  assert.equal(s.hasSla, false);
+  assert.equal(s.state, "none");
+});
+
+test("sla: ok with plenty of time left", () => {
+  const now = Date.parse("2026-05-20T09:00:00Z");
+  const s = slaStatus({ promotedAt: "2026-05-20T08:00:00Z", slaDeadline: "2026-05-21T08:00:00Z" }, now);
+  assert.equal(s.state, "ok");
+  assert.ok(s.label.includes("left"));
+  assert.ok(s.remainingMs > 22 * HOUR);
+});
+
+test("sla: warning when under 20% of window remains", () => {
+  const now = Date.parse("2026-05-21T05:00:00Z"); // 3h before a 24h-window deadline
+  const s = slaStatus({ promotedAt: "2026-05-20T08:00:00Z", slaDeadline: "2026-05-21T08:00:00Z" }, now);
+  assert.equal(s.state, "warning");
+});
+
+test("sla: overdue when past deadline", () => {
+  const now = Date.parse("2026-05-21T10:00:00Z");
+  const s = slaStatus({ promotedAt: "2026-05-20T08:00:00Z", slaDeadline: "2026-05-21T08:00:00Z" }, now);
+  assert.equal(s.state, "overdue");
+  assert.ok(s.label.includes("OVERDUE"));
+  assert.ok(s.remainingMs < 0);
+});
+
+// ─── Phase derivation + dual-zone time ───────────────────────────────
+
+import { derivePhase, fmtBothZones } from "../scripts/validate.mjs";
+
+test("phase: draft → verify next", () => {
+  assert.equal(derivePhase({ id: "X", status: "draft" }).phase, "① Drafting");
+});
+test("phase: verified Large → decompose next", () => {
+  const p = derivePhase({ id: "X", status: "verified", complexity: "large" });
+  assert.ok(p.next.includes("decompose"));
+});
+test("phase: promoted with PR open → in review", () => {
+  assert.equal(derivePhase({ id: "X", status: "promoted", prOpenedAt: "t" }).phase, "② In review");
+});
+test("phase: promoted at 100% → landing window", () => {
+  assert.equal(derivePhase({ id: "X", status: "promoted", prodRollout100At: "t" }).phase, "④ Landing window");
+});
+test("phase: landed", () => {
+  assert.equal(derivePhase({ id: "X", landed: true }).phase, "Landed ✅");
+});
+test("time: shows both IST and UTC", () => {
+  const s = fmtBothZones("2026-05-21T08:00:00Z");
+  assert.ok(s.includes("13:30 IST"));
+  assert.ok(s.includes("08:00 UTC"));
+});

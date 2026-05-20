@@ -42,8 +42,14 @@ a silent pass.
 1. **Read** `.shipline/contracts/<ID>.md`. Confirm `status: verified` and
    `complexity` is one of `small | medium | large`.
 
-2. **Refuse if Large.** Large contracts use the normal cycle, not this
-   pipeline. Tell the user to split or pursue conventionally.
+2. **If Large, route to decomposition — don't refuse.** A Large
+   contract can't be agent-shipped on a timer, but it shouldn't be
+   abandoned either. Invoke the **contract-decompose** skill (or tell
+   the user to run `/contract decompose <ID>`): it breaks the Large
+   contract into a dependency-ordered set of Small/Medium child
+   contracts, with risky parts (migrations, auth) flagged human-led.
+   Each child then promotes normally. Do NOT promote the Large
+   contract itself into the build phase.
 
 3. **Create the revision.** Copy the current contract to
    `.shipline/contracts/<ID>.r<N>.md` where N is `revision`. This is the
@@ -73,14 +79,25 @@ a silent pass.
 
 8. **Commit and push** the contract changes and the new revision file.
 
-9. **Post to Slack** (if Slack MCP is connected). Channel is
-   `#shipline` by convention; user can override. Message
-   format:
-   > 🚀 *<title>* (<ID>) promoted — *<complexity>* · SLA <deadline relative>
+9. **Post the Slack ANCHOR message** (if Slack MCP is connected).
+   This is the ONE top-level message for this contract — every later
+   update threads under it (see `reference/CONTRACT-FORMAT.md` Slack
+   threading). Channel is `#shipline` by convention; user can override.
+
+   > 🚀 *<title>* (<ID>) promoted — *<complexity>* · ⏳ SLA: 24h left (due <IST / UTC>)
    > <revision file link> · <jira epic link> · <github issue link>
 
-10. **Tell the user** what's done and the next manual step: invite the
-    assigned engineer to comment `@claude /implement <ID>` on their PR.
+   Generate the SLA line with
+   `node <plugin-root>/scripts/validate.mjs --sla .shipline/contracts/<ID>.md`
+   (just after stamping `promotedAt` + `slaDeadline`).
+
+   **Capture the posted message's `thread_ts` and stamp it on the
+   contract** as `slackThreadTs` (and `slackChannel`). All later skills
+   reply into this thread so the channel stays one-line-per-contract.
+
+10. **Tell the user** what's done, the SLA countdown, and the next
+    manual step: invite the assigned engineer to comment
+    `@claude /implement <ID>` on their PR.
 
 ## Refuse conditions
 

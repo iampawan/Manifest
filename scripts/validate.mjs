@@ -104,6 +104,13 @@ function checkContract(contract) {
 
   let n = { INS: 0, PERF: 0, COMMS: 0, PP: 0, AC: 0 };
 
+  // An epic (a decomposed Large contract) delegates its behaviors to
+  // child contracts and isn't implemented directly — skip behavior
+  // checks for it. Its children are validated as normal contracts.
+  if (frontmatter.type === "epic") {
+    return findings; // no behavior-level findings for an epic
+  }
+
   if (behaviors.length === 0) {
     add("instrumentation", "INS-000", "blocker",
       "Contract has no behaviors (### B<n> sections).",
@@ -234,6 +241,80 @@ function computeReadiness(contract, allFindings) {
   return { readiness, reasons, openBlockers, openWarnings };
 }
 
+// ─── SLA status (deterministic given deadline + now) ─────────────────
+
+function fmtDuration(ms) {
+  const abs = Math.abs(ms);
+  const h = Math.floor(abs / 3_600_000);
+  const m = Math.floor((abs % 3_600_000) / 60_000);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+// Format an instant in BOTH IST and UTC. IST has no DST — fixed +5:30.
+// e.g. "2026-05-21 13:30 IST / 08:00 UTC"
+function fmtBothZones(isoOrMs) {
+  const d = new Date(isoOrMs);
+  if (isNaN(d.getTime())) return String(isoOrMs);
+  const utc = d.toISOString().slice(0, 16).replace("T", " ");
+  const ist = new Date(d.getTime() + 5.5 * 3_600_000)
+    .toISOString().slice(0, 16).replace("T", " ");
+  return `${ist} IST / ${utc} UTC`;
+}
+
+// Returns a one-line SLA label + structured state. Every status update
+// during the build/ship phases should lead with `label`.
+function slaStatus(frontmatter, now = Date.now()) {
+  const deadline = frontmatter.slaDeadline;
+  if (!deadline) {
+    return { hasSla: false, state: "none", remainingMs: null, deadline: null,
+      label: "SLA: not started (promote to start the timer)" };
+  }
+  const deadlineMs = Date.parse(deadline);
+  const remainingMs = deadlineMs - now;
+  const due = fmtBothZones(deadline);
+  if (remainingMs < 0) {
+    return { hasSla: true, state: "overdue", remainingMs, deadline,
+      label: `⚠️ SLA OVERDUE by ${fmtDuration(remainingMs)} (was due ${due})` };
+  }
+  // warning if < 20% of the window remains
+  const promotedAt = frontmatter.promotedAt ? Date.parse(frontmatter.promotedAt) : null;
+  const totalMs = promotedAt ? deadlineMs - promotedAt : null;
+  const pctLeft = totalMs && totalMs > 0 ? remainingMs / totalMs : 1;
+  const warning = pctLeft < 0.2;
+  return {
+    hasSla: true,
+    state: warning ? "warning" : "ok",
+    remainingMs,
+    deadline,
+    label: `${warning ? "⏳⚠️" : "⏳"} SLA: ${fmtDuration(remainingMs)} left (due ${due})`,
+  };
+}
+
+// ─── Phase + next action (deterministic from frontmatter) ────────────
+
+function derivePhase(fm) {
+  if (fm.landed === true) return { phase: "Landed ✅", next: "Done. Final verdict committed." };
+  if (fm.landed === "partial") return { phase: "Landed (partial)", next: "Review the day-28 report; consider a follow-up." };
+  if (fm.landed === false || fm.landed === "not-landed") return { phase: "Not landed", next: "Read the launch report; file a follow-up contract." };
+  if (fm.landed === "rolled-back") return { phase: "Rolled back", next: "Read what was learned; fix and re-run the cycle." };
+
+  if (fm.status === "draft") return { phase: "① Drafting", next: `/contract verify ${fm.id}` };
+  if (fm.status === "verifying") return { phase: "① Verifying", next: "wait for critics, then resolve findings" };
+  if (fm.status === "verified") {
+    if (fm.complexity === "large") return { phase: "① Verified (Large)", next: `/contract decompose ${fm.id}` };
+    return { phase: "① Verified", next: `/contract promote ${fm.id}` };
+  }
+  if (fm.status === "promoted") {
+    if (fm.prodRollout100At) return { phase: "④ Landing window", next: "launch reports run day 1/7/14/28" };
+    if (fm.canaryStartedAt) return { phase: "③ Canary rollout", next: "watch telemetry; approve next stage" };
+    if (fm.qaDeployedAt) return { phase: "③ QA verified", next: "approve canary" };
+    if (fm.prMergedAt) return { phase: "③ Deploying", next: "verify-deploy runs on deploy" };
+    if (fm.prOpenedAt) return { phase: "② In review", next: "review the PR and merge" };
+    return { phase: "② Building", next: `comment @claude /implement ${fm.id} on a PR` };
+  }
+  return { phase: fm.status || "unknown", next: "—" };
+}
+
 // ─── Findings schema validation (for critic output) ──────────────────
 
 function validateFindings(findings) {
@@ -259,6 +340,9 @@ export {
   computeSizing,
   computeReadiness,
   validateFindings,
+  slaStatus,
+  derivePhase,
+  fmtBothZones,
   SEVERITIES,
   PROTOCOL_VERSION,
 };
@@ -277,6 +361,37 @@ function main() {
     }
     console.log(JSON.stringify({ valid: true, count: findings.length }, null, 2));
     process.exit(0);
+  }
+
+  if (args[0] === "--sla") {
+    // Print the one-line SLA label for a contract. Skills prepend this
+    // to every status update during the build/ship phases.
+    const md = readFileSync(args[1], "utf8");
+    const { frontmatter } = parseContract(md);
+    const sla = slaStatus(frontmatter);
+    console.log(sla.label);
+    process.exit(sla.state === "overdue" ? 1 : 0);
+  }
+
+  if (args[0] === "--status") {
+    // A compact status block for a contract: phase, SLA, readiness,
+    // next action. Deterministic. Powers the /status command.
+    const md = readFileSync(args[1], "utf8");
+    const c = parseContract(md);
+    const fm = c.frontmatter;
+    const { phase, next } = derivePhase(fm);
+    const sla = slaStatus(fm);
+    const findings = fm.type === "epic" ? [] : checkContract(c);
+    const readiness = computeReadiness(c, findings);
+    console.log(
+      `${fm.id} — ${fm.title}\n` +
+      `  phase:     ${phase}\n` +
+      `  ${sla.label}\n` +
+      `  readiness: ${readiness.readiness}` +
+        (readiness.reasons.length ? ` (${readiness.reasons.join("; ")})` : "") + `\n` +
+      `  next:      ${next}`
+    );
+    process.exit(sla.state === "overdue" ? 1 : 0);
   }
 
   const path = args[0];

@@ -68,7 +68,7 @@ one-liner; don't `/fix` a multi-platform feature.
 
 # Spec phase
 /contract new <URL or "description">    Author from JIRA / Linear / text
-/contract verify <ID>                    Run all 9 critics
+/contract verify <ID>                    Validator + relevant judgment critics
 /contract promote <ID>                   Freeze revision, start SLA
 
 # Build phase
@@ -80,9 +80,10 @@ one-liner; don't `/fix` a multi-platform feature.
 /launch <ID>                             Manual launch report (day verdict)
 /bug-triage <ID>                         Manual bug-cluster scan
 
-# Meta
+# Status + meta
+/status [<ID>]                           Phase + SLA (IST+UTC) + next; or all in-flight
 /shipline                                This tutorial
-/setup                                   Check MCPs and config
+/setup                                   Detection wizard / MCP check
 ```
 
 ## Deep dives

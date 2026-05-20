@@ -116,7 +116,7 @@ through:
    Acceptance Criteria, Diagrams, Out of Scope, Open Questions.
    Spend 20 seconds on why each matters.
 
-2. **The critics** — explain what each of the 9 critics looks for
+2. **The critics** — explain what the relevant critics look for
    in this example contract. Don't list all 9; pick 3-4 high-value
    examples:
    - **edge-cases** would flag "what happens if the user has no
@@ -125,8 +125,8 @@ through:
      event tied to it
    - **regression** would scan other repos for code that touches
      payment methods
-   - **sizing** would classify this Medium (2 platforms, schema
-     addition)
+   - the deterministic validator (not a critic) classifies this
+     Medium (2 platforms, schema addition) and computes readiness
 
 3. **The gates** — readiness is computed mechanically:
    - 0 open blockers

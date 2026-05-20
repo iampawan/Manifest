@@ -103,9 +103,27 @@ Things the author needs answered before promote. Critics will flag these.
 | `id` | yes | Short stable ID. Prefix by epic area (SC, AUTH, etc.) |
 | `title` | yes | One line |
 | `status` | yes | State machine: draft → verifying → verified → promoted |
-| `complexity` | set by sizing critic | small / medium / large |
+| `complexity` | set by the validator | small / medium / large |
 | `platforms` | yes | Subset of [web, ios, android, server, email] |
 | `revision` | yes | Bumps on every promoted edit |
+| `type` | no | `epic` for a decomposed Large contract; omitted otherwise |
+| `parent` | no | On a child: the epic ID it belongs to |
+| `children` | no | On an epic: ordered list of child contract IDs |
+| `dependsOn` | no | On a child: child IDs that must ship first |
+| `implementation` | no | `agent` (default) or `human-led` (migrations/auth — speced + verified by Shipline, human writes the code) |
+| `slackThreadTs` | set on promote | Slack `thread_ts` of the contract's anchor message; later updates reply in this thread |
+| `slackChannel` | set on promote | The channel the thread lives in (default `#shipline`) |
+
+### Large contracts → epics
+
+A `large` contract is not refused. `/contract decompose <ID>` turns it
+into an **epic** (`type: epic`) whose `children` are dependency-ordered
+Small/Medium contracts. The epic owns the overall success metric
+(measured across all children); each child is a normal contract with
+`parent` set, verified and promoted in order. Risky children
+(migrations, auth) carry `implementation: human-led`. The validator
+skips behavior-level checks on an epic (its behaviors live in the
+children). See the `contract-decompose` skill.
 
 ### Cycle-time timestamps
 
@@ -136,6 +154,52 @@ The Launch Report includes a cycle-time section per day surfacing:
 Track these across many contracts and you get a real distribution of
 your team's actual cycle time — which is more valuable than any
 single SLA promise.
+
+### Slack threading — one channel, no spam (convention)
+
+All Shipline updates post to ONE channel (`#shipline` by default), but
+they DON'T flood it. Each contract gets exactly **one top-level
+message** (the promotion announcement); every later update — implement
+done, verify verdict, canary approval, launch reports day 1/7/14/28,
+bug triage — posts as a **threaded reply** under it.
+
+The mechanism: `contract-promote` posts the anchor message and records
+its Slack `thread_ts` on the contract:
+
+```yaml
+slackThreadTs: "1716192000.123456"   # set by contract-promote
+slackChannel: "#shipline"            # the channel the thread lives in
+```
+
+Every later skill that posts (implement, verify-deploy, launch-report,
+bug-triage) posts with `thread_ts: <slackThreadTs>` so it lands in the
+thread, not the channel. Result: the channel shows one line per
+contract; click in to see its whole history.
+
+**Exception — urgent alerts.** SLA overdue, a `rollback` verdict, or a
+canary auto-pause ALSO post a brief top-level alert that links back to
+the thread, so genuinely urgent things aren't buried. Everything else
+stays threaded.
+
+### SLA countdown in every update (convention)
+
+Every status update during the build/ship phases — PR comments,
+Slack messages, command output — leads with the current SLA line so
+the dev always knows where they stand. Get it deterministically:
+
+```bash
+node <plugin-root>/scripts/validate.mjs --sla .shipline/contracts/<ID>.md
+```
+
+It prints one of:
+- `⏳ SLA: 18h 20m left (due <time>)` — on track
+- `⏳⚠️ SLA: 3h 10m left (due <time>)` — under 20% of the window left
+- `⚠️ SLA OVERDUE by 2h 5m (was due <time>)` — past deadline (exit 1)
+- `SLA: not started (promote to start the timer)` — pre-promote
+
+The implement, verify-pr, verify-deploy, and promote skills all
+prepend this line. The countdown resolves once the feature hits 100%
+prod (then `slaHit` records the final hit/miss).
 
 ### Behavior fields
 

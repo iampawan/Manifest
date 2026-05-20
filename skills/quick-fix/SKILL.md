@@ -119,7 +119,7 @@ trivial fix, normal merge + deploy is fine.
 
 ## What the express lane deliberately SKIPS
 
-- The 9 critics (nothing to verify — no new behavior/instrumentation)
+- The critics (nothing to verify — no new behavior/instrumentation)
 - The SLA timer (no promote step)
 - The launch report (nothing new to measure)
 - Cycle-time stamping (overkill for a fix)

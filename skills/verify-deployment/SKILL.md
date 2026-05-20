@@ -265,6 +265,11 @@ before progressing to next track.
 
 ## 6. Post to Slack and update PR
 
+**Lead with the SLA line.** Run
+`node <plugin-root>/scripts/validate.mjs --sla .shipline/contracts/<ID>.md`
+and prepend its output to the verdict message, so every deploy update
+shows time-left/overdue at a glance.
+
 Post the verdict to the contract's Slack thread. Comment on the
 tracking issue with the verdict and a link to the report file.
 
@@ -288,3 +293,12 @@ tracking issue with the verdict and a link to the report file.
   15 but breaks on iPhone 11 is broken.
 - Don't treat "no data yet" as "passes" — if events should be
   firing and aren't, that's a `hold`, not a `ready-for-canary`.
+
+## Slack threading
+
+Post Slack updates as a REPLY in the contract's thread, not a new
+top-level message: use `thread_ts: <contract.slackThreadTs>` in the
+channel `<contract.slackChannel>` (both set by contract-promote). This
+keeps `#shipline` to one line per contract. Exception: an overdue SLA,
+a `rollback`, or a canary auto-pause also posts a brief top-level alert
+linking back to the thread. (See reference/CONTRACT-FORMAT.md.)

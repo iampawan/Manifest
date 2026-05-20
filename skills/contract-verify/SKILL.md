@@ -42,27 +42,36 @@ This returns JSON with:
 If the validator exits 2 (parse/input error), STOP and report the
 error — do not proceed to LLM critics against an unparseable contract.
 
-### 3. Run ONLY the judgment critics
+### 3. Select and run ONLY the relevant judgment critics
 
 The deterministic layer already covered field presence, AC coverage,
 sizing, and platform-subset checks. Do NOT re-run those as LLM critics.
-Spawn sub-agents (one Task batch, parallel) ONLY for the critics that
-require reasoning:
+(There is no `critic-sizing` skill anymore — sizing is fully in the
+validator.)
 
-- critic-edge-cases — missing scenarios
-- critic-security — auth/PII/injection reasoning
-- critic-scalability — N+1, growth, hot-path reasoning
-- critic-regression — cross-repo conflict analysis (reads code)
-- critic-instrumentation — *judgment only*: event naming quality,
-  collision risk (NOT "is the field present" — validator did that)
-- critic-comms-completeness — *judgment only*: is the error copy
-  actionable, on-brand (NOT "is the field present")
-- critic-perf-budget — *judgment only*: are the budgets realistic
-  (NOT "is the field present")
-- critic-platform-parity — *judgment only*: is the platform-specific
-  UX actually described (NOT "is platforms ⊆ contract.platforms")
+**Select critics by relevance — don't run all of them every time.**
+Running irrelevant critics wastes tokens and adds noise. Choose based
+on the contract:
 
-Each critic must return output conforming to `reference/CRITIC-PROTOCOL.md`.
+| Critic | Run when |
+|---|---|
+| critic-edge-cases | ALWAYS |
+| critic-regression | ALWAYS (every change can conflict with shipped code) |
+| critic-security | ALWAYS, unless the change is purely cosmetic (copy/CSS) with no data, auth, or input handling |
+| critic-instrumentation | only if the contract declares success metrics or new events (there's something to evaluate) |
+| critic-comms-completeness | only if behaviors are user-facing (skip for pure backend/server contracts) |
+| critic-platform-parity | only if `contract.platforms` has MORE THAN ONE platform |
+| critic-scalability | only if behaviors touch data, server, or backend (skip pure client-UI changes) |
+| critic-perf-budget | only if a behavior sets a non-default perf budget OR touches a known hot path (the validator already enforced presence + stack defaults) |
+
+Spawn the selected critics as sub-agents in ONE parallel Task batch.
+A single-platform web feature typically runs ~5 critics; a backend
+change runs a different ~5; a copy tweak that somehow reached a
+contract runs ~3. Each critic must return output conforming to
+`reference/CRITIC-PROTOCOL.md`.
+
+State which critics you ran and which you skipped (and why) in the
+findings file, so the verdict is transparent.
 
 ### 4. Validate critic output against the schema
 
