@@ -23,26 +23,63 @@ A contract ID (e.g., `SC-005`) or path.
 Read `.manifest/contracts/<ID>.md`. If it doesn't exist or status is
 already `promoted`, refuse.
 
-### 1b. Cache check — skip the expensive critics if nothing changed
+### 1b. Decide how much to re-run — speed comes from doing less
 
-Before doing any work, check whether a prior verify still applies:
+Most of the wall-clock is the LLM critics (the deterministic validator
+is <1s). So before running anything, figure out the *smallest correct*
+set of critics to run. Four modes, in priority order:
+
+**A. `--force`** → skip all caching, run a full verify (every relevant
+critic, full regression scan). Use when in doubt.
+
+**B. `--fast` (fast-iteration mode)** → run ONLY `critic-edge-cases` and
+`critic-security`, and tell regression to **reuse** (no repo scan). This
+is the quick draft-loop verdict. Stamp `verifyMode: fast` in the
+findings frontmatter. **A `--fast` verify is not promotable** — a full
+verify must run before promote (contract-promote enforces this). Tell
+the user: "Fast verify — ran edge-cases + security only. Run
+`/contract verify <ID>` (full) before promoting."
+
+**C. No-op cache** → if not fast/force, check whether anything changed:
 
 ```bash
 node <plugin-root>/scripts/validate.mjs --cache-check .manifest/contracts/<ID>.md
 ```
 
-- **Exit 0 (cached)** — the contract content, plugin version, and
-  protocol version are unchanged since the last verify. The existing
-  `.findings.md` is still valid. **Skip the critics entirely** and tell
-  the user: "Nothing changed since the last verify (<reason>). Reusing
-  findings from <timestamp>. Run `/contract verify <ID> --force` to
-  re-verify anyway." This saves the full LLM critic cost on no-op
-  re-runs (CI re-runs, habit re-runs, iterating on other files).
-- **Exit 1 (stale)** — content or version changed. Proceed to a full
-  verify.
+Exit 0 (cached): content + plugin + protocol versions unchanged. Reuse
+`.findings.md` wholesale, skip every critic, tell the user it's reused.
+Exit 1 (stale): go to D.
 
-If the user passed `--force`, skip this cache check and always run a
-full verify.
+**D. Incremental re-verify (the common edit→reverify case)** → ask the
+validator which fragments changed since the last findings:
+
+```bash
+node <plugin-root>/scripts/validate.mjs --changed .manifest/contracts/<ID>.md \
+  .manifest/contracts/<ID>.findings.json
+```
+
+This prints a plan:
+- `localizedBehaviors` — re-run the **localized** critics
+  (`comms-completeness`, `perf-budget`, `platform-parity`,
+  `instrumentation`) ONLY over these behaviors. Reuse the prior findings
+  (from `<ID>.findings.json`) for all other behaviors — filter them by
+  `fragmentRef`.
+- `rerunCrossCutting` — if true, re-run the cross-cutting critics
+  (`edge-cases`, `security`, `scalability`); if false, reuse their prior
+  findings unchanged.
+- `regression` — `rescan` (API surface changed → full repo scan),
+  `reason-only` (surface unchanged but something moved → reuse the
+  cached scan results, just re-reason over them), or `reuse` (nothing
+  relevant moved → keep prior regression findings).
+
+Carry `currFragmentHashes` and `currApiSurfaceHash` from the plan into
+the new findings frontmatter (step 6) so the next re-verify can diff
+against them.
+
+Reusing prior findings for unchanged fragments is what makes re-verify
+fast: a one-behavior copy edit re-runs comms-completeness over one
+behavior and reuses everything else, instead of re-running the whole
+suite.
 
 **Advisory lock check.** If the contract's `lockedBy` is someone other
 than the current user AND `lockedAt` is recent (< 2h), warn: "⚠️
@@ -101,8 +138,25 @@ change runs a different ~5; a copy tweak that somehow reached a
 contract runs ~3. Each critic must return output conforming to
 `reference/CRITIC-PROTOCOL.md`.
 
-State which critics you ran and which you skipped (and why) in the
-findings file, so the verdict is transparent.
+**Narrow the batch with the re-run plan (1b.D).** On a re-verify, only
+run the localized critics over `localizedBehaviors`, only re-run the
+cross-cutting critics if `rerunCrossCutting`, and follow the plan's
+`regression` directive (rescan / reason-only / reuse). Findings you
+don't re-run are carried over from the prior `<ID>.findings.json`.
+
+**Model tiering (latency + cost).** Assign models per critic:
+- **Strong model** for the heavy reasoning: `edge-cases`, `security`,
+  `regression`, `scalability`.
+- **Fast model** for the lighter, pattern-style critics:
+  `comms-completeness`, `instrumentation`, `perf-budget`,
+  `platform-parity`.
+A team can override the mapping with `conventions.criticModels` in
+`repos.yml`. (If the runtime doesn't support per-critic model
+selection, run them all on the default model — the tiering is an
+optimization, not a correctness requirement.)
+
+State which critics you ran, which you reused, and which you skipped
+(and why) in the findings file, so the verdict is transparent.
 
 ### 4. Validate critic output against the schema
 
@@ -147,6 +201,14 @@ verifiedWith:
   protocolVersion: 1
   contractHash: <from validator>
 readiness: <verdict>
+verifyMode: full                 # full | fast — "fast" is NOT promotable
+# Incremental-verify provenance — the next re-verify diffs against these.
+fragmentHashes: <currFragmentHashes from the --changed plan>
+apiSurfaceHash: <currApiSurfaceHash from the --changed plan>
+regressionScan:                  # so regression can reuse its repo scan
+  apiSurfaceHash: <same as above>
+  scannedAt: <ISO of the last actual repo scan>
+  repoHeads: { <repo>: <sha>, ... }   # head SHAs of repos scanned
 ---
 ```
 
@@ -157,8 +219,11 @@ judgment-with-code-reading).
 Also write `.manifest/contracts/<ID>.findings.json` — the merged
 findings array (deterministic + judgment), exactly the JSON the critics
 returned, schema-validated by `--check-findings`. This machine-readable
-companion is what the recall harness (`scripts/recall.mjs`) and other
-tooling read; the `.md` file is the human view.
+companion is what the recall harness (`scripts/recall.mjs`), the
+incremental `--changed` planner, and other tooling read; the `.md` file
+is the human view. **Carry `fragmentHashes` and `apiSurfaceHash` into
+this JSON's top-level fields too**, so `--changed` can diff against the
+prior run.
 
 ### 7. Update the contract and report
 

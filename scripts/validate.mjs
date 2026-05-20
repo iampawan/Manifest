@@ -395,6 +395,100 @@ function cacheStatus(currentHash, pluginVersion, protocolVersion, findingsFm) {
   return { cached: true, reason: `unchanged since ${findingsFm.verifiedAt || "last verify"}` };
 }
 
+// ─── Incremental re-verify (fragment hashing) ────────────────────────
+// The cache (cacheStatus) is all-or-nothing on the whole contract. For
+// re-verify after an edit, we want finer grain: hash each behavior (+ its
+// ACs) and a "global" bucket of contract-wide context, so localized
+// critics (comms, perf-budget, platform-parity, instrumentation) only
+// re-run over the behaviors that actually changed, and the cross-cutting
+// critics + regression scan can be reused when nothing relevant moved.
+
+function sectionText(raw, name) {
+  const re = new RegExp(`^##\\s+${name}\\s*$`, "m");
+  const m = raw.match(re);
+  if (!m) return "";
+  const after = raw.slice(m.index + m[0].length);
+  const next = after.match(/\n(?=##\s)/);
+  return (next ? after.slice(0, next.index) : after).trim();
+}
+
+function fragmentHashes(contract) {
+  const { frontmatter, behaviors, acs, raw } = contract;
+  const acsByBehavior = {};
+  for (const ac of acs)
+    for (const ref of ac.behaviorRefs) (acsByBehavior[ref] ||= []).push(ac.text);
+  const behaviorHashes = {};
+  for (const b of behaviors) {
+    const payload = JSON.stringify({ b, acs: (acsByBehavior[b.id] || []).slice().sort() });
+    behaviorHashes[b.id] = hashOf(payload);
+  }
+  const global = hashOf(JSON.stringify({
+    platforms: (frontmatter.platforms || []).slice().sort(),
+    behaviorIds: behaviors.map((b) => b.id).sort(),
+    goal: sectionText(raw, "Goal"),
+    successMetrics: sectionText(raw, "Success metrics"),
+    outOfScope: sectionText(raw, "Out of scope"),
+    openQuestions: sectionText(raw, "Open questions"),
+  }));
+  return { global, behaviors: behaviorHashes };
+}
+
+function changedFragments(prev, curr) {
+  prev = prev || { global: null, behaviors: {} };
+  const prevB = prev.behaviors || {};
+  const currB = curr.behaviors || {};
+  const changed = [], added = [], removed = [];
+  for (const id of Object.keys(currB)) {
+    if (!(id in prevB)) added.push(id);
+    else if (prevB[id] !== currB[id]) changed.push(id);
+  }
+  for (const id of Object.keys(prevB)) if (!(id in currB)) removed.push(id);
+  return { globalChanged: prev.global !== curr.global, changed, added, removed };
+}
+
+// What regression cares about: the cross-repo API surface. If this is
+// unchanged, regression can reuse its prior (expensive) repo scan.
+function apiSurfaceHash(contract) {
+  const { frontmatter, behaviors } = contract;
+  const surface = behaviors.map((b) => ({
+    id: b.id,
+    platforms: (b.platforms || []).slice().sort(),
+    event: (b.instrumentation && b.instrumentation.eventName) || null,
+  }));
+  return hashOf(JSON.stringify({
+    platforms: (frontmatter.platforms || []).slice().sort(),
+    surface,
+  }));
+}
+
+// Translate a fragment diff into a concrete re-run plan the verify
+// orchestrator follows. Conservative on correctness: any structural
+// change re-runs the cross-cutting critics; only localized critics are
+// scoped to changed behaviors.
+function rerunPlan(prevFindingsFm, contract) {
+  const prevFh = prevFindingsFm && prevFindingsFm.fragmentHashes;
+  const currFh = fragmentHashes(contract);
+  const diff = changedFragments(prevFh, currFh);
+  const anyChange =
+    diff.globalChanged || diff.changed.length || diff.added.length || diff.removed.length;
+  const currApi = apiSurfaceHash(contract);
+  const prevApi = prevFindingsFm && prevFindingsFm.apiSurfaceHash;
+  const apiChanged = prevApi !== currApi;
+  const firstVerify = !prevFh;
+  return {
+    firstVerify,
+    diff,
+    // comms-completeness, perf-budget, platform-parity, instrumentation
+    localizedBehaviors: [...new Set([...diff.changed, ...diff.added])],
+    // edge-cases, security, scalability
+    rerunCrossCutting: firstVerify || !!anyChange,
+    // regression: full repo scan / reuse scan but re-reason / reuse findings
+    regression: firstVerify || apiChanged ? "rescan" : anyChange ? "reason-only" : "reuse",
+    currFragmentHashes: currFh,
+    currApiSurfaceHash: currApi,
+  };
+}
+
 // ─── Findings schema validation (for critic output) ──────────────────
 
 function validateFindings(findings) {
@@ -474,6 +568,10 @@ export {
   validateFindings,
   validateReviewFindings,
   validateGuardVerdict,
+  fragmentHashes,
+  changedFragments,
+  apiSurfaceHash,
+  rerunPlan,
   slaStatus,
   derivePhase,
   fmtBothZones,
@@ -514,6 +612,20 @@ function main() {
     console.log(JSON.stringify({ valid: true, count: findings.length, openBlockers: blockers }, null, 2));
     // Non-zero exit when open blockers exist so CI can gate the merge.
     process.exit(blockers > 0 ? 2 : 0);
+  }
+
+  if (args[0] === "--changed") {
+    // Incremental re-verify plan: which critics to re-run given the prior
+    // findings. Usage: --changed <contract.md> <prev-findings.json>
+    const md = readFileSync(args[1], "utf8");
+    const contract = parseContract(md);
+    let prevFm = {};
+    if (args[2]) {
+      try { prevFm = JSON.parse(readFileSync(args[2], "utf8")); } catch { prevFm = {}; }
+    }
+    const plan = rerunPlan(prevFm, contract);
+    console.log(JSON.stringify(plan, null, 2));
+    process.exit(0);
   }
 
   if (args[0] === "--check-guard") {

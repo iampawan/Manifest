@@ -78,10 +78,18 @@ the *relevant* judgment critics run (selected by change type):
 Output: `.manifest/contracts/<ID>.findings.md` plus updated frontmatter
 on the contract itself (`status`, `complexity`, readiness reasons).
 
-**Caching:** if the contract content + plugin version are unchanged
-since the last verify, it reuses the prior findings and skips the
-critics (no LLM cost on no-op re-runs). Use `/contract verify <ID>
---force` to re-verify regardless.
+**Speed.** Verify does the *smallest correct* amount of work:
+- **No-op cache** — if nothing changed since the last verify, it reuses
+  the prior findings and runs zero critics.
+- **Incremental re-verify** — after an edit, only the critics over the
+  *changed* behaviors re-run; unchanged findings (and the regression
+  repo-scan, if the API surface didn't move) are reused. So fixing one
+  finding and re-verifying is fast, not a full re-run.
+- **`--fast`** — `/contract verify <ID> --fast` runs only edge-cases +
+  security and skips the regression scan, for a quick draft-loop verdict.
+  A `--fast` verify is **not promotable** — run a full verify before
+  `/contract promote`.
+- **`--force`** — re-run everything regardless of cache.
 
 Invokes the **contract-verify** skill.
 

@@ -42,6 +42,14 @@ a silent pass.
 1. **Read** `.manifest/contracts/<ID>.md`. Confirm `status: verified` and
    `complexity` is one of `small | medium | large`.
 
+   **Reject a fast-only verify.** Check the latest
+   `<ID>.findings.md` frontmatter: if `verifyMode: fast`, the contract
+   was only checked by the quick draft-loop (edge-cases + security, no
+   regression scan, no localized critics). Refuse: "This contract's
+   last verify was `--fast` (partial). Run a full `/contract verify
+   <ID>` before promoting." A fast verify is for iteration, not the
+   promote gate.
+
 2. **If Large, route to decomposition — don't refuse.** A Large
    contract can't be agent-shipped on a timer, but it shouldn't be
    abandoned either. Invoke the **contract-decompose** skill (or tell
@@ -102,5 +110,6 @@ a silent pass.
 ## Refuse conditions
 
 - Contract status is not `verified`.
+- The latest verify was `--fast` (`verifyMode: fast`) — run a full verify first.
 - Complexity is `large` or not set.
 - The revision file already exists (means someone promoted in parallel).

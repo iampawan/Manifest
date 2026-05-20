@@ -123,6 +123,13 @@ conventions:
   # apply to the behavior.
   perfBudget: warn
 
+  # Optional: model tiering for verify speed/cost. Heavy critics get a
+  # strong model; light ones a fast model. Omit to use the default model
+  # for all. (Only applies if the runtime supports per-critic models.)
+  # criticModels:
+  #   strong: [edge-cases, security, regression, scalability]
+  #   fast:   [comms-completeness, instrumentation, perf-budget, platform-parity]
+
 # Access notes:
 #
 # 1. GitHub MCP path (preferred): no local clones needed. The critic

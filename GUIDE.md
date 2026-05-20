@@ -229,6 +229,24 @@ You resolve findings inline by editing the contract (or dismiss with a
 reason). Re-run verify until readiness goes green — the verdict is
 computed by code, not judged by an LLM. Then `/contract promote`.
 
+**Verify is built to be fast on the edit→re-verify loop.** Almost all
+the time is the LLM critics (the validator is <1s), so verify does the
+smallest correct amount of work:
+
+- *No-op* — nothing changed since last verify → reuse findings, run zero
+  critics.
+- *Incremental* — after an edit, only the critics over the **changed
+  behaviors** re-run; unchanged findings are reused, and the regression
+  repo-scan (the slowest part) is reused unless the contract's API
+  surface actually moved. Fixing one finding and re-verifying is quick,
+  not a full re-run.
+- *`--fast`* — `/contract verify <ID> --fast` runs only edge-cases +
+  security and skips the regression scan, for a quick draft-loop check.
+  It's **not promotable** — run a full verify before promote (promote
+  refuses a fast-only verify).
+- *Model tiering* — heavy critics (edge-cases/security/regression/
+  scalability) use a strong model, light ones a fast model.
+
 ### ② BUILD — implement and review
 Where: GitHub (the heavy work runs in CI, not on your laptop).
 

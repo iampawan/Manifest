@@ -12,6 +12,42 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.8.0] — faster verify & re-verify
+
+The deterministic validator was already <1s; the wall-clock is the LLM
+critics. This release makes verify do the *smallest correct* amount of
+work, especially on the edit→re-verify loop.
+
+### Added
+- **Incremental re-verify.** `validate.mjs` now hashes each behavior
+  (+ its ACs) and a global context bucket (`fragmentHashes`), plus an
+  `apiSurfaceHash`. The new `--changed` mode emits a re-run plan: which
+  localized critics to re-run over which changed behaviors, whether the
+  cross-cutting critics need re-running, and whether regression should
+  `rescan` / `reason-only` / `reuse`. Verify follows the plan and reuses
+  prior findings for unchanged fragments — so fixing one finding
+  re-runs one critic over one behavior, not the whole suite. 9 new tests
+  (78 total).
+- **`--fast` verify** — `/contract verify <ID> --fast` runs only
+  edge-cases + security and skips the regression scan, for a quick
+  draft-loop verdict. Stamped `verifyMode: fast`; **not promotable** —
+  contract-promote refuses a fast-only verify.
+- **Regression scan caching.** The slowest critic now reuses its repo
+  scan when the API surface + scanned repo head SHAs are unchanged
+  (recorded in the findings' `regressionScan` block); it only re-fetches
+  on a real surface change. Prefers the cheap `declared` scan depth
+  while iterating, full depth on the final verify.
+- **Model tiering** — heavy critics (edge-cases/security/regression/
+  scalability) use a strong model, light ones a fast model; override via
+  `conventions.criticModels`.
+
+### Notes
+- All wins are "run fewer critics over less input and reuse prior
+  results" — individual LLM-critic latency is unchanged. Correctness is
+  preserved: any structural change still re-runs the cross-cutting
+  critics; only localized critics (comms/perf/platform/instrumentation)
+  are scoped to changed behaviors.
+
 ## [0.7.0] — contextual perfBudget / commsStates gating
 
 Process proportional to the behavior, not blanket boilerplate.

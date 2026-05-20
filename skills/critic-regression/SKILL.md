@@ -227,6 +227,34 @@ When in doubt, or when the contract touches shared data models /
 auth / payments, escalate to `full` and note in your output that you
 did a full sweep.
 
+#### Scan caching + iteration vs final (speed)
+
+The repo scan is the slowest part of verify, so don't redo it when
+nothing relevant changed. The verify orchestrator passes a directive
+(from `validate.mjs --changed`):
+
+- **`reuse`** — the contract's API surface and the scanned repos'
+  head SHAs are unchanged since the last scan (recorded in the prior
+  findings' `regressionScan` block). **Skip the scan entirely** and
+  carry forward the prior regression findings.
+- **`reason-only`** — the API surface is unchanged but something else
+  in the contract moved. **Reuse the cached scan** (the file contents
+  you already pulled / the route inventory) and just re-reason over it;
+  don't re-fetch from GitHub.
+- **`rescan`** — the API surface changed (or it's a first verify). Do a
+  fresh scan.
+
+When you do scan, record what you scanned in the findings'
+`regressionScan` block: `apiSurfaceHash`, `scannedAt`, and the
+`repoHeads` (head SHA per repo) so the next run can decide `reuse`.
+
+**Iteration vs final.** During iteration (a `--fast` verify, or while
+the contract is still `draft`/`verifying` and being edited), prefer the
+cheaper `declared` scan depth for quick feedback. Escalate to the
+configured `inventory`/`full` depth on the final verify before promote
+(or when the contract touches shared data/auth/payments). A `--fast`
+verify skips the regression scan altogether.
+
 ### 7. Look for tests that will need updating
 
 For each repo, search for tests touching the affected areas. List with

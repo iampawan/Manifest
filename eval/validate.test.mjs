@@ -309,6 +309,95 @@ test("cache: hashOf is deterministic + content-sensitive", () => {
   assert.notEqual(hashOf("hello"), hashOf("hello "));
 });
 
+// ─── Incremental re-verify: fragment hashing + rerun plan ────────────
+
+import { fragmentHashes, changedFragments, apiSurfaceHash, rerunPlan } from "../scripts/validate.mjs";
+
+test("fragmentHashes: deterministic for the same contract", () => {
+  const a = fragmentHashes(parseContract(read("clean.md")));
+  const b = fragmentHashes(parseContract(read("clean.md")));
+  assert.deepEqual(a, b);
+});
+
+test("fragmentHashes: editing one behavior changes only its hash", () => {
+  const c = parseContract(read("clean.md"));
+  const before = fragmentHashes(c);
+  const id = c.behaviors[0].id;
+  c.behaviors[0].perfBudget = { ...(c.behaviors[0].perfBudget || {}), ttiMs: 999999 };
+  const after = fragmentHashes(c);
+  assert.notEqual(before.behaviors[id], after.behaviors[id], "changed behavior hash must move");
+  assert.equal(before.global, after.global, "global must be untouched");
+  for (const other of Object.keys(before.behaviors)) {
+    if (other !== id) assert.equal(before.behaviors[other], after.behaviors[other]);
+  }
+});
+
+test("fragmentHashes: editing a global section changes the global hash", () => {
+  const raw = read("clean.md");
+  const a = fragmentHashes(parseContract(raw));
+  const edited = raw.replace(/## Goal\n/, "## Goal\nEDITED CONTEXT LINE.\n");
+  const b = fragmentHashes(parseContract(edited));
+  assert.notEqual(a.global, b.global);
+});
+
+test("changedFragments: detects changed / added / removed / global", () => {
+  const prev = { global: "g1", behaviors: { B1: "h1", B2: "h2" } };
+  const curr = { global: "g2", behaviors: { B1: "h1", B2: "CHANGED", B3: "new" } };
+  const d = changedFragments(prev, curr);
+  assert.equal(d.globalChanged, true);
+  assert.deepEqual(d.changed, ["B2"]);
+  assert.deepEqual(d.added, ["B3"]);
+  assert.deepEqual(d.removed, []);
+});
+
+test("apiSurfaceHash: moves on event/platform change, stable otherwise", () => {
+  const c = parseContract(read("clean.md"));
+  const base = apiSurfaceHash(c);
+  // A non-surface edit (perf budget) must not move the surface hash.
+  c.behaviors[0].perfBudget = { ttiMs: 42 };
+  assert.equal(apiSurfaceHash(c), base);
+  // An event-name change is a surface change.
+  c.behaviors[0].instrumentation = { ...(c.behaviors[0].instrumentation || {}), eventName: "totally_new_event" };
+  assert.notEqual(apiSurfaceHash(c), base);
+});
+
+test("rerunPlan: first verify (no prior) runs everything + rescans", () => {
+  const c = parseContract(read("clean.md"));
+  const plan = rerunPlan({}, c);
+  assert.equal(plan.firstVerify, true);
+  assert.equal(plan.rerunCrossCutting, true);
+  assert.equal(plan.regression, "rescan");
+});
+
+test("rerunPlan: unchanged contract reuses everything", () => {
+  const c = parseContract(read("clean.md"));
+  const prevFm = { fragmentHashes: fragmentHashes(c), apiSurfaceHash: apiSurfaceHash(c) };
+  const plan = rerunPlan(prevFm, c);
+  assert.equal(plan.firstVerify, false);
+  assert.equal(plan.rerunCrossCutting, false);
+  assert.equal(plan.regression, "reuse");
+  assert.deepEqual(plan.localizedBehaviors, []);
+});
+
+test("rerunPlan: a non-surface behavior edit scopes localized critics, regression reasons only", () => {
+  const c = parseContract(read("clean.md"));
+  const prevFm = { fragmentHashes: fragmentHashes(c), apiSurfaceHash: apiSurfaceHash(c) };
+  const id = c.behaviors[0].id;
+  c.behaviors[0].perfBudget = { ttiMs: 12345 }; // changes fragment, not API surface
+  const plan = rerunPlan(prevFm, c);
+  assert.deepEqual(plan.localizedBehaviors, [id]);
+  assert.equal(plan.rerunCrossCutting, true);
+  assert.equal(plan.regression, "reason-only");
+});
+
+test("rerunPlan: an API-surface change forces a regression rescan", () => {
+  const c = parseContract(read("clean.md"));
+  const prevFm = { fragmentHashes: fragmentHashes(c), apiSurfaceHash: apiSurfaceHash(c) };
+  c.behaviors[0].instrumentation = { ...(c.behaviors[0].instrumentation || {}), eventName: "changed_event" };
+  const plan = rerunPlan(prevFm, c);
+  assert.equal(plan.regression, "rescan");
+});
+
 // ─── PR-stage code-review findings schema ────────────────────────────
 
 import { validateReviewFindings } from "../scripts/validate.mjs";
