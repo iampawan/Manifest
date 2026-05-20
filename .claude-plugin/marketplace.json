@@ -11,7 +11,10 @@
       "name": "shipline",
       "version": "0.6.0",
       "description": "Author contracts, run critics, implement via agent, verify deploys, produce post-launch reports \u2014 all from markdown in your repo.",
-      "source": "github://iampawan/Shipline",
+      "source": {
+        "source": "github",
+        "repo": "iampawan/Shipline"
+      },
       "category": "productivity",
       "tags": [
         "prd",
