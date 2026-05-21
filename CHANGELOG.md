@@ -12,6 +12,86 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.16.0] — migrate existing contracts to the new layout
+
+### Added
+- **`scripts/migrate-contract.mjs`** + `/contract migrate <ID>` — a
+  deterministic reformat that brings an existing contract to the v0.15
+  grouped frontmatter (YOU-AUTHOR / MANIFEST-MANAGES), adds `changeType`
+  if absent, and leaves the body untouched. **Preserves every value** —
+  managed state (timestamps, status, `landed`, `bugFollowups`) and any
+  unknown fields — and is idempotent. Refuses frozen `<ID>.r<N>.md`
+  snapshots. 6 new tests (88 total).
+- Loads frontmatter with `JSON_SCHEMA` so ISO timestamps stay verbatim
+  strings — the default schema parses them to `Date` and re-emits
+  `...000Z`, which would silently rewrite every timestamp. (Caught by a
+  preservation test.)
+
+## [0.15.0] — author-friendly contracts (what to edit, where, what to remove)
+
+The findings got readable in 0.14.0; this does the same for the contract
+the author actually edits.
+
+### Changed
+- **Frontmatter split into two labelled groups** in CONTRACT-FORMAT and
+  in what `contract-new` scaffolds: `# ── YOU AUTHOR (edit these) ──`
+  (just `id`, `title`, `changeType`, `platforms`, `createdBy`) and
+  `# ── MANIFEST MANAGES — don't edit ──` (status, complexity,
+  timestamps, fix counters, guard/rollout fields, bugFollowups). No more
+  guessing which fields are yours.
+- **New "Editing a contract" section** — maps each findings location
+  (`B2`, `AC3`, `frontmatter`, a section name) to exactly where in the
+  file, says which sections you own, and clarifies *what to remove*:
+  `Out of scope` is where you defer work, drop a behavior by removing the
+  **whole** block (a half-specified behavior is a blocker), and the
+  optional `rollbackTriggers`/`rolloutPlan` blocks are deletable.
+- Optional frontmatter blocks are now clearly marked optional/deletable
+  rather than shown as if required.
+
+## [0.14.0] — readable findings (human-first `.md`)
+
+Findings felt hard to read and people weren't sure how to edit them. Two
+fixes — one a clarification, one a format change:
+
+### Changed
+- **You never hand-edit `findings.md`.** It's the read-only *output* of
+  verify; you edit the **contract** and re-verify (or `/contract fix`),
+  which regenerates it. Stated up front in the file's own banner and the
+  docs.
+- **`findings.md` is now human-first; machine metadata moved to the
+  `.json`.** The `.md` frontmatter is tiny (readiness, promotable,
+  counts) — the wall of `sha256:` hashes, `regressionScan`,
+  `criticsRun`, and normalization notes that used to greet the reader
+  now live in `findings.json` only (where the `--changed` planner and
+  tooling read them). The body lists blockers in full with plain-English
+  fixes, **summarizes** the advisory warnings/info (one line each, full
+  text in the `.json`) instead of dumping dozens of paragraphs, demotes
+  critic IDs to small trailing tags, and ends with "What to do next."
+- **Critics now write in plain English.** CRITIC-PROTOCOL requires
+  `message`/`suggestion` to read like a reviewer's note — jargon spelled
+  out, location in human terms, ID not leading the sentence.
+
+## [0.13.0] — bounded contract verify→fix loop
+
+The slow part of authoring was the manual round-trip: verify → "Claude,
+fix it" → re-verify → a *new* blocker appears → repeat, each pass paying
+full verify cost. New `/contract fix <ID>` collapses it.
+
+### Added
+- **`/contract fix <ID>`** (contract-verify fix mode) — runs verify,
+  applies the fixes for **all open blockers in one batch**, re-verifies
+  **incrementally**, and loops until 0 blockers or a 3-pass cap
+  (`maxFixIterations`), then reports a promotable contract. Targets
+  blockers only (warnings stay advisory); on the cap it stops and hands
+  back the remaining blockers instead of churning. One command instead
+  of N hand-driven passes.
+- Key rule that kills the "re-verify finds new blockers" whack-a-mole:
+  when a fix adds a behavior/AC, it's added **complete** (all required
+  fields at once) so the next pass doesn't block on the fragment just
+  added — the #1 source of cascading blockers.
+- New `verifyFixIterations` frontmatter counter (distinct from the PR
+  loop's `fixIterations`; both capped by `maxFixIterations`).
+
 ## [0.12.0] — solo / zero-footprint mode
 
 ### Added

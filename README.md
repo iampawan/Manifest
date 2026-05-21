@@ -364,11 +364,13 @@ manifest/
 │   ├── validate.mjs                     # DETERMINISTIC: checks, schema, sizing, readiness, --sla/--status/--check-*
 │   ├── detect.mjs                       # DETERMINISTIC: framework/SDK/test detection per repo
 │   ├── recall.mjs                       # DETERMINISTIC: scores critic findings vs the golden set
+│   ├── migrate-contract.mjs             # DETERMINISTIC: reformat old contracts to the grouped layout
 │   └── package.json                     # depends on js-yaml
 ├── eval/
 │   ├── validate.test.mjs                # validator + SLA + phase + review/guard schema tests
-│   ├── detect.test.mjs                  # stack-detector tests  (63 total, all green)
+│   ├── detect.test.mjs                  # stack-detector tests  (88 total, all green)
 │   ├── recall.test.mjs                  # recall-scorer tests
+│   ├── migrate.test.mjs                 # migrator tests (value/body preservation, idempotent)
 │   ├── golden/                          # expected judgment findings (recall harness)
 │   └── contracts/                       # clean + seeded-gaps + judgment-gaps fixtures
 ├── examples/

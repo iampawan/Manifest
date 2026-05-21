@@ -154,9 +154,14 @@ Ask all five in one round, not back-and-forth.
 Use the format in `reference/CONTRACT-FORMAT.md` at the plugin root. Required
 sections:
 
-- YAML frontmatter (id, title, status=draft, platforms, createdBy,
-  createdAt, revision=1, complexity=null, slaDeadline=null, plus
-  cycle-time timestamps initialized to null)
+- YAML frontmatter, written in **two labelled groups** so the author
+  knows what's theirs (see CONTRACT-FORMAT "Editing a contract"):
+  a `# ── YOU AUTHOR (edit these) ──` group (id, title, changeType,
+  platforms, createdBy) and a `# ── MANIFEST MANAGES — don't edit ──`
+  group (status=draft, complexity=null, revision=1, the cycle-time
+  timestamps initialized to null, fix counters, guard/rollout fields,
+  bugFollowups). Keep optional blocks (`rollbackTriggers`, `rolloutPlan`)
+  out unless needed — note they're optional and deletable.
 - **`changeType`** — set `bug-fix` when the source is a bug (JIRA bug
   issue type, a link/description that says "fix"/"broken"/"regression",
   or an existing-behavior defect); else `feature`. **This is the single

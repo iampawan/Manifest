@@ -93,6 +93,42 @@ on the contract itself (`status`, `complexity`, readiness reasons).
 
 Invokes the **contract-verify** skill.
 
+### /contract fix <ID>
+
+The bounded verify→fix loop — one command instead of the slow manual
+"verify → ask Claude to fix → re-verify → new blocker → repeat" cycle.
+It runs verify, applies the fixes for **all open blockers** in one batch
+(adding any new behaviors/ACs *complete*, so they don't bounce a fresh
+deterministic blocker), then re-verifies incrementally and loops until
+**0 blockers** or a **3-pass cap** (`maxFixIterations`). It targets
+blockers only — warnings stay advisory. On the cap it stops and hands
+you the remaining blockers rather than churning. You review the contract
+before `/contract promote`.
+
+```
+/contract fix SC-005
+```
+
+Invokes the **contract-verify** skill in fix mode.
+
+### /contract migrate <ID>
+
+Brings an existing contract up to the current author-friendly layout
+(the YOU-AUTHOR / MANIFEST-MANAGES frontmatter groups, `changeType` added
+if missing). It's a **safe, deterministic reformat** — it preserves every
+value, including managed state (timestamps, status, `landed`,
+`bugFollowups`) and any unknown fields, and leaves the body untouched. It
+does **not** re-verify or change scope.
+
+```
+node <plugin-root>/scripts/migrate-contract.mjs .manifest/contracts/<ID>.md          # preview
+node <plugin-root>/scripts/migrate-contract.mjs .manifest/contracts/<ID>.md --write   # apply
+```
+
+Refuses frozen revision snapshots (`<ID>.r<N>.md`) — those are immutable.
+To also trim an over-engineered older contract, set `changeType: bug-fix`
+(if it is one) and run `/contract verify` so `minimality` flags the bloat.
+
 ### /contract promote <ID>
 
 Freezes a verified contract into a revision. Creates a JIRA epic

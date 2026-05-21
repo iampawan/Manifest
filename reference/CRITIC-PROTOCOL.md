@@ -176,6 +176,13 @@ all three so behavioral drift is caught in CI, not in production.
 - Don't degrade silently on bad input. If you can't run (missing repo
   access, null input), say so as an `info` finding with a clear
   reason — never produce a misleading verdict from missing data.
+- **Write `message` and `suggestion` in plain English a non-author can
+  act on.** The structured fields (`id`, `critic`, `fragmentRef`,
+  `severity`) carry the machine detail; the human text should read like
+  a reviewer's note, not a log line. State plainly what's wrong and the
+  concrete edit to make. Spell out jargon ("the 50ms responsiveness
+  budget", not "the p75 ttiMs budget"); say where in human terms ("under
+  Acceptance criteria"), and don't lead the sentence with the ID.
 
 ## Framing: offer deferral, don't only demand handling
 

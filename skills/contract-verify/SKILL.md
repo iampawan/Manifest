@@ -219,33 +219,80 @@ rules (re-run sizing logic with the judgment findings if needed).
 
 ### 6. Write the findings file
 
-`.manifest/contracts/<ID>.findings.md` with frontmatter recording
-provenance per `reference/CRITIC-PROTOCOL.md`:
+The `.md` frontmatter is **deliberately tiny and human** — only what a
+person glancing at the file wants. Do NOT put hashes, scan provenance,
+critic lists, or normalization notes here; that machine metadata lives
+in the `.json` companion (next). A wall of `sha256:` lines is the first
+thing that makes findings feel unreadable — keep it out of the `.md`.
 
 ```yaml
 ---
 contractId: <ID>
 verifiedAt: <ISO>
-verifiedWith:
-  pluginVersion: <from plugin.json>
-  model: <the model running this>
-  protocolVersion: 1
-  contractHash: <from validator>
-readiness: <verdict>
+pluginVersion: <from plugin.json>
+readiness: <verdict>             # not_ready | review_needed | verified
+promotable: <true|false>         # the gate that matters (0 open blockers)
+openBlockers: <n>
+openWarnings: <n>
 verifyMode: full                 # full | fast — "fast" is NOT promotable
-# Incremental-verify provenance — the next re-verify diffs against these.
-fragmentHashes: <currFragmentHashes from the --changed plan>
-apiSurfaceHash: <currApiSurfaceHash from the --changed plan>
-regressionScan:                  # so regression can reuse its repo scan
-  apiSurfaceHash: <same as above>
-  scannedAt: <ISO of the last actual repo scan>
-  repoHeads: { <repo>: <sha>, ... }   # head SHAs of repos scanned
 ---
 ```
 
-Sections: Open blockers / Warnings / Info. Each finding shows its
-`source` (contract-only = deterministic, github-mcp/local-clone =
-judgment-with-code-reading).
+All machine provenance — `fragmentHashes`, `apiSurfaceHash`,
+`regressionScan` (the incremental/--changed inputs), `verifiedWith`
+(model/protocol/contractHash), `criticsRun`/`criticsSkipped`, and any
+critic-normalization notes — goes in `<ID>.findings.json` ONLY. The
+`--changed` planner and tooling read the `.json`; the human reads the
+`.md`.
+
+**Write the `.md` for a human, not a machine** — the `.json` companion
+(below) carries the machine detail, so the `.md` is plain English and
+action-first. Lead with a banner that says whether it's promotable and,
+crucially, that the reader edits the *contract*, not this file:
+
+```markdown
+# Findings — Saved cards on checkout (SC-005)
+
+**Promotable: ❌ not yet — 2 must-fix items below.**
+You fix these by editing the contract (`SC-005.md`), then run
+`/contract fix SC-005` (or re-verify). Don't edit this file — it's
+regenerated every verify.
+
+## Must fix (blockers)
+
+1. **B2 has no acceptance criterion.** Add a Given/When/Then under
+   "Acceptance criteria" that references B2.  _(security · SEC-002)_
+2. **The delete-account step doesn't say who's allowed to do it.**
+   Spell out auth + ownership in B1's description.  _(security · SEC-003)_
+
+## Worth a look (warnings — optional, won't block)
+
+1. **The error copy "Something went wrong" isn't actionable.** Tell the
+   user what to do next.  _(comms · COMMS-007)_ — fix, or `acknowledge`.
+
+## FYI (info)
+
+- Minor: B3's event name could be more specific.  _(instrumentation)_
+```
+
+Each item: a plain-English statement of what's wrong + the concrete edit
+to make, written so a non-author can act on it. Demote the critic name +
+ID to a small trailing tag — don't lead with `EC-024`. Say *where* in
+human terms ("under Acceptance criteria", "in B1's description"), not
+`fragmentRef: AC3`. Spell out jargon (write "the 50ms responsiveness
+budget", not "the p75 ttiMs budget").
+
+**List blockers in full; SUMMARIZE the advisory items.** Blockers are
+the must-fix set — show every one with its fix. But don't dump 25
+warnings + 26 info as 51 full paragraphs; that's the other half of "hard
+to read." For warnings, give a one-line-per-item list grouped by theme;
+for info, a one-line count per critic with a pointer ("full text in
+`findings.json`"). The human acts on blockers now and skims the rest.
+
+End with a short **"What to do next"** section: the smallest path to
+promotable (which edit clears the blocker(s)), then the optional polish.
+A convergence line ("blockers: 4 → 1 across runs") is a nice reassurance
+that the loop is working — include it when prior findings exist.
 
 Also write `.manifest/contracts/<ID>.findings.json` — the merged
 findings array (deterministic + judgment), exactly the JSON the critics
@@ -273,6 +320,43 @@ If there are open blockers, say "Not promotable — N blockers to fix"
 and list them; those are the finite, stable must-fix set. If 0 blockers,
 say it's promotable even when warnings remain — don't imply the dev must
 drive warnings to zero.
+
+## Fix mode — `/contract fix <ID>` (the bounded verify→fix loop)
+
+This collapses the slow manual round-trip (verify → "Claude, fix it" →
+re-verify → new blocker → repeat) into ONE command. Invoked by
+`/contract fix <ID>`. It targets **blockers only** — warnings are
+advisory and don't keep the loop running.
+
+Loop:
+
+1. **Verify.** First pass: full. Later passes: incremental (use the
+   `--changed` plan against the prior `.findings.json` — re-run only
+   changed fragments + cross-cutting critics; reuse the rest).
+2. **If 0 open blockers → stop.** Report the promotable contract (plus
+   any advisory warnings). Done.
+3. **Else apply the fixes — all open blockers in one batch.** Edit the
+   contract to resolve each. **Add new fragments COMPLETE:** if a fix
+   introduces a behavior/AC, give it every required field at once
+   (instrumentation [or `none` for a bug-fix], perfBudget per policy,
+   commsStates if user-facing, ≥1 AC) so the next pass does NOT bounce a
+   fresh deterministic blocker on the thing you just added. This is the
+   #1 cause of "re-verify finds new blockers" — adding incomplete
+   fragments — so never do it.
+4. **Increment `verifyFixIterations`** in the contract frontmatter.
+5. **Loop** from step 1 (incremental). Stop when 0 blockers OR
+   `verifyFixIterations >= maxFixIterations` (default 3).
+6. **On cap reached with blockers remaining: STOP and escalate to the
+   human.** List the unresolved blockers. Looping past the cap means a
+   blocker needs a judgment call you shouldn't keep guessing at — don't
+   churn.
+
+Rules: only ever *fix* (edit the contract) or, for a finding that's
+genuinely wrong, mark it `dismissed` with a reason — never silently
+drop. Don't touch warnings unless trivial. The human still reviews the
+contract before `/contract promote`; this loop just gets it to
+"promotable" without N hand-driven passes. For speed during the loop,
+honor `changeType: bug-fix` (lean critic set) and the incremental plan.
 
 ## Why this doesn't become endless
 

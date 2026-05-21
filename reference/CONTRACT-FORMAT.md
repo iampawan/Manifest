@@ -6,8 +6,15 @@ human-readable and machine-parseable.
 
 ## Minimal template
 
+The frontmatter splits in two: a short set **you author**, and the rest
+that **Manifest manages** as the contract moves through the pipeline.
+You only edit the author fields (`id`, `title`, `changeType`,
+`platforms`, `createdBy`) and the body sections below — never the
+managed fields. See "Editing a contract" right after this template.
+
 ```markdown
 ---
+# ── YOU AUTHOR (edit these) ──
 id: SC-001
 title: Saved payment methods on web and iOS
 status: draft               # draft | verifying | verified | promoted
@@ -32,9 +39,10 @@ landedAt: null                          # day-28 verdict committed
 landed: null                            # true | false | partial | rolled-back
 slaHit: null                            # promotedAt → prodRollout100At within SLA?
 
-# PR-stage review→fix loop (set by code-review + implement fix-mode)
-fixIterations: 0                        # how many fix passes the Implementer has run
-maxFixIterations: 3                     # cap; override via repos.yml conventions
+# Fix-loop counters (bounded so loops can't churn). maxFixIterations caps both.
+fixIterations: 0                        # PR-stage review→fix passes (implement fix-mode)
+verifyFixIterations: 0                  # spec-stage verify→fix passes (/contract fix)
+maxFixIterations: 3                     # cap for both; override via repos.yml conventions
 
 # Rollout health (set by rollback-guard while the feature is ramping)
 guardVerdict: null                      # proceed | hold | recommend-rollback
@@ -54,6 +62,33 @@ rollbackTriggers:                       # optional explicit guardrails; defaults
   newIssueSeverity: blocker             # new Sentry issue at/above this → breach
   minAdoptionForSignal: 0.05            # ignore signals until ≥ this fraction on the release
 ---
+
+## Editing a contract — what to change, where, what to remove
+
+You edit the contract by hand (or ask Claude to), then re-verify. When
+findings point at a location, here's where it is and what's safe to do:
+
+| Findings says… | Edit here |
+|---|---|
+| `B2`, "in B1's description" | the `### B2.` behavior block (one block per behavior) |
+| `AC3`, "under Acceptance criteria" | the `## Acceptance criteria` list (`- AC<n> (B<n>):` lines) |
+| `frontmatter` | only the YOU-AUTHOR fields (`id`, `title`, `changeType`, `platforms`, `createdBy`) |
+| `Goal` / `Success metrics` / a section name | that `## <section>` |
+
+- **What you own (edit freely):** `Goal`, `Success metrics` (omit it
+  entirely for a bug-fix), the `### B<n>` behaviors, `Acceptance
+  criteria`, `Diagrams`, `Out of scope`, `Open questions`, and the five
+  author frontmatter fields.
+- **What to remove / defer:** `## Out of scope` is the place to *defer*
+  work — move a finding there instead of building it if it isn't needed
+  now (this is how you keep scope small). To drop a behavior, remove the
+  **whole** `### B<n>` block — don't leave it half-specified, because a
+  behavior missing its required fields (instrumentation / perfBudget /
+  commsStates / an AC) is a blocker.
+- **What never to touch:** every frontmatter field except the five
+  author ones — `status`, `complexity`, the timestamps, the fix
+  counters, the guard/rollout fields, `bugFollowups`. The tool sets
+  those; editing them by hand only confuses the SLA/cycle-time math.
 
 ## Goal
 
