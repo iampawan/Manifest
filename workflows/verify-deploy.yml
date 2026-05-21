@@ -1,8 +1,15 @@
 name: Manifest verify deployment
 
 # Runs after a successful deploy to QA or pre-prod. Reads the contract
-# behind the release, runs the Playwright suite against the live URL,
+# behind the release, runs the platform-appropriate suite (Playwright for
+# web, xcodebuild/gradlew for native mobile, API smoke for backend),
 # samples telemetry, and posts a verdict.
+#
+# NATIVE MOBILE: this job defaults to `runs-on: ubuntu-latest`. For an
+# iOS-native contract, switch to `runs-on: macos-latest` (xcodebuild is
+# macOS-only). For Android-native, add the Android SDK / `setup-java`.
+# Verification of native uses Firebase Test Lab + Crashlytics — see the
+# verify-deployment skill Sub-mode D and GUIDE §3 "Native mobile setup".
 
 on:
   deployment_status:

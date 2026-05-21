@@ -161,6 +161,25 @@ Also create `.manifest/contracts/` if it doesn't exist.
 Run the **setup-check** logic: which required MCPs are connected,
 which scopes are granted, what's missing and what it would block.
 
+## Step 6b — Team vs solo (zero-footprint) mode
+
+Ask once (AskUserQuestion) where Manifest should live:
+
+- **Team mode** — `.manifest/` and the workflows live in the target
+  repo; the team gets CI auto-verification, launch reports, and the
+  rollback guard. Choose when the team is adopting Manifest.
+- **Solo / zero-footprint mode** — write `.manifest/repos.yml` and
+  contracts to a SEPARATE location the user owns (a private
+  `manifest-contracts` repo, or a local-only folder), pointing at the
+  target repo by its `github:` slug. Do **NOT** copy any workflows into
+  the target repo, and don't suggest committing anything to it. The user
+  runs the skills locally and opens normal PRs. Choose when the user is
+  an individual contributor on a repo whose team hasn't adopted Manifest
+  and shouldn't see new files/Actions. (See GUIDE §1f.)
+
+Default to asking; if the user says "just for me" / "don't touch the
+team repo", pick solo mode without prompting.
+
 ## Step 7 — Confirm and summarize
 
 Show the user:
@@ -168,8 +187,11 @@ Show the user:
 - The cross-repo API links inferred
 - The native/Flutter convention applied
 - What MCPs are connected and any gaps
-- "Config written to `.manifest/repos.yml`. Commit it so teammates
-  inherit it. Next: `/contract new <a small feature>`."
+- **Team mode:** "Config written to `.manifest/repos.yml`. Commit it so
+  teammates inherit it. Next: `/contract new <a small feature>`."
+- **Solo mode:** "Config written to <your contracts location>. Nothing
+  was added to the target repo. Run skills locally; open normal PRs.
+  Next: `/contract new <a small feature>`."
 
 ## Anti-patterns
 

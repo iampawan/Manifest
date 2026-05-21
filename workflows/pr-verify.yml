@@ -12,6 +12,12 @@ name: Manifest PR verify
 #     billing line)
 # At least one must be set; if both are set, CLAUDE_CODE_OAUTH_TOKEN
 # takes precedence.
+#
+# NATIVE MOBILE RUNNERS: jobs default to `runs-on: ubuntu-latest`. For an
+# iOS-native repo, switch the relevant jobs to `runs-on: macos-latest`
+# (xcodebuild is macOS-only) and add an Xcode setup step. For an
+# Android-native repo, keep ubuntu but add `actions/setup-java` + the
+# Android SDK before build steps. See GUIDE §3 "Native mobile setup".
 
 on:
   pull_request:

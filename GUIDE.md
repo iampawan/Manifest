@@ -206,6 +206,65 @@ Archiving happens automatically at day-28, or manually any time via
 
 ---
 
+## 1f. Solo / zero-footprint mode (use it as an IC, no team buy-in)
+
+You don't need the team's repo to contain a single Manifest file, and
+you don't need their CI to run anything. Manifest splits cleanly:
+
+- **Brainwork half** (contract authoring, the critics, `/code-review`,
+  edge-case analysis) runs **locally in your Claude Code session** and
+  only produces markdown you read. It never has to be committed to the
+  team repo or run in their Actions.
+- **Automation half** (the `.github/workflows/*.yml`, the `@claude`
+  CI triggers, the launch-monitor cron, rollback-guard) is the *only*
+  part that adds files/Actions to a repo. As a solo IC, you skip it.
+
+**The zero-footprint setup:**
+
+1. **Keep contracts OUT of the team repo.** Put `.manifest/contracts/`
+   and `repos.yml` in a **separate private repo you own** (e.g.
+   `you/manifest-contracts`) — or even a local-only folder you don't
+   push anywhere. `repos.yml` points at the team's code repo by its
+   `github:` slug; the regression/edge-case critics read it through the
+   GitHub MCP using **your existing read access**. Zero writes to the
+   team repo.
+2. **Don't copy any workflows** into the team repo. No
+   `.github/workflows/manifest-*.yml`, no new secrets, no bot.
+3. **Run the skills locally**, from your contracts repo or with the team
+   repo checked out: `/contract new`, `/contract verify`,
+   `/code-review <branch-or-diff>`, even `/implement` (it writes code to
+   your local branch — you push normal commits; you do NOT need the
+   `@claude` CI trigger).
+4. **Open a normal PR.** Your branch contains only the feature code. The
+   team reviews exactly what any contributor would send — they never see
+   a contract, a workflow, or a Manifest comment unless you choose to
+   paste one.
+
+**What about all the `.md` files?** Every Manifest artifact — the
+contract, its `.r<N>` revisions, `.findings.md/.json`, the
+`.implementation-plan.md`, `.pr-review.*`, `.deploy-*`, `.guard-*`,
+`.launch-report-*`, `.bug-log.md`, `.postmortem.md` — lives in **your
+contracts location**, never the team repo. The *only* things that ever
+land in the team branch are the **actual feature code and its tests**.
+Tests aren't Manifest footprint — they're normal PR content the team
+wants anyway. So when `/implement` runs in solo mode, it writes code +
+tests to the target repo's branch and writes its plan/findings to your
+contracts location; nothing Manifest-shaped appears in the diff the team
+reviews.
+
+What you give up by skipping the automation half: the scheduled
+post-launch launch reports, the canary rollback-guard cron, and CI-side
+auto-verification on every push. You still get the highest-value part —
+a critic-checked spec and a code-reviewed diff — entirely on your side.
+If the team later wants the full loop, you add the workflows then; the
+contract format doesn't change.
+
+(If you ever do keep `.manifest/` inside the team repo's working tree
+for convenience, add `/.manifest/` to *your* local `.git/info/exclude`
+so it's never even staged — local ignore, no shared `.gitignore` edit.)
+
+---
+
 ## 2. The four phases (for Small/Medium contracts)
 
 ### ① SPEC — author and verify
@@ -408,6 +467,51 @@ The workflows reference these. Add them in repo Settings → Secrets:
 | `JIRA_API_TOKEN` | `launch-monitor.yml` (bug watcher) |
 
 `GITHUB_TOKEN` is provided automatically by Actions.
+
+### 3.4b Native mobile (iOS / Android) setup
+
+The default workflows run on `ubuntu-latest`, which is fine for web and
+Android but **not iOS** (`xcodebuild` is macOS-only). For a native repo,
+adjust its copy of the workflows:
+
+**iOS-native repo** — switch the `/implement` job and `verify-deploy.yml`
+to a macOS runner and set up Xcode:
+
+```yaml
+jobs:
+  verify-deploy:
+    runs-on: macos-latest          # was ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with: { xcode-version: latest-stable }
+      # ... then the Manifest verify-deployment step (Sub-mode D: iOS)
+```
+
+**Android-native repo** — stay on `ubuntu-latest`, add Java + the SDK:
+
+```yaml
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: android-actions/setup-android@v3
+      # connectedAndroidTest needs an emulator (reactivecircus/android-emulator-runner)
+```
+
+`repos.yml` for each: `framework: ios-native` (or `android-native`) so
+the Implementer and verifier resolve `xcodebuild` / `gradlew` from
+STACK-PROFILES. Per-repo secrets you'll also need: signing
+(certs/keystore), `GOOGLE_APPLICATION_CREDENTIALS` for Firebase Test
+Lab, and the Claude auth token — each lives in its own repo's secrets.
+
+**Two separate native features, two repos, two teams** (your case): make
+each a single-platform contract (`platforms: [ios]` / `platforms:
+[android]`) in its own repo's `.manifest/contracts/`. They're
+independent — no shared specs repo or cross-platform parity needed; the
+platform-parity critic won't even fire on a single-platform contract.
+You drive both since you have access; each team's CI secrets stay in
+their repo. Verification uses **Sub-mode D** (xcodebuild / gradlew +
+Firebase Test Lab + Crashlytics); rollout is **store staged release**,
+not a flag, so a `rollback` verdict means *halt the staged rollout*.
 
 ### 3.5 Decide your Slack channel
 

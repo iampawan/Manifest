@@ -90,6 +90,14 @@ Write `.manifest/contracts/<ID>.implementation-plan.md`:
 - Feature flag name + where it's gated in this repo
 - This plan is your committed scope — don't drift.
 
+**Solo / zero-footprint mode (GUIDE §1f):** the `.manifest/` artifacts
+(this plan, findings, etc.) belong to the user's *contracts location*,
+NOT the target repo's working tree. Write the implementation-plan there.
+The ONLY things you write into the target repo's branch are the **feature
+code and its tests** — never a `.manifest/` file. So the PR the team
+reviews contains code + tests only; no contract, plan, or findings leak
+into their diff.
+
 ### 5. Implement
 
 Work through the plan. For each behavior:

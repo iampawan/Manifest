@@ -1,6 +1,6 @@
 ---
 name: verify-deployment
-description: Verify that a deployed environment actually delivers what the contract promised. Routes per-platform — Playwright against a URL for web, Flutter integration tests + Firebase Test Lab + telemetry sampling for Flutter, API smoke tests for backend. Invoked by /verify-deploy or the verify-deploy.yml workflow. Reports per-AC pass/fail with a canary-readiness verdict.
+description: Verify that a deployed environment actually delivers what the contract promised. Routes per-platform — Playwright against a URL for web; Flutter integration tests; native iOS (xcodebuild) / Android (gradlew) with Firebase Test Lab; API smoke tests for backend — plus telemetry sampling (Firebase/Crashlytics/Sentry). Invoked by /verify-deploy or the verify-deploy.yml workflow. Reports per-AC pass/fail with a canary-readiness verdict.
 requiredScopes:
   - github:pull_requests:write
   - sentry:read
@@ -34,8 +34,9 @@ bug that masks gaps.
 Refuse (do not run, do not emit a verdict) if:
 - The environment target is null, empty, or not a URL/build-artifact
   path appropriate to the platform. For web/backend, the env URL must
-  be a non-empty `http(s)://` URL. For Flutter `internal-track` or
-  `prod`, a release tag or build artifact path is required.
+  be a non-empty `http(s)://` URL. For Flutter or native iOS/Android
+  `internal-track` / `prod`, a release tag or build-artifact path
+  (`.ipa` / `.apk`/`.aab`) is required.
 - The contract ID doesn't resolve to a promoted revision file.
 - No platform in scope has a runnable sub-mode (e.g., a web contract
   with no URL and no test files).
@@ -197,6 +198,84 @@ Telemetry sample:
 
 For DB-derived metrics (specified via `instrumentation.dbQuery`),
 run the query and compare to baseline.
+
+---
+
+## Sub-mode D: Native mobile — iOS (Swift) / Android (Kotlin)
+
+For repos with `framework: ios-native` or `android-native` (NOT Flutter
+— that's Sub-mode B). Resolve the toolchain from STACK-PROFILES; like
+Flutter, there are three checkpoints keyed off the `environment` input.
+
+**Runner requirement:** iOS sub-mode steps require a **macOS** runner
+(`xcodebuild` is macOS-only). Android runs on Linux with the Android SDK
+installed. See the native CI notes in GUIDE §3 and the workflow headers.
+
+### D.1 Pre-release (environment: `qa` or `preprod`)
+
+Build the artifact and run tests in CI against a simulator/emulator:
+
+```bash
+# iOS (macOS runner)
+xcodebuild test -scheme <Scheme> \
+  -destination 'platform=iOS Simulator,name=iPhone 15'
+swiftlint
+
+# Android
+./gradlew test                       # unit
+./gradlew connectedAndroidTest       # instrumented (emulator)
+./gradlew lint                       # or ktlint/detekt
+```
+
+Tag tests with the contract ID (XCTest test-plan filter, or a
+`@Tag("<ID>")` / gradle test filter) so results map back to ACs.
+
+### D.2 Internal-track (environment: `internal-track`)
+
+After TestFlight / Play Console internal testing has the build, run the
+suite across a **real-device matrix** via Firebase Test Lab — this is
+the "works on my simulator" guard:
+
+```bash
+# Android — instrumented tests on a device matrix
+gcloud firebase test android run \
+  --type instrumentation \
+  --app app/build/outputs/apk/release/app-release.apk \
+  --test app/build/outputs/apk/androidTest/.../app-androidTest.apk \
+  --device model=Pixel7,version=33 \
+  --device model=GalaxyS22,version=31 \
+  --device model=Pixel4,version=29        # backwards-compat check
+
+# iOS — Firebase Test Lab for iOS, or Xcode Cloud
+gcloud firebase test ios run \
+  --test <ID>.zip \
+  --device model=iphone14pro,version=16.6 \
+  --device model=iphone11,version=15.7     # older-device check
+```
+
+Per-device pass/fail rolls up to per-AC verdicts. Flag devices/OS
+versions where regressions appear even if newer ones pass.
+
+### D.3 Production-rollout (environment: `prod`)
+
+You can't run tests against installed apps — verification is
+telemetry-based, and **there is no feature flag**: native ships via
+**Play Console staged rollout** / **App Store phased release**, so
+"canary %" is the store rollout percentage, not a flag.
+
+- **Firebase Analytics** — each behavior's event firing at the expected
+  rate, per-OS-version / per-device cohort if staged.
+- **Firebase Crashlytics** — crash-free users % must be ≥ the contract's
+  budget. This is the primary native health signal.
+- **Firebase Performance** — cold-start, screen-render times vs the
+  behavior's `perfBudget`.
+- **Sentry** — supplements Crashlytics with structured stack traces if
+  connected for mobile.
+
+Because a shipped binary can't be instantly reverted, a `rollback`
+verdict here means **halt the staged rollout** (and surface a forward
+fix / expedited release), not "flip a flag off." Say that plainly in the
+verdict.
 
 ---
 

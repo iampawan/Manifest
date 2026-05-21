@@ -12,6 +12,43 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.12.0] — solo / zero-footprint mode
+
+### Added
+- **Solo / zero-footprint mode** (GUIDE §1f + a setup-init choice) — use
+  Manifest as an individual contributor without adding a single file,
+  workflow, or Action to a team's repo. Contracts + `repos.yml` live in
+  a separate repo you own (or a local-only folder) and point at the team
+  repo by its `github:` slug via your existing read access; you run the
+  skills (`/contract`, `/code-review`, `/implement`) locally and open a
+  normal PR. The team sees nothing Manifest-related. `setup-init` now
+  asks team-vs-solo and, in solo mode, writes config elsewhere and skips
+  workflow installation entirely. No format changes — adopt the full CI
+  loop later if the team wants it.
+
+## [0.11.0] — native iOS / Android deploy verification
+
+`verify-deployment` could verify web, Flutter, and backend, but native
+Swift/Kotlin apps fell through (the Flutter sub-mode is keyed on
+`languages: [dart]`), so a native contract had no runnable sub-mode.
+
+### Added
+- **Sub-mode D: native mobile** in `verify-deployment` — iOS (Swift,
+  `xcodebuild test`) and Android (Kotlin, `gradlew test` /
+  `connectedAndroidTest`), with three checkpoints: pre-release (CI
+  sim/emulator), internal-track (Firebase Test Lab real-device matrix),
+  and prod (telemetry: Firebase Analytics + Crashlytics crash-free % +
+  Performance). Recognizes that native ships via **store staged
+  rollout** (no feature flag): a `rollback` verdict means *halt the
+  staged rollout*, not flip a flag. Implementer already supported native
+  via STACK-PROFILES; this closes the verification half.
+- **Native mobile CI guidance** — GUIDE §3.4b plus headers in
+  `pr-verify.yml` / `verify-deploy.yml`: iOS jobs need
+  `runs-on: macos-latest` + Xcode setup; Android needs the SDK +
+  `setup-java`; per-repo signing / Firebase Test Lab secrets. Covers the
+  two-separate-features / two-repos / two-teams case (single-platform
+  contracts in each repo, no shared specs repo or parity ceremony).
+
 ## [0.10.0] — proportional scope (stop over-engineering small bugs)
 
 Driven by a real run where a one-line bug fix grew into a 5-revision
