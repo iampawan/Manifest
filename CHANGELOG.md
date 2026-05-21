@@ -12,6 +12,27 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.17.0] — see your diagrams + findings tell you HOW to fix
+
+### Added
+- **`/contract diagram <ID>`** (`scripts/render-diagram.mjs`) — renders a
+  contract's Mermaid blocks into a standalone `<ID>.diagram.html` you
+  open in any browser, so you can SEE the diagram even when the `.md`
+  isn't on GitHub and you're deciding from your IDE. Dependency-free
+  (Mermaid via CDN at view time). Docs also point to IDE markdown
+  preview, which renders Mermaid natively/with an extension. 5 new tests.
+- **Diagrams are now optional** — add one only when a branching/state
+  flow makes the contract clearer; skipped by default for simple/bug-fix
+  changes (no more forced flowchart).
+
+### Changed
+- **Findings now tell you HOW, not just what.** The deterministic
+  validator's `suggestion` strings are concrete paste-in templates —
+  e.g. a missing AC suggests `- AC<n> (B2): Given …, when …, then …`; a
+  missing commsStates gives the four-state skeleton with guidance.
+  CRITIC-PROTOCOL now requires every critic `suggestion` to show the
+  shape of the fix and where to make it, not just name the gap.
+
 ## [0.16.0] — migrate existing contracts to the new layout
 
 ### Added

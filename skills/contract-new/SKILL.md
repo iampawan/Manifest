@@ -182,7 +182,10 @@ sections:
   speculative edge cases — put them in Out of scope as follow-ups.
 - `## Acceptance criteria` — at least one Given/When/Then per
   behavior, numbered AC1, AC2, ...
-- `## Diagrams` — at least one Mermaid flowchart of the happy path
+- `## Diagrams` — **optional**: add a Mermaid flowchart only when a
+  branching/state/multi-actor flow makes the contract clearer; skip it
+  for a simple change or a bug-fix. (It renders in IDE markdown preview,
+  or via `/contract diagram <ID>` → standalone HTML.)
 - `## Out of scope`
 - `## Open questions` — explicitly note anything the user or the
   source couldn't answer

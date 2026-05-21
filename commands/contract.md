@@ -129,6 +129,23 @@ Refuses frozen revision snapshots (`<ID>.r<N>.md`) — those are immutable.
 To also trim an over-engineered older contract, set `changeType: bug-fix`
 (if it is one) and run `/contract verify` so `minimality` flags the bloat.
 
+### /contract diagram <ID>
+
+See the contract's Mermaid diagrams as actual pictures, not text — handy
+when the `.md` won't be on GitHub and you're deciding from your IDE.
+Mermaid already renders in most IDE markdown *previews* (VS Code with the
+Mermaid extension; JetBrains and Obsidian natively). For a guaranteed
+view regardless of IDE setup, this writes a standalone HTML you open in
+a browser:
+
+```
+node <plugin-root>/scripts/render-diagram.mjs .manifest/contracts/<ID>.md   # writes <ID>.diagram.html
+```
+
+(Needs network when you open the file — it loads Mermaid from a CDN.
+Diagrams are optional in a contract; add one only when a branching flow
+makes it clearer.)
+
 ### /contract promote <ID>
 
 Freezes a verified contract into a revision. Creates a JIRA epic

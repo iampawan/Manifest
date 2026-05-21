@@ -34,8 +34,8 @@ jobs:
         working-directory: scripts
         run: npm install
 
-      - name: Run unit tests (validator + stack detector + recall scorer + migrator)
-        run: node --test eval/validate.test.mjs eval/detect.test.mjs eval/recall.test.mjs eval/migrate.test.mjs
+      - name: Run unit tests (validator + stack detector + recall scorer + migrator + diagram)
+        run: node --test eval/validate.test.mjs eval/detect.test.mjs eval/recall.test.mjs eval/migrate.test.mjs eval/render-diagram.test.mjs
 
       - name: Sanity-check the example contracts parse and validate
         run: |

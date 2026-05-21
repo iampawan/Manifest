@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Diagrams — EX-001-saved-cards</title>
+<style>body{font:14px system-ui,sans-serif;margin:2rem;max-width:1000px}
+.mermaid{margin:1.5rem 0;padding:1rem;border:1px solid #ddd;border-radius:8px}</style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true });</script>
+</head><body>
+<h1>Diagrams — EX-001-saved-cards</h1>
+  <div class="mermaid">
+flowchart LR
+  Checkout[Checkout page] --&gt; Decision{Has saved card?}
+  Decision --&gt;|No| AddCard[Enter card]
+  Decision --&gt;|Yes| Select[Select saved card]
+  AddCard --&gt; SaveOption[Save this card?]
+  SaveOption --&gt;|Yes| Store[(Save to vault)]
+  SaveOption --&gt;|No| Pay[Pay]
+  Store --&gt; Pay
+  Select --&gt; Pay
+  </div>
+</body></html>

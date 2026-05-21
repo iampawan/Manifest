@@ -179,10 +179,20 @@ all three so behavioral drift is caught in CI, not in production.
 - **Write `message` and `suggestion` in plain English a non-author can
   act on.** The structured fields (`id`, `critic`, `fragmentRef`,
   `severity`) carry the machine detail; the human text should read like
-  a reviewer's note, not a log line. State plainly what's wrong and the
-  concrete edit to make. Spell out jargon ("the 50ms responsiveness
-  budget", not "the p75 ttiMs budget"); say where in human terms ("under
-  Acceptance criteria"), and don't lead the sentence with the ID.
+  a reviewer's note, not a log line. Spell out jargon ("the 50ms
+  responsiveness budget", not "the p75 ttiMs budget"); say where in human
+  terms ("under Acceptance criteria"), and don't lead the sentence with
+  the ID.
+- **`suggestion` must show HOW to fix it, not just name the gap.** A
+  good suggestion tells the author *where* to edit and gives the *shape*
+  of the fix — a fill-in template or example — so they can paste-and-fill
+  rather than guess. Don't write "add a description"; write "in B2's
+  description, add a sentence naming who's authorized, e.g. 'Only the
+  re-authenticated account owner can delete.'" Don't write "add an AC";
+  write `Under "## Acceptance criteria", add: "- AC<n> (B2): Given …,
+  when …, then …."` If the fix is "this isn't needed here," say
+  explicitly to move it to `## Out of scope`. The deterministic
+  validator already does this for its findings — match that bar.
 
 ## Framing: offer deferral, don't only demand handling
 

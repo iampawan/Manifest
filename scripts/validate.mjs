@@ -173,7 +173,7 @@ function checkContract(contract, options = {}) {
     if (!b.instrumentation) {
       add("instrumentation", `INS-${String(++n.INS).padStart(3, "0")}`, "blocker",
         `${b.id} has no instrumentation block.`,
-        "Add an instrumentation block (eventName + properties + expectedRatePerDay, or a server-log/database/sentry/manual source).",
+        `Under ${b.id}, add:\n    instrumentation:\n      eventName: <snake_case_event>\n      properties: [<prop>]\n      expectedRatePerDay: <n>\n  — or, if nothing should be tracked (e.g. a bug fix), write \`instrumentation: none\`.`,
         b.id);
     }
     // Is this behavior user-facing? (Server-only behaviors skip the UI
@@ -216,13 +216,14 @@ function checkContract(contract, options = {}) {
       if (!b.commsStates) {
         add("comms-completeness", `COMMS-${String(++n.COMMS).padStart(3, "0")}`, "blocker",
           `${b.id} has no commsStates.`,
-          "Add commsStates with empty, loading, success, error.", b.id);
+          `Under ${b.id}, add the user-facing copy for each state:\n    commsStates:\n      empty: "<what shows when there's nothing yet>"\n      loading: "<in-progress text>"\n      success: "<confirmation>"\n      error: "<actionable error — say what to do, not just 'failed'>"`,
+          b.id);
       } else {
         for (const f of REQUIRED_COMMS) {
           if (!b.commsStates[f] || String(b.commsStates[f]).trim() === "") {
             add("comms-completeness", `COMMS-${String(++n.COMMS).padStart(3, "0")}`, "blocker",
-              `${b.id} commsStates.${f} is missing.`,
-              `Add ${f} state copy for ${b.id}.`, b.id);
+              `${b.id} is missing the "${f}" state copy.`,
+              `Add \`${f}: "<copy for the ${f} state>"\` under ${b.id}'s commsStates.`, b.id);
           }
         }
       }
@@ -245,7 +246,8 @@ function checkContract(contract, options = {}) {
     if (!behaviorsWithAc.has(b.id)) {
       add("instrumentation", `AC-${String(++n.AC).padStart(3, "0")}`, "blocker",
         `${b.id} has no acceptance criterion referencing it.`,
-        `Add at least one AC that references ${b.id}.`, b.id);
+        `Under "## Acceptance criteria", add a line like:\n    - AC<n> (${b.id}): Given <starting state>, when <user action>, then <expected result>.`,
+        b.id);
     }
   }
 

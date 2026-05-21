@@ -135,7 +135,14 @@ check coverage. One AC can cover multiple behaviors: `AC1 (B1, B2):`.
   fires with source="checkout" and the card appears on /account/payment-methods.
 - AC2 (B2): ...
 
-## Diagrams
+## Diagrams (optional)
+
+Include a Mermaid diagram only when a branching/state/multi-actor flow
+genuinely makes the contract clearer — skip it for a simple change or a
+bug fix. **To see it as a picture, not text:** open the file in your
+IDE's markdown *preview* (VS Code with the Mermaid extension, JetBrains
+and Obsidian render it natively), or run `/contract diagram <ID>` to
+write a standalone `<ID>.diagram.html` you can open in any browser.
 
 ```mermaid
 flowchart LR
