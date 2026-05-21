@@ -123,6 +123,7 @@ on the contract:
 
 | Critic | Run when |
 |---|---|
+| critic-minimality | ALWAYS — pushes back on disproportionate scope |
 | critic-edge-cases | ALWAYS |
 | critic-regression | ALWAYS (every change can conflict with shipped code) |
 | critic-security | ALWAYS, unless the change is purely cosmetic (copy/CSS) with no data, auth, or input handling |
@@ -132,10 +133,30 @@ on the contract:
 | critic-scalability | only if behaviors touch data, server, or backend (skip pure client-UI changes) |
 | critic-perf-budget | only if a behavior sets a non-default perf budget OR touches a known hot path (the validator already enforced presence + stack defaults) |
 
+**`changeType: bug-fix` runs LEAN — this is the main lever against
+over-engineering a small bug.** When the contract's frontmatter has
+`changeType: bug-fix`, override the table:
+
+- **Run only**: `minimality`, `edge-cases` (scoped to the bug's actual
+  surface — do NOT enumerate IME / SSR / full-Unicode / drag-drop unless
+  one of those IS the bug), `regression`, and `security` *only if* the
+  fix touches auth/data/input.
+- **Do NOT run** `instrumentation` — a bug fix needs no new analytics
+  event; `instrumentation: none` is fine. Do not demand a success metric
+  or a shadow-observation baseline; the bug's "metric" is the regression
+  test.
+- **`comms-completeness`** checks only the copy that's actually changing.
+- Everything else (platform-parity, scalability, perf-budget judgment)
+  runs only if obviously relevant — default off for a bug fix.
+
+The goal: a one-line bug ("disable the button when the field is empty")
+verifies against ~2-3 scoped critics, not a feature's full suite. If a
+"bug fix" genuinely needs new instrumentation/flags/platforms, it's a
+feature — flip `changeType` and treat it as one.
+
 Spawn the selected critics as sub-agents in ONE parallel Task batch.
-A single-platform web feature typically runs ~5 critics; a backend
-change runs a different ~5; a copy tweak that somehow reached a
-contract runs ~3. Each critic must return output conforming to
+A single-platform web feature typically runs ~5-6 critics; a bug fix
+runs ~2-3. Each critic must return output conforming to
 `reference/CRITIC-PROTOCOL.md`.
 
 **Narrow the batch with the re-run plan (1b.D).** On a re-verify, only

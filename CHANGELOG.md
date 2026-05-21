@@ -12,6 +12,42 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.10.0] — proportional scope (stop over-engineering small bugs)
+
+Driven by a real run where a one-line bug fix grew into a 5-revision
+epic (a new analytics event, a 7-day shadow baseline, a flag with
+mount-time caching, 21 ACs). The critics were calibrated for net-new
+features and only ever ADD; nothing argued for cutting. Three fixes:
+
+### Added
+- **`changeType: feature | bug-fix` frontmatter** (default `feature`).
+  A `bug-fix` contract verifies LEAN: `contract-verify` runs only
+  `minimality` + scoped `edge-cases` + `regression` + `security`
+  (if relevant); **turns the instrumentation critic OFF** and drops the
+  success-metric / shadow-baseline requirement (a bug's metric is the
+  regression test). `contract-new` sets `bug-fix` for bug intake and
+  scaffolds without a success-metrics section or new events. The
+  validator reports `changeType` in its output.
+- **`critic-minimality` (new, always-runs)** — the counterweight that
+  pushes back on disproportionate scope: feature-grade telemetry /
+  shadow phases / flags / exhaustive speculative edge cases on a small
+  change. Emits `MIN-` findings at `warning` (advisory). Added to the
+  protocol's canonical names + ID prefixes.
+
+### Changed
+- **CRITIC-PROTOCOL framing: "handle OR explicitly defer."** Every
+  critic's `suggestion` must let the author *descope* (move to Out of
+  scope) rather than only "add handling for X" — so scope can't grow one
+  finding at a time, and readiness no longer requires building
+  everything a critic noticed. Critics calibrate to `changeType` /
+  `complexity` and bias toward deferral on bug fixes.
+
+### Why
+A bug fix should verify against ~2-3 scoped critics, not a feature's
+full suite. The UWS-257 contract under the old rules would now: skip
+instrumentation entirely, drop the shadow baseline + success metric, and
+get a `minimality` warning on the flag/analytics scope — i.e. ~80% smaller.
+
 ## [0.9.0] — blockers are the only hard gate (no more endless verify)
 
 Verify could feel endless because reaching `verified` required **0

@@ -385,8 +385,9 @@ manifest/
 │   ├── contract-promote/SKILL.md        # freeze + start SLA + Slack anchor
 │   ├── contract-decompose/SKILL.md      # Large → epic of Small/Medium children
 │   ├── quick-fix/SKILL.md               # /fix express lane for trivial changes
-│   ├── critic-edge-cases/SKILL.md       # } 8 judgment critics — all reference
-│   ├── critic-platform-parity/SKILL.md  # } reference/CRITIC-PROTOCOL.md; run conditionally
+│   ├── critic-minimality/SKILL.md       # } judgment critics — all reference
+│   ├── critic-edge-cases/SKILL.md       # } reference/CRITIC-PROTOCOL.md; run conditionally.
+│   ├── critic-platform-parity/SKILL.md  # } minimality is the scope counterweight (always runs)
 │   ├── critic-instrumentation/SKILL.md
 │   ├── critic-comms-completeness/SKILL.md
 │   ├── critic-perf-budget/SKILL.md

@@ -157,13 +157,24 @@ sections:
 - YAML frontmatter (id, title, status=draft, platforms, createdBy,
   createdAt, revision=1, complexity=null, slaDeadline=null, plus
   cycle-time timestamps initialized to null)
+- **`changeType`** — set `bug-fix` when the source is a bug (JIRA bug
+  issue type, a link/description that says "fix"/"broken"/"regression",
+  or an existing-behavior defect); else `feature`. **This is the single
+  biggest guard against over-engineering a small bug** — a bug-fix
+  contract scaffolds and verifies lean (see below).
 - `source:` field in frontmatter pointing back to the original
   JIRA/Linear/Notion URL — this is the audit trail
 - `## Goal`
-- `## Success metrics` — at least one, with eventName placeholder
-  if the user doesn't know it yet
+- `## Success metrics` — at least one for a `feature`, with eventName
+  placeholder if the user doesn't know it yet. **For `bug-fix`: OMIT
+  this section** (or write one line: "the bug no longer reproduces; a
+  regression test covers it"). Do NOT invent a new analytics event for
+  a bug fix.
 - `## Behaviors` — each as `### B<N>. <Imperative description>` with
-  placeholder fields for instrumentation, perfBudget, commsStates
+  placeholder fields for instrumentation, perfBudget, commsStates. **For
+  a `bug-fix`, keep behaviors minimal and use `instrumentation: none`**
+  unless the bug is literally "we aren't measuring X". Don't enumerate
+  speculative edge cases — put them in Out of scope as follow-ups.
 - `## Acceptance criteria` — at least one Given/When/Then per
   behavior, numbered AC1, AC2, ...
 - `## Diagrams` — at least one Mermaid flowchart of the happy path

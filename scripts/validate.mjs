@@ -727,10 +727,11 @@ function main() {
   const out = {
     protocolVersion: PROTOCOL_VERSION,
     contractHash,
+    changeType: contract.frontmatter.changeType || "feature",
     deterministicFindings: findings,
     sizing,
     readiness,
-    note: "Deterministic layer only. Run LLM judgment critics for edge-cases, security reasoning, regression, copy quality, and platform UX specifics.",
+    note: "Deterministic layer only. Run LLM judgment critics for edge-cases, security reasoning, regression, copy quality, and platform UX specifics. For changeType: bug-fix, run the LEAN set (minimality + scoped edge-cases + regression + security-if-relevant).",
   };
   console.log(JSON.stringify(out, null, 2));
   process.exit(readiness.openBlockers > 0 ? 1 : 0);

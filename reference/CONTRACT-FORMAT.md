@@ -12,6 +12,7 @@ id: SC-001
 title: Saved payment methods on web and iOS
 status: draft               # draft | verifying | verified | promoted
 complexity: null            # set by critic-sizing: small | medium | large
+changeType: feature         # feature | bug-fix — drives how much rigor verify applies
 platforms: [web, ios]
 createdBy: pawan@example.com
 revision: 1
@@ -265,6 +266,32 @@ instead of demanding boilerplate:
   **one numeric field that's relevant** (e.g. `ttiMs` for UI,
   `p95LatencyMs` for a network call) — a behavior with no network call
   doesn't have to invent a p95.
+
+### Change type — `feature` vs `bug-fix`
+
+`changeType` tells verify how much rigor to apply. The default
+(`feature`) runs full rigor. **`bug-fix` deliberately runs lean**, so a
+small bug doesn't get feature-grade ceremony:
+
+- **No success-metric / shadow-baseline requirement.** A bug fix's
+  "metric" is *the bug is gone + a regression test passes* — not a new
+  product-analytics event. The `## Success metrics` section is optional
+  for a bug-fix contract.
+- **Instrumentation critic OFF.** Don't demand a new event taxonomy. A
+  behavior may declare `instrumentation: none` with a one-line rationale.
+- **Edge-cases and comms scoped to the change.** Critics evaluate the
+  bug's actual surface and the copy that's actually changing — they do
+  NOT enumerate exhaustive edge cases (IME, SSR, full Unicode classes,
+  drag-drop, …) that a net-new feature would warrant. Such cases are
+  *deferred to Out of scope* unless they ARE the bug.
+- **Reduced critic set**: edge-cases (scoped), regression, security (if
+  relevant). The `minimality` critic always runs and pushes back on
+  disproportionate scope.
+
+If a "bug fix" genuinely needs new instrumentation, a flag, or spans
+platforms, it isn't a bug fix — set `changeType: feature` (or it's
+really a feature contract). The point is to stop a one-line gate from
+growing a shadow-observation phase.
 
 ### Sizing rules (set by critic-sizing)
 

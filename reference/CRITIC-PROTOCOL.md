@@ -75,6 +75,7 @@ and the run will fail loudly — do not emit them.
 Use exactly these in the `critic` field:
 
 ```
+minimality
 edge-cases
 platform-parity
 instrumentation
@@ -89,6 +90,7 @@ sizing
 ### ID prefixes
 
 ```
+minimality         → MIN-
 edge-cases         → EC-
 platform-parity    → PP-
 instrumentation    → INS-
@@ -174,3 +176,19 @@ all three so behavioral drift is caught in CI, not in production.
 - Don't degrade silently on bad input. If you can't run (missing repo
   access, null input), say so as an `info` finding with a clear
   reason — never produce a misleading verdict from missing data.
+
+## Framing: offer deferral, don't only demand handling
+
+A finding is "handle X **or** explicitly defer X." Every critic's
+`suggestion` must allow the author to *descope* — move the item to
+`## Out of scope` as a follow-up — not just "add handling for X." This
+is what stops scope from growing one finding at a time: the author can
+clear a finding by deferring it, and reaching readiness no longer
+*requires* building everything a critic noticed.
+
+Calibrate to the change: read `changeType` and `complexity`. On a
+`bug-fix` (or small change), **bias toward deferral** — the bar is "what
+does fixing this bug actually require," not "what would a net-new feature
+need." Speculative edge cases, new telemetry, and new flags on a bug fix
+should be flagged for deferral, not demanded. (The `minimality` critic
+is the dedicated counterweight, but every critic shares this framing.)
