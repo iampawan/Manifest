@@ -1,7 +1,6 @@
 # Install Manifest (for teammates trying it out)
 
-Two commands once Pawan has pushed the repo. Targeted at someone who
-just wants to install and try.
+Two commands. Targeted at someone who just wants to install and try.
 
 ## Prerequisites
 
@@ -14,7 +13,7 @@ just wants to install and try.
 
 ```bash
 # 1. Add the Manifest marketplace
-/plugin marketplace add https://github.com/<your-org>/manifest
+/plugin marketplace add https://github.com/iampawan/Manifest
 
 # 2. Install the plugin
 /plugin install manifest@manifest
@@ -63,7 +62,7 @@ gates aren't yet green.
 
 ## Updates
 
-When Pawan pushes a new version:
+When a new version is published:
 
 ```bash
 /plugin marketplace update manifest
@@ -85,7 +84,7 @@ pattern is the canonical way to refresh.)
 
 ## What to do next
 
-Read [`GUIDE.md`](GUIDE.md) for the full walkthrough, then read
-the retrospective-comparison demo (ask your Manifest owner for the internal demo plan). The single
+Read [`GUIDE.md`](GUIDE.md) for the full walkthrough. The single
 highest-value first move is the "retrospective comparison" pattern
-— run the critics against a recently-shipped feature's PRD and show the bugs they would have caught at spec time.
+— run the critics against a recently-shipped feature's PRD and show the
+bugs they would have caught at spec time.

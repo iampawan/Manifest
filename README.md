@@ -1,5 +1,9 @@
 # Manifest
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Version](https://img.shields.io/badge/version-0.17.0-blue.svg)
+![Tests](https://img.shields.io/badge/tests-node%20--test-green.svg)
+
 A Claude Code / Cowork plugin that takes a PRD ("contract") through the full
 lifecycle — author → verify → implement → ship → land — with quality gates
 that won't let an under-specified spec progress.
@@ -92,13 +96,12 @@ plugins are visible in both.
 
 ---
 
-## Method A — Marketplace install (recommended for teammates)
+## Method A — Marketplace install (recommended)
 
-If the plugin author has pushed Manifest to a GitHub repo (private or
-public), this is the cleanest path. Two commands:
+The cleanest path — two commands:
 
 ```
-/plugin marketplace add https://github.com/<your-org>/manifest
+/plugin marketplace add https://github.com/iampawan/Manifest
 /plugin install manifest@manifest
 ```
 
@@ -109,21 +112,17 @@ Then verify:
 /manifest                     # runs the tutorial
 ```
 
-**Private repos:** authentication uses your existing git credentials
-(SSH keys, GitHub CLI auth). If you hit auth errors, the documented
-workaround is to clone the repo locally once and install from the
-local path:
-
-```bash
-git clone https://github.com/<your-org>/manifest ~/work/manifest
-```
-
-Then in Claude Code:
-
-```
-/plugin marketplace add ~/work/manifest
-/plugin install manifest@manifest
-```
+> **Installing from a private fork?** The clone uses your existing git
+> credentials. If you hit `Permission denied (publickey)`, the
+> marketplace defaulted to SSH and your machine has no SSH key. Either
+> force HTTPS and authenticate once —
+> `export CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1` then `gh auth login` —
+> or clone locally and install from the path:
+> ```bash
+> git clone https://github.com/<your-fork>/manifest ~/work/manifest
+> # then in Claude Code:
+> /plugin marketplace add ~/work/manifest
+> ```
 
 **Updates:** Claude Code pins the commit at install time and doesn't
 auto-refresh — see [Updating Manifest](#updating-manifest) below.
@@ -313,8 +312,11 @@ that has `.claude-plugin/marketplace.json` at its root.
 status. If it shows installed but commands don't work, restart
 Claude Code.
 
-**Private repo auth errors** — Use the local-clone workaround:
-clone the repo manually, then `/plugin marketplace add <local-path>`.
+**Private repo auth errors** (`Permission denied (publickey)`) — the
+marketplace defaulted to SSH and the machine has no SSH key. Either set
+`CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1` and run `gh auth login`, or use the
+local-clone workaround: clone the repo manually, then
+`/plugin marketplace add <local-path>`.
 
 **Slash commands missing** — Confirm via `/plugin` that the plugin
 is enabled (not just installed). If still missing, check that
@@ -348,8 +350,8 @@ on Method A.
 ```
 manifest/
 ├── .claude-plugin/
-│   └── plugin.json                      # manifest (Claude Code discovers from here)
-│       # marketplace.json.disabled — local-source marketplace; re-enable when publishing to GitHub
+│   ├── plugin.json                      # plugin manifest (Claude Code discovers from here)
+│   └── marketplace.json                 # marketplace entry (points at iampawan/Manifest)
 ├── README.md                            # this file (entry + install)
 ├── GUIDE.md                             # how it works, end to end
 ├── CHANGELOG.md                         # version history
@@ -427,6 +429,29 @@ manifest/
     ├── launch-monitor.yml               # 28-day landing cron
     └── eval.yml                         # runs the test suite on every change
 ```
+
+## Contributing
+
+Contributions welcome. The deterministic layer is plain Node with no
+build step:
+
+```bash
+cd scripts && npm install        # installs js-yaml
+cd .. && node --test eval/*.test.mjs   # run the full eval suite (must be green)
+```
+
+- **Skills** live in `skills/*/SKILL.md` — markdown with frontmatter
+  (`name`, `description`). The `description` is what tells Claude when to
+  invoke the skill, so keep it specific.
+- **Slash commands** live in `commands/*.md`.
+- **Validator / sizing / detection logic** lives in `scripts/*.mjs` and is
+  unit-tested under `eval/` — add or update a test for any change there.
+- Critic rules are defined once in `reference/CRITIC-PROTOCOL.md`; the
+  readiness verdict is computed by code, never judged by an LLM.
+
+Please run the eval suite before opening a PR and keep commit messages in
+the conventional style (e.g. `feat:`, `fix:`, `docs:`). See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
 
 ## License
 

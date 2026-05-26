@@ -8,25 +8,18 @@ manifest` for teammates. ~15 minutes.
 You'll publish to a GitHub repo, e.g. `your-org/manifest`. Decide it
 now; you'll substitute it below.
 
-## 1. Fix the marketplace source
+## 1. Point the marketplace at your repo
 
-`.claude-plugin/marketplace.json` ships with a placeholder. Replace
-`YOUR-ORG` with your real GitHub org/user:
+`.claude-plugin/marketplace.json` declares which GitHub repo the plugin
+installs from. Set the `repo` field to your fork's `owner/repo`:
 
 ```json
-"source": "github://your-org/manifest"
+"source": { "source": "github", "repo": "your-org/manifest" }
 ```
 
-Important: the source MUST be the `github://` form, not `"./"`. The
-`"./"` local form is what triggered the earlier
-"source type your Claude Code version does not support" error.
-
-Delete the leftover `.claude-plugin/marketplace.json.disabled` (it's
-inert, just tidy-up):
-
-```bash
-rm .claude-plugin/marketplace.json.disabled
-```
+Use this structured `{ "source": "github", "repo": "..." }` form — not a
+bare `"./"` local path, which triggers a "source type your Claude Code
+version does not support" error on install.
 
 ## 2. Test locally BEFORE pushing (this is the gate)
 
