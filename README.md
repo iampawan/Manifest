@@ -378,7 +378,7 @@ manifest/
 ├── examples/
 │   ├── EX-001-saved-cards.md            # example contract
 │   ├── repos.yml.example                # multi-repo configuration template
-│   └── repos.pocketfm.yml               # sample config for a multi-stack product
+│   └── repos.example.multistack.yml     # sample config for a multi-stack product
 ├── skills/
 │   ├── tutorial/SKILL.md                # /manifest welcome
 │   ├── setup-init/SKILL.md              # /setup wizard — auto-detects + writes repos.yml
