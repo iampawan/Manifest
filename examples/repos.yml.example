@@ -1,0 +1,149 @@
+# .manifest/repos.yml
+# Place this in the directory where you author contracts. The regression
+# critic reads it to know which repos to scan when looking for prior
+# behaviors, API boundaries, and event collisions.
+#
+# Preferred access path: GitHub MCP via the `github` field — always
+# reads the current default branch, no clone management needed.
+#
+# Optional: add a local `path` for very large repos where API
+# round-trips become slow. When both are set, the critic uses GitHub
+# MCP unless local-clone speed is needed.
+
+# `framework` drives the toolchain (build/test/lint commands) via
+# STACK-PROFILES.md — skills never assume npm/Playwright/etc. Override
+# any command with an explicit `toolchain:` block. Supported frameworks
+# include: nextjs, react, vue, angular, svelte, flutter, ios-native,
+# android-native, react-native, express, nestjs, fastapi, flask,
+# django, gin, echo, rails, spring. Unlisted? declare `toolchain`.
+
+repos:
+  - name: web
+    github: your-org/web-app
+    # path: ~/work/web-app
+    platforms: [web]
+    framework: nextjs                  # → toolchain inferred from STACK-PROFILES
+    languages: [typescript, tsx]
+    eventSdk: amplitude
+    testPattern: "cypress/**/*.cy.ts"
+    apiBaseUrl: "https://api.example.com"
+    # toolchain:                       # optional explicit overrides
+    #   test: "npm run test:ci"
+    # Which backend repos this frontend calls. Lets the regression
+    # critic jump straight to the right backend instead of grepping
+    # all of them. Optional — falls back to route-inventory matching
+    # if omitted.
+    apiDependencies: [backend-auth, backend-payments]
+
+  - name: flutter
+    github: your-org/mobile-app
+    # path: ~/work/mobile-app
+    platforms: [ios, android]
+    languages: [dart]
+    eventSdk: firebase
+    testPattern: "integration_test/**/*_test.dart"
+    apiBaseUrl: "https://api.example.com"
+    apiDependencies: [backend-auth, backend-payments]
+    # Where the network layer lives — the critic greps here to find
+    # which API paths this app actually calls.
+    apiClientPattern: "lib/network/**/*.dart"
+
+  - name: backend-auth
+    github: your-org/backend-auth
+    # path: ~/work/backend-auth
+    platforms: [server]
+    languages: [typescript]
+    eventSdk: amplitude-node
+    testPattern: "tests/**/*.test.ts"
+    routePattern: "src/routes/**/*.ts"
+    # Route prefixes this backend OWNS. This is the key field for
+    # cross-repo API tracing: when a frontend calls /auth/* or /otp/*,
+    # the critic knows to scan THIS repo for the handler + edge cases.
+    serves: ["/auth/*", "/otp/*", "/session/*"]
+
+  - name: backend-payments
+    github: your-org/backend-payments
+    platforms: [server]
+    languages: [typescript, python]
+    eventSdk: amplitude-node
+    testPattern: "tests/**/*.test.ts"
+    routePattern: "src/routes/**/*.ts"
+    serves: ["/payments/*", "/cards/*", "/checkout/*"]
+
+  # Add more as needed — internal admin app, partner-facing app,
+  # shared libraries, etc.
+
+# Optional: cross-repo conventions
+conventions:
+  defaultBranch: main
+  eventNameUniqueness: strict
+  apiBoundaryRequiresBoth: true
+
+  # How aggressively the regression critic scans:
+  #   declared  — only scan repos matched via serves / apiDependencies (fastest)
+  #   inventory — build a live route inventory and match (default; thorough)
+  #   full      — scan EVERY repo for anything touching the contract (slowest, most thorough)
+  scanDepth: inventory
+  # On day-28 landed, archive contracts to .manifest/archive/<year>/<ID>/.
+  #   prune-ephemeral (default) — keep contract + final report, prune the rest
+  #   keep-all              — move every file to the archive
+  retention: prune-ephemeral
+
+  # If true, the critic escalates to a full sweep automatically whenever
+  # it can't confidently map a frontend API call to an owning backend.
+  fullSweepOnUnmatchedApi: true
+
+  # Default canary ramp for feature-flagged rollouts. rollback-guard reads
+  # this to recommend the NEXT step on a healthy (proceed) check; the human
+  # flips the flag — the guard never advances it automatically. Per-contract
+  # override via a `rolloutPlan` block in the contract frontmatter.
+  # `holdHours` is the minimum bake time at each stage before advancing.
+  rolloutPlan:
+    stages:
+      - { percent: 1,   holdHours: 2 }
+      - { percent: 10,  holdHours: 4 }
+      - { percent: 50,  holdHours: 8 }
+      - { percent: 100, holdHours: 0 }
+  # Teams with no feature-flag system have no staged ramp — verify-deploy's
+  # "ready-for-canary" means "ready to deploy"; ignore rolloutPlan.
+
+  # Review→fix loop cap (Implementer fix-mode); per-contract override via
+  # maxFixIterations frontmatter. Set autoFixWarnings to also fix warnings.
+  maxFixIterations: 3
+  autoFixWarnings: false
+
+  # How strict the perfBudget gate is. (commsStates is always required for
+  # user-facing behaviors and skipped for server-only ones — not toggled.)
+  #   required — a missing/incomplete perfBudget is a blocker
+  #   warn     — a warning; visible but doesn't block readiness (default)
+  #   off      — perfBudget isn't checked at all
+  # Per-contract override: `perfBudgetPolicy` in the contract frontmatter.
+  # When checked, one relevant numeric field is enough (ttiMs for UI,
+  # p95LatencyMs for a network call) — no need to invent fields that don't
+  # apply to the behavior.
+  perfBudget: warn
+
+  # Optional: model tiering for verify speed/cost. Heavy critics get a
+  # strong model; light ones a fast model. Omit to use the default model
+  # for all. (Only applies if the runtime supports per-critic models.)
+  # criticModels:
+  #   strong: [edge-cases, security, regression, scalability]
+  #   fast:   [comms-completeness, instrumentation, perf-budget, platform-parity]
+
+# Access notes:
+#
+# 1. GitHub MCP path (preferred): no local clones needed. The critic
+#    reads files live from the default branch via the GitHub Code
+#    Search and Contents APIs.
+#
+# 2. Local path (optional): faster for large repos with many queries.
+#    The critic will NOT auto-pull — staleness is your responsibility.
+#
+# 3. Cross-repo API tracing:
+#    - `serves` on backends + `apiDependencies` on frontends = fast,
+#      declared mapping (recommended once your repos are stable).
+#    - If those are omitted, the critic builds a route inventory by
+#      grepping each backend's routePattern, then matches frontend
+#      call paths against it (zero maintenance, slower).
+#    - `scanDepth: full` scans every repo regardless — use when you
+#      want exhaustive edge-case coverage and don't mind the time.

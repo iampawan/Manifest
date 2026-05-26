@@ -1,0 +1,117 @@
+name: Manifest eval
+
+# Runs the deterministic validator's eval suite on every change to the
+# plugin. This is the regression gate: a change that alters validator
+# behavior, breaks the parser, or lets out-of-schema severities through
+# fails the build.
+#
+# Install this in the MANIFEST PLUGIN repo (not your product repos).
+
+on:
+  push:
+    paths:
+      - "scripts/**"
+      - "eval/**"
+      - ".claude-plugin/**"
+  pull_request:
+    paths:
+      - "scripts/**"
+      - "eval/**"
+      - ".claude-plugin/**"
+  workflow_dispatch:
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install validator deps
+        working-directory: scripts
+        run: npm install
+
+      - name: Run unit tests (validator + stack detector + recall scorer + migrator + diagram)
+        run: node --test eval/validate.test.mjs eval/detect.test.mjs eval/recall.test.mjs eval/migrate.test.mjs eval/render-diagram.test.mjs
+
+      - name: Sanity-check the example contracts parse and validate
+        run: |
+          set -e
+          for f in examples/EX-001-saved-cards.md eval/contracts/clean.md eval/contracts/seeded-gaps.md; do
+            echo "Validating $f"
+            node scripts/validate.mjs "$f" > /dev/null || true   # non-zero exit on blockers is expected for seeded-gaps
+          done
+
+      - name: Assert clean contract has zero blockers
+        run: |
+          BLOCKERS=$(node scripts/validate.mjs eval/contracts/clean.md | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).readiness.openBlockers))")
+          echo "clean.md blockers: $BLOCKERS"
+          test "$BLOCKERS" = "0"
+
+      - name: Assert seeded-gaps contract is caught (has blockers)
+        run: |
+          set +e
+          node scripts/validate.mjs eval/contracts/seeded-gaps.md > /tmp/out.json
+          CODE=$?
+          BLOCKERS=$(node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).readiness.openBlockers))" < /tmp/out.json)
+          echo "seeded-gaps blockers: $BLOCKERS (exit $CODE)"
+          # must have caught blockers and exited non-zero
+          test "$CODE" = "1"
+          test "$BLOCKERS" -gt "0"
+
+      - name: Assert recall fixture is structurally complete (zero deterministic findings)
+        run: |
+          # judgment-gaps.md must be clean to the deterministic validator —
+          # its defects are judgment-only. If this fires, the fixture drifted.
+          COUNT=$(node scripts/validate.mjs eval/contracts/judgment-gaps.md \
+            | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).deterministicFindings.length))")
+          echo "judgment-gaps deterministic findings: $COUNT"
+          test "$COUNT" = "0"
+
+  # Critic recall: the non-deterministic half. Runs the verify skill
+  # against the judgment-gaps fixture and scores its findings against the
+  # golden set with the deterministic scorer. Requires LLM creds — when
+  # absent (e.g. forks), it skips cleanly rather than failing.
+  critic-recall:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install validator deps
+        working-directory: scripts
+        run: npm install
+      - name: Detect creds
+        id: creds
+        env:
+          OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          APIKEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [[ -n "$OAUTH" || -n "$APIKEY" ]]; then
+            echo "has=true" >> $GITHUB_OUTPUT
+          else
+            echo "has=false" >> $GITHUB_OUTPUT
+            echo "::notice::No LLM creds set — skipping critic recall (deterministic eval still ran)."
+          fi
+      - name: Install Claude CLI
+        if: steps.creds.outputs.has == 'true'
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Verify the recall fixture
+        if: steps.creds.outputs.has == 'true'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          mkdir -p .manifest/contracts
+          cp eval/contracts/judgment-gaps.md .manifest/contracts/JGAPS-001.md
+          claude --skill contract-verify --input '{ "contractId": "JGAPS-001" }'
+      - name: Score recall against the golden set
+        if: steps.creds.outputs.has == 'true'
+        run: |
+          node scripts/recall.mjs \
+            .manifest/contracts/JGAPS-001.findings.json \
+            eval/golden/judgment-gaps.expected.json

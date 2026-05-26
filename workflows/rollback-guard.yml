@@ -1,0 +1,81 @@
+name: Manifest rollback guard
+
+# Tight-cadence health watch for features currently rolling out. For any
+# contract with canaryStartedAt set and prodRollout100At not yet set (or
+# within the first 24h of 100%), it samples Sentry/Crashlytics/APM and
+# emits a proceed / hold / recommend-rollback recommendation.
+#
+# It RECOMMENDS ONLY. A recommend-rollback posts a top-level Slack alert
+# to the owner; a human approves and performs any flag flip or revert.
+#
+# Auth: set CLAUDE_CODE_OAUTH_TOKEN (subscription) or ANTHROPIC_API_KEY.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # every 30 min — only acts on in-window contracts
+  workflow_dispatch:
+    inputs:
+      contractId:
+        description: "Optional: limit to one contract"
+        required: false
+
+# Share the state-writer concurrency group with launch-monitor so the
+# two crons never race on push to the specs repo.
+concurrency:
+  group: manifest-state-writer
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Claude CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      # Find contracts in the rollout window: canaryStartedAt set, not
+      # yet landed. (prodRollout100At may or may not be set; the skill
+      # decides whether the 24h post-100% watch still applies.)
+      - name: Identify rolling-out contracts
+        id: contracts
+        run: |
+          if [[ -n "${{ github.event.inputs.contractId }}" ]]; then
+            echo "ids=${{ github.event.inputs.contractId }}" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          IDS=$(find .manifest/contracts -name "*.md" \
+            ! -name "*.findings.md" ! -name "*.r*.md" \
+            ! -name "*.deploy-*.md" ! -name "*.launch-report-*.md" \
+            ! -name "*.guard-*.md" ! -name "*.bug-log.md" ! -name "*.pr-review.md" \
+            -exec grep -lE "^canaryStartedAt: [^n]" {} \; \
+            | xargs grep -L "^landed: true" \
+            | xargs -I{} basename {} .md \
+            | tr '\n' ' ')
+          echo "ids=$IDS" >> $GITHUB_OUTPUT
+          echo "In rollout window: $IDS"
+
+      - name: Run rollback-guard per contract
+        if: steps.contracts.outputs.ids != ''
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          for ID in ${{ steps.contracts.outputs.ids }}; do
+            echo "=== rollback-guard $ID ==="
+            claude --skill rollback-guard \
+              --input "{ \"contractId\": \"$ID\" }"
+          done
+
+      - name: Commit guard reports
+        run: |
+          git config user.name "manifest-bot"
+          git config user.email "manifest-bot@users.noreply.github.com"
+          git add .manifest/
+          git diff --staged --quiet && exit 0
+          git commit -m "chore(manifest): rollback-guard check"
+          git pull --rebase --autostash origin "$(git rev-parse --abbrev-ref HEAD)" || true
+          git push || { git pull --rebase --autostash origin "$(git rev-parse --abbrev-ref HEAD)"; git push; }

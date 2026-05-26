@@ -1,0 +1,141 @@
+name: Manifest PR verify
+
+# Runs on every PR push. Also responds to `/implement <ID>` and
+# `/verify-pr` comments from authorized users.
+#
+# Authentication: this workflow supports either auth mode. Set whichever
+# matches your plan:
+#   - CLAUDE_CODE_OAUTH_TOKEN: subscription-backed auth tied to your
+#     Claude Code Enterprise / Pro / Team plan (preferred — no
+#     separate billing)
+#   - ANTHROPIC_API_KEY: API account on console.anthropic.com (separate
+#     billing line)
+# At least one must be set; if both are set, CLAUDE_CODE_OAUTH_TOKEN
+# takes precedence.
+#
+# NATIVE MOBILE RUNNERS: jobs default to `runs-on: ubuntu-latest`. For an
+# iOS-native repo, switch the relevant jobs to `runs-on: macos-latest`
+# (xcodebuild is macOS-only) and add an Xcode setup step. For an
+# Android-native repo, keep ubuntu but add `actions/setup-java` + the
+# Android SDK before build steps. See GUIDE §3 "Native mobile setup".
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+
+jobs:
+  verify-pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Claude CLI
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Run verify-pr skill (AC / contract conformance)
+        env:
+          # Prefer subscription auth; fall back to API key.
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          claude --skill verify-pr \
+            --input '{ "prNumber": ${{ github.event.pull_request.number }} }'
+
+      - name: Run code-review skill (code-level defects)
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          claude --skill code-review \
+            --input '{ "prNumber": ${{ github.event.pull_request.number }} }'
+
+      # Gate the merge on open code-review blockers. The skill writes the
+      # validated JSON to .manifest/contracts/<ID>.pr-review.json;
+      # `--check-review` exits 2 when an open blocker remains.
+      - name: Gate on open code-review blockers
+        run: |
+          REVIEW=$(ls .manifest/contracts/*.pr-review.json 2>/dev/null | head -1 || true)
+          if [[ -z "$REVIEW" ]]; then
+            echo "No code-review output found — skipping gate."
+            exit 0
+          fi
+          set +e
+          node scripts/validate.mjs --check-review "$REVIEW"
+          code=$?
+          set -e
+          if [[ "$code" == "2" ]]; then
+            echo "::error::Code review found open blockers. Comment '@claude /fix-pr <ID>' to have the Implementer address them, or fix manually."
+            exit 1
+          elif [[ "$code" != "0" ]]; then
+            echo "::error::Code-review output failed schema validation."
+            exit 1
+          fi
+
+  # Review→fix loop: an authorized comment re-invokes the Implementer in
+  # fix-mode against the open PR-review findings. Explicit (not automatic
+  # on every push) so a human stays in control of pushed code. The
+  # Implementer enforces the maxFixIterations cap and escalates when hit.
+  fix-on-comment:
+    if: |
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '@claude /fix-pr') &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ github.event.issue.number }}/head
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Claude CLI
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Parse contract ID from comment
+        id: parse
+        run: |
+          ID=$(echo "${{ github.event.comment.body }}" | grep -oP '/fix-pr\s+\K[A-Z]+-\d+')
+          echo "contractId=$ID" >> $GITHUB_OUTPUT
+      - name: Run implement skill in fix-mode
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          claude --skill implement \
+            --input '{ "contractId": "${{ steps.parse.outputs.contractId }}", "prNumber": ${{ github.event.issue.number }}, "mode": "fix" }'
+
+  implement-on-comment:
+    if: |
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '@claude /implement') &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ github.event.issue.number }}/head
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Claude CLI
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Parse contract ID from comment
+        id: parse
+        run: |
+          ID=$(echo "${{ github.event.comment.body }}" | grep -oP '/implement\s+\K[A-Z]+-\d+')
+          echo "contractId=$ID" >> $GITHUB_OUTPUT
+      - name: Run implement skill
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          claude --skill implement \
+            --input '{ "contractId": "${{ steps.parse.outputs.contractId }}", "prNumber": ${{ github.event.issue.number }} }'

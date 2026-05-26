@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "manifest",
+  "version": "0.17.0",
+  "description": "Manifest \u2014 PRD-to-production pipeline with quality gates",
+  "owner": {
+    "name": "Pawan"
+  },
+  "plugins": [
+    {
+      "name": "manifest",
+      "version": "0.17.0",
+      "description": "Author contracts, run critics, implement via agent, verify deploys, produce post-launch reports \u2014 all from markdown in your repo.",
+      "source": {
+        "source": "github",
+        "repo": "iampawan/Manifest"
+      },
+      "category": "productivity",
+      "tags": [
+        "prd",
+        "pipeline",
+        "shipping",
+        "verification",
+        "agent"
+      ]
+    }
+  ]
+}

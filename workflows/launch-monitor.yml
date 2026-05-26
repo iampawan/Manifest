@@ -1,0 +1,99 @@
+name: Manifest launch monitor
+
+# Daily cron that produces launch reports at day 1/7/14/28 and runs
+# bug triage every day in between, for any contract currently in its
+# 28-day monitoring window.
+
+on:
+  schedule:
+    - cron: "0 14 * * *"   # 14:00 UTC daily — adjust to your team's morning
+  workflow_dispatch:
+    inputs:
+      contractId:
+        description: "Optional: limit to one contract"
+        required: false
+
+# Serialize runs that write to .manifest/ so a cron run and a manual
+# dispatch (or the rollback-guard cron) never race on push to the specs
+# repo. New runs wait for the in-flight one rather than cancelling it.
+concurrency:
+  group: manifest-state-writer
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Claude CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      # Find all contracts in their monitoring window (≤28 days since
+      # they reached 100% prod rollout).
+      - name: Identify contracts in window
+        id: contracts
+        run: |
+          # Each contract markdown has frontmatter we can grep. We look
+          # for `landed: ` absent or set to null AND a non-null
+          # `prodRollout100At:` (the timestamp the flag hit 100%).
+          IDS=$(find .manifest/contracts -name "*.md" \
+            ! -name "*.findings.md" ! -name "*.r*.md" \
+            ! -name "*.deploy-*.md" ! -name "*.launch-report-*.md" \
+            ! -name "*.bug-log.md" ! -name "*.guard-*.md" \
+            ! -name "*.pr-review.md" ! -name "*.postmortem.md" \
+            -exec grep -lE "^prodRollout100At: [^n]" {} \; \
+            | xargs grep -L "^landed: true" \
+            | xargs grep -L "^landed: false" \
+            | xargs -I{} basename {} .md \
+            | tr '\n' ' ')
+          echo "ids=$IDS" >> $GITHUB_OUTPUT
+          echo "Found contracts in window: $IDS"
+
+      - name: Run launch-report and bug-triage per contract
+        if: steps.contracts.outputs.ids != ''
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          AMPLITUDE_API_KEY: ${{ secrets.AMPLITUDE_API_KEY }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+          for ID in ${{ steps.contracts.outputs.ids }}; do
+            echo "=== Contract $ID ==="
+
+            # Compute day index since prodRollout100At
+            ROLLOUT_DATE=$(grep "prodRollout100At:" .manifest/contracts/$ID.md | awk '{print $2}')
+            DAY=$(( ( $(date +%s) - $(date -d "$ROLLOUT_DATE" +%s) ) / 86400 ))
+
+            # Catch-up logic: GitHub's scheduled runs can be delayed or
+            # skipped, so don't require an exact day match. For each
+            # milestone we've REACHED, run its report iff it hasn't been
+            # written yet. A missed day 7 is produced on the next run.
+            for M in 1 7 14 28; do
+              if [[ "$DAY" -ge "$M" ]] && \
+                 [[ ! -f ".manifest/contracts/$ID.launch-report-day$M.md" ]]; then
+                echo "Producing day-$M report (current day index: $DAY)"
+                claude --skill launch-report \
+                  --input "{ \"contractId\": \"$ID\", \"dayIndex\": $M }"
+              fi
+            done
+
+            # Bug triage every day
+            claude --skill bug-triage \
+              --input "{ \"contractId\": \"$ID\" }"
+          done
+
+      - name: Commit reports
+        run: |
+          git config user.name "manifest-bot"
+          git config user.email "manifest-bot@users.noreply.github.com"
+          git add .manifest/
+          git diff --staged --quiet && exit 0
+          git commit -m "chore(manifest): daily launch monitor"
+          # Rebase onto any commits that landed while we ran, then push.
+          # Retry once in case of a concurrent writer.
+          git pull --rebase --autostash origin "$(git rev-parse --abbrev-ref HEAD)" || true
+          git push || { git pull --rebase --autostash origin "$(git rev-parse --abbrev-ref HEAD)"; git push; }

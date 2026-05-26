@@ -1,0 +1,14 @@
+{
+  "name": "manifest-validator",
+  "version": "0.2.0",
+  "description": "Manifest deterministic validator — mechanical contract checks + critic output schema validation",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "manifest-validate": "./validate.mjs" },
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  }
+}
