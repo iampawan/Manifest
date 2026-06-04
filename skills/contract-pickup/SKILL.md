@@ -47,6 +47,55 @@ If multiple sources are pasted in one go (URL + a clarification +
 
 ## Process
 
+### Phase 1.0 — Preflight (don't skip — gates Phase 1)
+
+**Check for `.manifest/repos.yml` before doing anything else.** Without
+it, pickup's most valuable pieces are inert:
+
+- The cross-repo regression critic has no idea what to scan.
+- The auto-fill cache builder (`scripts/build-code-context.mjs`) has
+  no inputs.
+- The PM-channel router has no `defaultChannel` to fall back to.
+- The answer-watcher has nothing to watch.
+
+If `.manifest/repos.yml` is missing, **stop and offer setup. Do not
+silently proceed and reassure the dev that "this is fine."** The dev
+should make the call, informed of what's actually lost.
+
+The handoff:
+
+> Heads up — there's no `.manifest/repos.yml` in this repo, so pickup
+> is going to run with these pieces missing:
+>
+>   - **Cross-repo regression scan** — won't see related code in
+>     other repos.
+>   - **Auto-fill from code (Bucket A)** — limited to whatever I can
+>     find in this repo on the fly; no cached event catalog / i18n.
+>   - **PM-channel automation** — questions won't be routed to the
+>     right tool because I don't know which channel your team uses.
+>   - **Answer-watcher** — nothing to poll.
+>
+> Two options:
+>
+>   1. **Set it up first** — I'll run `/manifest setup`, which
+>      auto-detects your repos / frameworks / event SDK / test
+>      patterns. ~30 seconds. Then I'll resume pickup.
+>   2. **Skip and continue** — pickup will still draft a useful
+>      contract from the source, but those four features above won't
+>      kick in. Fine for a one-off direct request; not what you want
+>      for a real team flow.
+
+If the dev picks (1), invoke the `setup-init` skill (or `/setup`) and
+re-enter Phase 1.0 after it completes. If the dev picks (2), record
+`pickup.degradedMode: true` in the contract frontmatter so the rest
+of the pipeline knows not to expect the missing pieces, and proceed —
+but **do not gloss over the degradation.** Surface each affected
+phase's limitation when you reach it.
+
+Same gate applies for missing critical MCPs if the source URL requires
+one (no Atlassian MCP and a JIRA URL was pasted, etc.) — offer to
+connect, don't silently fall through.
+
 ### Phase 1 — Fetch + expand
 
 **1a. Detect source type and route to the right MCP.**
@@ -87,7 +136,13 @@ tech spec + a competitor doc. Fetch all of them in parallel.
 Cache the slow-changing parts (codebase event catalog, i18n keys,
 dependency graph) — rebuild nightly, reuse during the day.
 
-### Phase 2 — Draft + critique
+### Phase 2 — Draft + critique  ← VERIFY HAPPENS HERE, INLINE
+
+**This phase replaces the old `/contract verify` step. Pickup
+COMPLETES verification as part of itself — do not tell the dev to
+run `/contract verify` afterwards.** Verify-as-a-separate-step is the
+pre-0.18 flow; pickup folds it into Phase 2 so the dev sees one card
+with everything sorted, not "now go run another command."
 
 **2a. Generate the draft.** Invoke the `contract-new` skill with the
 fetched material — that skill already knows how to turn a source
@@ -95,18 +150,46 @@ fetched material — that skill already knows how to turn a source
 in the contract's frontmatter (`owner: <dev>`); add a
 `promptedBy: <PM>` field too so credit/attribution is preserved.
 
-**2b. Run critics in parallel.** Single Task batch. Include:
+**2b. Run the FULL critic set inline.** Single parallel Task batch.
+This is exactly the set that `contract-verify` would run on this
+contract — same selection rules, same protocol, same schema-checked
+output. The pickup orchestrator IS the verify step for this contract;
+do not skip it, do not defer it, do not suggest the dev run it after.
 
-- The standard judgment critics that `contract-verify` selects based
-  on the contract content (edge-cases, regression, security, etc.)
-- The new dev-side critic — `critic-code-context` — which produces
-  the auto-fill suggestions and code-context dev-decides items. See
-  `skills/critic-code-context/SKILL.md`.
+The set:
 
-Run with `verifyMode: full` on first pickup (the dev will iterate after
-this — first pass needs the full picture). Subsequent re-verifies in
-this same pickup session can use `--changed` like the normal verify
-flow.
+- **Deterministic validator first** (`scripts/validate.mjs`) — runs
+  in <1s. Produces the mechanical findings (missing instrumentation,
+  missing perf budgets, missing comms states, missing ACs, platform
+  mismatches), the sizing computation, and the readiness verdict.
+- **Standard judgment critics** selected per contract content (the
+  same selection table in `contract-verify` SKILL.md):
+  `critic-minimality`, `critic-edge-cases`, `critic-regression`,
+  `critic-security` (skip only for purely cosmetic changes),
+  `critic-instrumentation` (if metrics/events declared),
+  `critic-comms-completeness` (if user-facing),
+  `critic-platform-parity` (if >1 platform),
+  `critic-scalability` (if data/server/backend),
+  `critic-perf-budget` (if non-default budget or hot path).
+- **Dev-side critic** — `critic-code-context` — produces the auto-fill
+  proposals and code-context dev-decides items that feed Buckets A
+  and B. See `skills/critic-code-context/SKILL.md`.
+
+Run with `verifyMode: full` on first pickup (this IS the full verify).
+Re-pickup or re-verify on the same contract within the session uses
+`--changed` like the normal incremental flow.
+
+Write `.findings.md` + `.findings.json` to disk exactly as
+`contract-verify` does — these files ARE the verify outputs and the
+recall harness, the `--changed` planner, and other downstream tooling
+read them. Pickup's bucket-sorted card view is the human view of the
+same data.
+
+**If a critic isn't relevant for the contract, skip it (per the
+selection rules) — but list it as `skipped` in the findings file so
+the verdict is transparent.** That's how `contract-verify` handles it
+and pickup follows the same pattern. "Skipped because not applicable"
+is different from "didn't run because pickup forgot."
 
 ### Phase 3 — Sort gaps into three buckets
 
@@ -161,9 +244,75 @@ Examples:
 Each item has [Ask PM] / [I'll handle it] / [Skip]. The default text
 is sendable as-is; dev can edit before sending.
 
-**Presentation.** Output one card in chat (not a file), sorted by
-bucket, with counts. Match the format in `docs/PICKUP-CARD-FORMAT.md`
-(see "Render the pickup card" below).
+**Presentation — write for someone reading their first pickup card.**
+
+The card output is the dev's first impression of pickup, and often
+the first impression for anyone joining the team. Default to a
+**plain-English-first** layout. Technical references (file paths,
+symbol names, contract IDs, code patterns) are valuable but go in
+secondary footnotes (`↳ refs:` lines), not in the headline.
+
+**Layout:**
+
+```
+📋 <feature title in plain English — NOT the contract ID>
+   <one-sentence summary of what this feature does, in plain English>
+
+   Status: <draft | verified | promoted>   Size: <Small (24h) | Medium (72h)>   Platforms: <web · iOS · …>
+   Contract ID: <SC-001>   (small, for reference — never the lead)
+
+—— Things to settle ————————————————————————————————————————
+
+✅ Agent filled in <N> from your code:
+   • <plain-English description of what was filled in>
+     ↳ <one-line why this is the right default>
+     ↳ refs: <file:line>, <symbol or pattern>
+   • <next item, same shape>
+
+✅ You decided <N>:
+   • <plain-English of the engineering judgment + the resolution>
+     ↳ context: <what triggered it — past contract, dependency, etc.>
+
+❓ Questions for the PM (<N>):
+   • <the question in plain English, scoped to a behavior>
+     Drafted message to PM: "<the actual text that would be sent>"
+     [Ask PM] [I'll handle it] [Skip]
+
+   (or: "No PM questions — all product decisions answered directly.")
+
+⚠️ Worth your eye (<N>):
+   • <a callout, plain language>
+```
+
+**Rules for the wording:**
+
+- **Lead with the feature, not the ID.** The contract ID belongs in
+  the metadata row, not in the title. A dev reading "voice dictation
+  in the script editor" knows what they're looking at; reading
+  "SC-001" alone tells them nothing.
+- **Bucket headlines in plain English.** "Agent filled in 4 from your
+  code" beats "Bucket A — auto-filled from code (4)" for someone new.
+  Bucket letters are internal terminology — leave them in the JSON
+  findings file for tooling, not in the dev's card.
+- **Every technical reference gets a one-line plain-English context
+  above it.** A reader who doesn't know `useEditorRef` or
+  `applyPunctuationCommands` should still understand what the item
+  is doing. The symbol/file is the *receipt*; the prose is the
+  *answer*.
+- **No bare jargon.** If you must use a term like "AnalyserNode tap"
+  or "lerp smoothing," parenthesize a plain-English gloss the first
+  time it appears. Subsequent uses can be terse.
+- **Question IDs (`Q-1…Q-4`) never appear in the human card.** They
+  live in the contract frontmatter and the qa.md sidecar; the human
+  sees the question text and the [buttons].
+- **File paths are footnotes (`↳ refs:`), not column values.** A
+  table column makes refs feel load-bearing; a footnote line makes
+  it clear they're auditable detail, not the answer.
+
+Match the layout above as a default; adapt to the renderer the dev is
+in. Tables (ASCII box-drawing) work in Cowork's rich view; in
+terminal-only Claude Code, fall back to bulleted lists with the same
+content. Don't over-decorate either way — the words carry the load.
 
 ### Phase 4 — Hand off to dev
 
@@ -223,6 +372,36 @@ implementing what's clear." Agent invokes the standard handoff flow
 are skipped; the implementer agent handles partial implementation
 gracefully via the behavior-by-behavior structure already in the
 implementer skill.
+
+**4f. Next-step suggestions — what to say, what NOT to say.**
+
+After presenting the card, summarize the situation in one line and
+offer the legitimate next actions. **Verify already ran in Phase 2 —
+do not suggest `/contract verify` as a follow-up.**
+
+Legitimate next steps (offer the ones that apply):
+
+- "Review the contract / edit a behavior" — if the dev wants to
+  refine anything before promoting.
+- "Walk through the conversational fix loop" — if there are open
+  blockers in the findings.
+- "Send the PM questions" — if Bucket C is non-empty and the dev
+  hasn't sent yet.
+- "`/contract promote <ID>`" — if 0 open blockers (i.e.
+  `promotable: true`).
+- "`/implement <ID>`" — once promoted.
+
+Anti-patterns to avoid in the next-step summary:
+
+- ❌ "Next: run `/contract verify <ID>` to run the critics."
+  Wrong — critics already ran in Phase 2. If the dev sees this
+  suggestion, the orchestrator skipped its job.
+- ❌ "Critics weren't run; do `/contract verify` first."
+  Wrong — pickup is the verify. If critics genuinely couldn't run
+  (e.g., the validator failed parse), that's a Phase 2 error to
+  surface, not a `/verify` hand-off.
+- ✅ "Critics ran inline — 2 blockers from edge-cases and security.
+  Want to walk through the fixes?" — this is the correct framing.
 
 ## Answer watcher
 
@@ -318,6 +497,22 @@ These are what make pickup feel fast vs. clunky.
   `contract new <URL>` directly, treat the result as input to pickup
   (warn about the duplication, ask if they want to upgrade to the
   pickup flow).
+- **Don't suggest `/contract verify` as a next step.** Pickup IS the
+  verify — it runs the full critic set inline in Phase 2 and writes
+  `.findings.md` + `.findings.json` to disk. If the dev sees "Next:
+  run `/contract verify`" in the output, the orchestrator skipped its
+  job; that's a skill bug, not a hand-off. Legitimate next steps after
+  pickup are: review/edit, conversational fix loop, send PM questions,
+  `/contract promote`, `/implement`.
+- **Don't draft a contract without running critics.** A pickup that
+  produces a card showing only Bucket A (auto-fill) and no findings
+  from edge-cases / security / regression / instrumentation has
+  skipped Phase 2b. Run the full critic batch even when the contract
+  looks small — small contracts still get edge-case checks.
+- **Don't silently degrade.** If `.manifest/repos.yml` is missing, or
+  a required MCP isn't connected, do NOT say "fine here" and move
+  on. Phase 1.0 is a real gate — surface the loss and offer setup.
+  The dev decides what's acceptable, not the agent.
 
 ## Why this is opt-in
 

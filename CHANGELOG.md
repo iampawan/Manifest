@@ -81,6 +81,47 @@ pickup:
   cacheTTL: 24h            # codebase analysis cache lifetime
 ```
 
+### Skill hardening from first real-run feedback
+First end-to-end test of `/contract pickup` surfaced two gaps; both
+closed in this release.
+
+- **Phase 2 now explicitly runs the full critic set inline.** The
+  initial skill prose was ambiguous about whether pickup ran verify
+  itself or only drafted the contract — and the first test produced a
+  card with just code-context output, then suggested
+  `/contract verify` as a next step. The skill now states plainly:
+  pickup IS the verify. The standard judgment critics
+  (edge-cases / regression / security / instrumentation /
+  comms-completeness / platform-parity / scalability / perf-budget,
+  selected per content) plus `critic-code-context` run in one parallel
+  batch in Phase 2, and `.findings.{md,json}` get written exactly as
+  `contract-verify` would write them. Added anti-patterns: "don't
+  suggest `/contract verify` as a next step," "don't produce a card
+  with only Bucket A and skip the other critics."
+
+- **Phase 1.0 preflight — no more silent degradation when
+  `repos.yml` is missing.** Pickup previously ran without
+  `.manifest/repos.yml` and reassured the dev "fine here — automation
+  is inert." That hides a real loss: cross-repo regression scan,
+  cached auto-fill, PM-channel routing, and the answer-watcher all
+  need `repos.yml`. The skill now gates Phase 1 on the file. If it's
+  missing, the agent stops, lists the four affected features
+  explicitly, and offers to run `/manifest setup` (~30 seconds) or
+  proceed in `pickup.degradedMode: true` so the rest of the pipeline
+  knows. Same gate applies when a critical MCP is missing for the
+  pasted source.
+
+- **Card output reframed for someone reading their first pickup.**
+  Old output led with the contract ID (`SC-001`), bucket letters,
+  and file paths as table columns — readable for someone who knew
+  the codebase, opaque otherwise. New layout: feature title in plain
+  English leads; bucket headlines in plain English ("Agent filled in
+  4 from your code" instead of "Bucket A — auto-filled from code");
+  every technical reference gets a plain-English line above it;
+  file paths drop to `↳ refs:` footnotes; jargon gets a parenthesized
+  gloss the first time it appears; question IDs (`Q-N`) stay in
+  frontmatter and never surface in the human card.
+
 ### Cache builder + answer watcher (closed mid-cycle)
 What started as deferred made it into this release:
 - **`scripts/build-code-context.mjs`** — idempotent, atomically-writing
