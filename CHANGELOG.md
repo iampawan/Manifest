@@ -12,6 +12,58 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.18.1] — pickup skill hardening from first real-run feedback
+
+First end-to-end test of `/contract pickup` surfaced three real
+gaps. All closed in this patch — no API changes, no new dependencies,
+no migration. Existing 0.18.0 contracts and config keep working.
+
+### Changed
+- **Phase 2 now runs the full critic set inline, unambiguously.** The
+  0.18.0 skill prose left room for the agent to draft the contract,
+  run only `critic-code-context`, and then suggest `/contract verify`
+  as a follow-up — which happened in the first real run. The skill is
+  now explicit: pickup IS the verify. In Phase 2 the agent runs the
+  validator + all the standard judgment critics selected per content
+  (edge-cases / regression / security / instrumentation /
+  comms-completeness / platform-parity / scalability / perf-budget)
+  + `critic-code-context` in one parallel batch, and writes
+  `.findings.{md,json}` exactly as `contract-verify` would. New
+  anti-patterns explicitly forbid suggesting `/contract verify` as a
+  next step and producing a card with only Bucket A.
+
+- **Phase 1.0 preflight — no more silent degradation without
+  `repos.yml`.** 0.18.0 ran pickup happily without
+  `.manifest/repos.yml` and reassured the dev "fine here — automation
+  is inert." That hid a real loss: cross-repo regression scan, cached
+  auto-fill, PM-channel routing, and the answer-watcher all need
+  `repos.yml`. The skill now gates Phase 1 on the file. If missing,
+  the agent stops, lists the four affected features explicitly, and
+  offers to run `/manifest setup` (~30 seconds) or proceed with
+  `pickup.degradedMode: true` recorded in the contract frontmatter so
+  the rest of the pipeline knows. Same gate when a critical MCP isn't
+  connected for the pasted source. Anti-pattern added: don't say
+  "fine here" — surface the loss, let the dev decide.
+
+- **Card output reframed for someone reading their first pickup.**
+  0.18.0 led with the contract ID (`SC-001`), bucket letters, and
+  file paths as table columns — fine for someone who already knew the
+  codebase, opaque otherwise. New rules: feature title in plain
+  English leads (contract ID drops to a small metadata row); bucket
+  headlines in plain English ("Agent filled in 4 from your code"
+  instead of "Bucket A — auto-filled from code"); every technical
+  reference gets a plain-English line above it; file paths drop to
+  `↳ refs:` footnotes; jargon gets a parenthesized gloss the first
+  time it appears; question IDs (`Q-N`) stay in frontmatter and never
+  surface in the human card.
+
+### Why these are 0.18.1, not 0.18.0
+0.18.0 shipped the design + scaffolding. 0.18.1 closes the gaps the
+first real run exposed. The skill prose was the difference between
+"works on paper" and "behaves the way the docs claim" — that's a
+behavioral change worth a version bump even though no `.json` schema
+or workflow file changed.
+
 ## [0.18.0] — dev-centric pickup flow (opt-in)
 
 A new mental model for the most common real-world case: the PM
@@ -80,47 +132,6 @@ pickup:
   blockingByDefault: false # questions are non-blocking unless dev flags
   cacheTTL: 24h            # codebase analysis cache lifetime
 ```
-
-### Skill hardening from first real-run feedback
-First end-to-end test of `/contract pickup` surfaced two gaps; both
-closed in this release.
-
-- **Phase 2 now explicitly runs the full critic set inline.** The
-  initial skill prose was ambiguous about whether pickup ran verify
-  itself or only drafted the contract — and the first test produced a
-  card with just code-context output, then suggested
-  `/contract verify` as a next step. The skill now states plainly:
-  pickup IS the verify. The standard judgment critics
-  (edge-cases / regression / security / instrumentation /
-  comms-completeness / platform-parity / scalability / perf-budget,
-  selected per content) plus `critic-code-context` run in one parallel
-  batch in Phase 2, and `.findings.{md,json}` get written exactly as
-  `contract-verify` would write them. Added anti-patterns: "don't
-  suggest `/contract verify` as a next step," "don't produce a card
-  with only Bucket A and skip the other critics."
-
-- **Phase 1.0 preflight — no more silent degradation when
-  `repos.yml` is missing.** Pickup previously ran without
-  `.manifest/repos.yml` and reassured the dev "fine here — automation
-  is inert." That hides a real loss: cross-repo regression scan,
-  cached auto-fill, PM-channel routing, and the answer-watcher all
-  need `repos.yml`. The skill now gates Phase 1 on the file. If it's
-  missing, the agent stops, lists the four affected features
-  explicitly, and offers to run `/manifest setup` (~30 seconds) or
-  proceed in `pickup.degradedMode: true` so the rest of the pipeline
-  knows. Same gate applies when a critical MCP is missing for the
-  pasted source.
-
-- **Card output reframed for someone reading their first pickup.**
-  Old output led with the contract ID (`SC-001`), bucket letters,
-  and file paths as table columns — readable for someone who knew
-  the codebase, opaque otherwise. New layout: feature title in plain
-  English leads; bucket headlines in plain English ("Agent filled in
-  4 from your code" instead of "Bucket A — auto-filled from code");
-  every technical reference gets a plain-English line above it;
-  file paths drop to `↳ refs:` footnotes; jargon gets a parenthesized
-  gloss the first time it appears; question IDs (`Q-N`) stay in
-  frontmatter and never surface in the human card.
 
 ### Cache builder + answer watcher (closed mid-cycle)
 What started as deferred made it into this release:
