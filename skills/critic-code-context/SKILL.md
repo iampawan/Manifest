@@ -3,7 +3,7 @@ name: critic-code-context
 description: Dev-side critic for the pickup flow. Surfaces auto-fillable defaults the agent can pull straight from the repo + history (Bucket A in contract-pickup), and code-context dev-decides items where engineering judgment is needed (Bucket B). Different from critic-regression — that one flags *risks*; this one proposes *answers*. Invoked by contract-pickup as part of the parallel critic batch.
 ---
 
-# Code-context critic — BETA
+# Code-context critic
 
 > **Protocol:** Follow `reference/CRITIC-PROTOCOL.md` at the plugin root for
 > severity definitions, output JSON schema, ID prefixes, and shared

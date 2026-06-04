@@ -53,13 +53,16 @@ run `/contract new` against a real feature.
 |---|---|---|
 | Typo, CSS value, config flip | just edit + commit | none |
 | One-line bug, copy tweak, dep bump | `/fix` | triage → fix + regression test → PR |
-| New behavior, 1 platform, ≤3 behaviors | `/contract` (Small) | full ceremony, 24h |
-| 2 platforms, ≤8 behaviors, additive schema | `/contract` (Medium) | full ceremony, 72h |
+| New behavior, 1 platform, ≤3 behaviors | `/contract pickup` (Small) | full ceremony, 24h |
+| 2 platforms, ≤8 behaviors, additive schema | `/contract pickup` (Medium) | full ceremony, 72h |
 | Breaking change, migration, auth/billing | normal cycle (Large) | Manifest for spec only |
-| PM authored PRD elsewhere (JIRA / Doc / Slack), dev picks it up | `/contract pickup <source>` *(0.18 beta)* | code archaeology + 3-bucket gap sort; PM stays in their tool |
 
-Process is proportional to risk. Don't run the full contract for a
-one-liner; don't `/fix` a multi-platform feature.
+`/contract pickup <source-or-description>` is the canonical Spec
+entry — accepts JIRA / Linear / Notion / Google Doc / Slack URLs,
+Figma files, pasted text, images, or a free-form description, and
+walks the gap-sort + fix loop end-to-end. Process is proportional
+to risk: don't run the full contract for a one-liner; don't `/fix`
+a multi-platform feature.
 
 ## Already know the workflow? Quick reference:
 
@@ -67,12 +70,14 @@ one-liner; don't `/fix` a multi-platform feature.
 # Express lane (trivial)
 /fix <bug-or-change>                     Triage → fix + regression test → PR
 
-# Spec phase
-/contract new <URL or "description">    Author from JIRA / Linear / text (PM-led)
-/contract pickup <source>                Pick up a PRD that lives elsewhere; 3-bucket gap sort (dev-led, 0.18 beta)
-/contract verify <ID>                    Validator + relevant judgment critics
-/contract fix <ID>                       Bounded verify→fix loop (blockers only)
+# Spec phase  (canonical)
+/contract pickup <source-or-description> Fetch + draft + critics + 3-bucket gap sort + PM Q&A
+/contract fix <ID>                       Re-run the conversational fix loop on an existing contract
 /contract promote <ID>                   Freeze revision, start SLA
+
+# Spec phase  (power-user / backward-compat)
+/contract new <URL or "description">     Legacy alias — use pickup instead
+/contract verify <ID>                    Re-check after manual contract edits
 
 # Build phase
 /implement <ID>                          Run implementer agent

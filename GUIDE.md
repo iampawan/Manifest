@@ -265,20 +265,20 @@ so it's never even staged — local ignore, no shared `.gitignore` edit.)
 
 ---
 
-## 1g. Pickup flow — when the PM authored elsewhere (0.18 beta)
+## 1g. Pickup flow — the canonical Spec entry
 
-The flow in section 2 below assumes you (or someone in your Claude
-Code session) is the one writing the contract. In real-world teams
-that's often not how PRDs arrive. The PM writes one in JIRA, a Google
-Doc, a Slack thread, or a Notion page, assigns it to a dev, and walks
-away. The dev is the one who has to figure out what's missing —
-because the PM doesn't know the code, the history, the dependencies,
-or what might break.
+In real-world teams most PRDs arrive from outside Manifest. The PM
+writes one in JIRA, a Google Doc, a Slack thread, or a Notion page,
+assigns it to a dev, and walks away. The dev is the one who has to
+figure out what's missing — because the PM doesn't know the code,
+the history, the dependencies, or what might break.
 
-The **pickup flow** is for that case. It's a dev-centric counterpart
-to `/contract new`: dev pastes any source, Manifest does the code
-archaeology, and the dev sees every gap sorted into three buckets
-they can act on in minutes.
+`/contract pickup <source-or-description>` is the canonical entry
+for the Spec phase. Dev pastes any source — a URL, free-form text,
+or an image — and Manifest does the code archaeology, drafts the
+contract, runs the validator + relevant judgment critics inline,
+and sorts every gap into three buckets the dev can act on in minutes.
+There's no separate author / verify two-step; pickup does both.
 
 **The mental model.**
 
@@ -370,9 +370,10 @@ gaps in this first cut.
 
 | Situation | Use |
 |---|---|
-| PM is in Cowork with you, co-authoring the spec | `/contract new` (section 2 below) |
-| PM authored elsewhere and handed off | `/contract pickup <source>` |
+| Anything that needs a real spec | `/contract pickup <source-or-description>` |
 | Quick bug fix, no real spec | `/fix` |
+| Power-user re-check after manual `.md` edits | `/contract verify <ID>` |
+| Legacy author flow (pre-0.18 muscle memory) | `/contract new` — works but prefer pickup |
 
 Pickup doesn't replace anything. It adds the missing entry point.
 Once a contract has been picked up, everything downstream (verify,

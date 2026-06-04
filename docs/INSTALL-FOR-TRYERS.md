@@ -67,7 +67,7 @@ the contract. You'll see what got caught and which gates aren't yet
 green.
 
 **Option B — you're a dev and your PM already wrote the PRD somewhere
-else** (0.18 beta). Paste any source — JIRA URL, Google Doc, Slack
+else** (0.18+). Paste any source — JIRA URL, Google Doc, Slack
 message link, Notion page, or just paste the text:
 
 ```
@@ -87,7 +87,7 @@ pickup:
   defaultChannel: jira
 ```
 
-See [GUIDE.md section 1g](../GUIDE.md#1g-pickup-flow--when-the-pm-authored-elsewhere-018-beta)
+See [GUIDE.md section 1g](../GUIDE.md#1g-pickup-flow--when-the-pm-authored-elsewhere)
 for the full walkthrough.
 
 ## Updates

@@ -5,8 +5,8 @@
 ![Tests](https://img.shields.io/badge/tests-node%20--test-green.svg)
 
 A Claude Code / Cowork plugin that takes a PRD ("contract") through the full
-lifecycle — author → verify → implement → ship → land — with quality gates
-that won't let an under-specified spec progress.
+lifecycle — spec → implement → ship → land — with quality gates that won't
+let an under-specified spec progress.
 
 The contract lives as **markdown in your repo** at `.manifest/contracts/*.md`.
 Critics produce findings as adjacent files. Reports are committed alongside.
@@ -15,15 +15,16 @@ Git is your audit trail; no external database required.
 For the full walkthrough — mental model, day-by-day flow, recovery
 playbooks — read **[GUIDE.md](GUIDE.md)**.
 
-> **Beta: dev-centric pickup flow.** If your PM writes PRDs in JIRA /
-> Google Docs / Slack and walks away — and your dev does all the
-> homework to make the spec build-ready — try **`/contract pickup
-> <source>`**. The dev pastes any source; the agent does the code
-> archaeology and presents every gap in three buckets (auto-fill from
-> code, dev decides, only PM can answer). Questions for the PM go out
-> as one batched JIRA comment / Slack DM in the dev's voice — PM
-> never has to touch Manifest. See [skills/contract-pickup/SKILL.md](skills/contract-pickup/SKILL.md)
-> and [ROADMAP.md](ROADMAP.md). Opt in per repo via
+> **New in 0.18 — dev-led Spec flow.** Most PMs write PRDs in JIRA,
+> Google Docs, Slack, or Notion and hand them off; the dev does the
+> homework to make the spec build-ready. **`/contract pickup
+> <source>`** is the entry point for that case — paste any source
+> and the agent does the code archaeology, runs the critics, and
+> presents every gap in three buckets (auto-fill from code, dev
+> decides, only PM can answer). Questions for the PM go out as one
+> batched JIRA comment / Slack DM in the dev's voice — PM never has
+> to touch Manifest. See [skills/contract-pickup/SKILL.md](skills/contract-pickup/SKILL.md)
+> and [ROADMAP.md](ROADMAP.md). Enable per repo via
 > `pickup.enabled: true` in `repos.yml`.
 
 ## Pick the right path — process proportional to risk
@@ -34,18 +35,22 @@ Manifest scales the ceremony to the change. Four tiers:
 |---|---|---|
 | Typo, single CSS value, config flip | just edit + commit | none |
 | One-line bug, copy tweak, dep bump | **`/fix`** (express lane) | triage → fix + regression test → PR; minutes |
-| New behavior, 1 platform, ≤3 behaviors | **`/contract`** → Small | full pipeline, 24h SLA |
-| ≤2 platforms, ≤8 behaviors, additive schema | **`/contract`** → Medium | full pipeline, 72h SLA |
+| New behavior, 1 platform, ≤3 behaviors | **`/contract pickup`** → Small | full pipeline, 24h SLA |
+| ≤2 platforms, ≤8 behaviors, additive schema | **`/contract pickup`** → Medium | full pipeline, 72h SLA |
 | Breaking change, migration, auth/billing | **`/contract decompose`** → epic | broken into Small/Medium children; migrations human-led |
-| PM wrote PRD elsewhere (JIRA / Doc / Slack), dev has to make it build-ready | **`/contract pickup <source>`** *(0.18 beta)* | code archaeology + three-bucket gap sort; PM stays in their tool |
+
+`/contract pickup <source-or-description>` is the canonical Spec
+entry — it accepts a JIRA / Linear / Notion / Google Doc / Slack URL,
+a Figma file, pasted text, an image, or a free-form description. The
+agent fetches whatever you give it, drafts a contract, runs the
+critics inline, and walks you through the gaps. There's no separate
+"author" step.
 
 ## What the full pipeline does (Small / Medium)
 
 | Stage | What runs | Output |
 |---|---|---|
-| **Author** (PM-led) | `/contract new` (JIRA/Linear/Notion link or text) | `.manifest/contracts/<ID>.md` |
-| **Pickup** (dev-led, 0.18 beta) | `/contract pickup <source>` — fetches PRD, runs critics, sorts gaps into 3 buckets (auto-fill / dev / PM), drafts batched PM-channel questions | `.manifest/contracts/<ID>.md` + `.qa.md` sidecar |
-| **Verify** | `/contract verify` (validator + only the relevant judgment critics) | `.manifest/contracts/<ID>.findings.md` (+ `.findings.json`) |
+| **Spec** | `/contract pickup <source-or-description>` — fetches the PRD (JIRA / Linear / Notion / Google Doc / Slack / paste / image), runs the validator + relevant judgment critics inline, sorts every gap into 3 buckets (auto-fill from code, dev decides, only PM can answer), drafts batched questions back to the PM in their own tool | `.manifest/contracts/<ID>.md` + `.findings.{md,json}` + `.qa.md` sidecar |
 | **Promote** | `/contract promote` | Frozen revision, JIRA epic, SLA timer (24h/72h) |
 | **Implement** | `/implement <ID>` (PR comment, runs in CI) | PR with code + tests in the repo's stack |
 | **Verify PR** | `pr-verify.yml` → `verify-pr` (AC conformance) + `code-review` (code-level defects) | coverage comment + `CR-` findings; open blockers gate merge |
@@ -118,7 +123,7 @@ The cleanest path — two commands:
 /plugin install manifest@manifest
 ```
 
-Then verify:
+Then confirm it loaded:
 
 ```
 /plugin                       # shows installed plugins
@@ -311,8 +316,9 @@ Run `/setup` next — on first run it's an **interactive wizard** that
 auto-detects your repos, frameworks, event SDKs, and test patterns,
 asks only the few things it can't detect, and writes a complete
 `.manifest/repos.yml` for you (no placeholders to hand-edit). On later
-runs `/setup` verifies your MCPs and scopes. Then try
-`/contract new "a small feature"`.
+runs `/setup` confirms your MCPs and scopes. Then try
+`/contract pickup "a small feature"` (or paste any JIRA / Google Doc
+/ Slack URL).
 
 ---
 
@@ -346,8 +352,8 @@ isn't triggering, its description may need to be more specific.
 Once installed:
 
 ```
-/manifest                     # 3-minute tutorial
-/contract new "your first feature"
+/manifest                              # 3-minute tutorial
+/contract pickup "your first feature"  # or paste a JIRA / Doc / Slack URL
 ```
 
 For a comprehensive walkthrough, read **[GUIDE.md](GUIDE.md)**.
@@ -424,7 +430,7 @@ manifest/
 │   ├── manifest.md                      # /manifest welcome + reference
 │   ├── setup.md                         # /setup (init wizard or verify)
 │   ├── status.md                        # /status [<ID>]
-│   ├── contract.md                      # /contract new|verify|promote|decompose
+│   ├── contract.md                      # /contract pickup|promote|decompose|fix|diagram (also: legacy new, power-user verify)
 │   ├── fix.md                           # /fix <bug-or-change>
 │   ├── implement.md                     # /implement <ID>
 │   ├── verify-pr.md                     # /verify-pr <PR>

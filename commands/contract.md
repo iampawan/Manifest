@@ -1,6 +1,6 @@
 ---
 name: contract
-description: Author, verify, or promote a Manifest contract. Run with no args (or `help`) to get a quick tutorial. Subcommands: new, pickup (beta), verify, fix, promote.
+description: Pick up, fix, and promote Manifest contracts. Run with no args (or `help`) to get a quick tutorial. Subcommands: pickup (canonical Spec entry), fix, promote, decompose, diagram, migrate, archive. `new` and `verify` exist for backward compatibility and power-user re-checks respectively.
 ---
 
 # /contract
@@ -21,15 +21,82 @@ you want to learn:
 Or jump right in:
 
 ```
-/contract new <your JIRA / Linear / Notion link or "a description">
+/contract pickup <a JIRA / Doc / Slack URL, or "a description">
 ```
 
 ## Subcommands
 
-### /contract new <input>
+### /contract pickup <source-or-description>  *(canonical Spec entry)*
 
-Starts intake and writes a draft contract to
-`.manifest/contracts/<ID>.md`. Accepts several input forms:
+The single entry point for getting a feature spec'd. Source is
+anything:
+
+```
+/contract pickup https://your-org.atlassian.net/browse/ENG-1234
+/contract pickup https://docs.google.com/document/d/<...>
+/contract pickup https://linear.app/<org>/issue/ENG-987
+/contract pickup https://notion.so/<page-id>
+/contract pickup https://yourcorp.slack.com/archives/C123/p1234567890
+/contract pickup https://figma.com/file/<...>
+/contract pickup "Add CSV export to /admin/users"                     # free-text
+/contract pickup        # then paste text or drop an image
+```
+
+What it does:
+
+- Detects the source type and fetches via the right MCP. Follows
+  embedded links one level deep (Figma inside JIRA, tech spec inside
+  the Google Doc).
+- Pulls related history in the background — past contracts on the
+  same surface, postmortems, recent Sentry, open PRs touching the
+  same files.
+- Drafts the contract, runs the validator + the relevant judgment
+  critics in parallel, plus a dev-side `critic-code-context` that
+  surfaces auto-fill proposals from the repo.
+- Sorts every gap into three buckets:
+  **A. agent fills from code** (one tap to accept) ·
+  **B. dev decides** (engineering judgment) ·
+  **C. only PM can answer** (drafted as PM-facing questions).
+- For Bucket C, agent composes one batched message in the dev's
+  voice on the channel the source came from — JIRA comment, Slack
+  reply, Notion comment, Google Doc suggestion. **PM never has to
+  touch Manifest.**
+- Watches the channel for replies; when PM answers, the answer
+  materializes as an AC edit with a provenance comment, the question
+  moves to a `<ID>.qa.md` sidecar, and the contract re-verifies
+  incrementally.
+
+End-to-end time for a small contract: ~3–5 minutes of dev review,
+then any PM questions go async. Implementation on the unblocked
+behaviors can start in parallel — non-blocking questions don't pause
+work.
+
+Enable per repo in `.manifest/repos.yml`:
+
+```yaml
+pickup:
+  enabled: true            # opt in (per repo)
+  identifyAgent: true      # "— <dev> (via Manifest)" footer on PM-facing posts
+  defaultChannel: jira     # or: slack | notion | gdoc
+  blockingByDefault: false
+  cacheTTL: 24h
+```
+
+Without `pickup.enabled: true`, the command falls back to the
+legacy `/contract new` flow with a notice.
+
+Invokes the **contract-pickup** skill. See `skills/contract-pickup/SKILL.md`
+for the full flow.
+
+### /contract new <input>  *(legacy alias — prefer `pickup`)*
+
+The pre-0.18 author flow. Kept as a thin alias for backward
+compatibility — accepts the same inputs as `pickup` and delegates to
+the **contract-new** skill, which then runs verify as a separate
+step. New work should use `/contract pickup`; this entry stays so
+older docs, talks, and muscle memory don't break.
+
+Inputs:
 
 ```
 /contract new "Add CSV export to /admin/users"                   # free-text
@@ -40,74 +107,22 @@ Starts intake and writes a draft contract to
 /contract new https://figma.com/file/<...>                       # Figma file
 ```
 
-When given a URL, the skill fetches the source via the appropriate
-MCP, extracts what it can (title, goal, behaviors, ACs, platforms,
-out-of-scope) and asks the user only what's still missing. The
-contract carries a `source:` frontmatter field linking back to the
-original ticket for audit.
-
-For JIRA / Linear / Notion sources, the skill also posts a comment
+For JIRA / Linear / Notion sources, this skill also posts a comment
 back on the source ticket linking to the new contract — two-way
 discoverability.
 
-If you're new, the **contract-new** skill will narrate what it's
-doing as it goes.
-
 Invokes the **contract-new** skill.
 
-### /contract pickup <source>  *(BETA — dev-centric flow)*
+### /contract verify <ID>  *(re-check after manual edits)*
 
-For the case where the PM authored the PRD elsewhere (JIRA, Google
-Doc, Slack, Notion, paste, screenshot) and walked away, and the dev
-has to make it build-ready themselves. Different mental model from
-`/contract new`:
+Manually re-runs the validator + the relevant judgment critics
+against a contract. Useful only when you've made manual edits to the
+`.md` file directly and want to re-check without going through the
+full pickup flow. In the canonical pickup flow, verify runs
+*automatically* as the contract is drafted and edited — you don't
+normally invoke it yourself.
 
-- Dev is the user. Manifest is on the dev's side.
-- PM is an asynchronous input source. The agent talks to the PM
-  through their existing tool (JIRA comment, Slack DM) in the dev's
-  voice — PM never has to touch Manifest.
-- Agent does the code archaeology: reads the codebase, past
-  contracts, postmortems, Sentry, active concurrent work.
-- Output: one card with every gap sorted into three buckets —
-  **A. agent fills from code**, **B. dev decides**, **C. only PM
-  can answer**. Dev burns through A in seconds, walks B with
-  judgment, sends batched questions for C to PM via PM's own
-  channel.
-
-```
-/contract pickup https://your-org.atlassian.net/browse/ENG-1234
-/contract pickup https://docs.google.com/document/d/<...>
-/contract pickup https://yourcorp.slack.com/archives/C123/p1234567890
-/contract pickup        # then paste text or drop an image
-/pickup ENG-1234        # short alias once /pickup is registered
-```
-
-End-to-end time for a small contract: ~3–5 minutes of dev review,
-then PM-bound questions go async via JIRA / Slack. Implementation
-on the unblocked behaviors can start in parallel — non-blocking
-questions don't pause work.
-
-Beta-gated per repo. Enable in `.manifest/repos.yml`:
-
-```yaml
-pickup:
-  enabled: true            # opt in
-  identifyAgent: true      # "(via Manifest)" footer on PM-facing posts
-  defaultChannel: jira     # or: slack | notion | gdoc
-  blockingByDefault: false
-  cacheTTL: 24h
-```
-
-Without `pickup.enabled: true`, this subcommand falls back to
-`/contract new` with a notice.
-
-Invokes the **contract-pickup** skill. See `skills/contract-pickup/SKILL.md`
-for the full flow.
-
-### /contract verify <ID>
-
-Runs the deterministic validator, then only the relevant judgment critics. Writes a findings
-file. Sets readiness verdict and complexity.
+Writes a findings file. Sets readiness verdict and complexity.
 
 Takes about 90 seconds. The deterministic validator handles field
 presence, AC coverage, sizing, and the readiness verdict. Then only

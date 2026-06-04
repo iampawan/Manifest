@@ -70,7 +70,7 @@ Wait for the user's pick.
 
 **One more option to mention if the user signals they're a dev whose
 PM hands off PRDs:** offer Path 4 — `/contract pickup <source>` (the
-0.18 beta dev-centric flow). Phrase it like:
+canonical Spec entry as of 0.18). Phrase it like:
 
 > If your PM writes PRDs in JIRA / Google Docs / Slack and walks
 > away, there's a new dev-centric entry point: `/contract pickup

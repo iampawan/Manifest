@@ -12,7 +12,7 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
-## [0.18.0] — dev-centric pickup flow (beta, opt-in)
+## [0.18.0] — dev-centric pickup flow (opt-in)
 
 A new mental model for the most common real-world case: the PM
 writes a PRD elsewhere (JIRA / Google Doc / Slack / Notion / paste /

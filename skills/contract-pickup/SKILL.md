@@ -1,9 +1,9 @@
 ---
 name: contract-pickup
-description: Dev-centric flow — dev gets a PRD (JIRA / Google Doc / Slack / Notion / paste / image), agent does the code archaeology, drafts a contract, and sorts every gap into three buckets (auto-fill from code, dev decides, PM must answer). PM stays in their normal tool (JIRA comment, Slack DM); they never have to touch Manifest. Use when the user says "pick up this PRD", "start on this ticket", "I got a doc from PM", or invokes `/contract pickup <source>` / `/pickup <source>`. Beta — this is the dev-driven counterpart to `/contract new`, optimized for the case where the PM authored the spec elsewhere and walked away.
+description: The canonical Spec entry for Manifest. Dev gives any source — JIRA / Linear / Notion / Confluence / Google Doc / Slack message / GitHub issue / Figma URL, pasted text, an image, or a free-form description — and the agent does the code archaeology, drafts the contract, runs the critics inline, and sorts every gap into three buckets (auto-fill from code, dev decides, PM must answer). PM stays in their normal tool (JIRA comment, Slack DM); they never have to touch Manifest. Use when the user says "pick up this PRD", "start on this ticket", "spec out this feature", "I got a doc from PM", or invokes `/contract pickup <source>` / `/pickup <source>`. Replaces the older `/contract new` → `/contract verify` two-step flow with a single conversational pass.
 ---
 
-# Contract pickup (dev-centric orchestrator) — BETA
+# Contract pickup (canonical Spec entry)
 
 The world this skill is built for: the PM wrote a PRD somewhere (JIRA,
 Google Doc, Slack, Notion, a screenshot of slides), assigned it to a
@@ -319,12 +319,12 @@ These are what make pickup feel fast vs. clunky.
   (warn about the duplication, ask if they want to upgrade to the
   pickup flow).
 
-## Why this is opt-in (beta gate)
+## Why this is opt-in
 
-Pickup is a substantial flow change — the PM-facing message
-generation, the answer watcher, and the cross-channel posting all
-touch external systems in ways that are easy to get wrong. We're
-beta-gating so teams can opt in repo-by-repo:
+The PM-facing message generation, the answer watcher, and the
+cross-channel posting all touch external systems (JIRA, Slack,
+Notion, Google Docs) in ways that need per-team tuning. Pickup is
+gated repo-by-repo so teams adopt it on their own schedule:
 
 ```yaml
 # repos.yml
