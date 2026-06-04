@@ -1,0 +1,70 @@
+name: Manifest code-context cache build
+
+# Nightly job that rebuilds the .manifest/.cache/code-context.json that
+# powers critic-code-context (the dev-side critic in /contract pickup).
+#
+# Without this cache, the first pickup on a repo runs the code analysis
+# live (~30s). With it, lookups are sub-second.
+#
+# Runs nightly + on-demand. Safe to run on a stale checkout — the
+# script is idempotent and writes atomically.
+
+on:
+  schedule:
+    - cron: "0 3 * * *"     # 03:00 UTC daily — quiet hours for most teams
+  workflow_dispatch: {}
+  push:
+    # Rebuild when the contract corpus changes (new contracts shift the
+    # similar_contracts + history indices).
+    paths:
+      - ".manifest/contracts/**"
+      - ".manifest/archive/**"
+      - ".manifest/repos.yml"
+
+concurrency:
+  group: manifest-code-context-build
+  cancel-in-progress: true   # if a newer push lands, skip the older build
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: write   # to commit the cache back if it changed
+
+    steps:
+      - name: Checkout specs repo (or product repo with .manifest/)
+        uses: actions/checkout@v4
+
+      # If your contracts repo is separate from your code repos, clone the
+      # code repos here so the scanner can read them. Adjust the matrix or
+      # add steps per repo as your setup demands. The simplest case (specs
+      # repo == code repo) needs no extra checkouts.
+
+      - name: Install Node + js-yaml
+        run: |
+          cd scripts && npm install --no-audit --no-fund
+
+      - name: Run cache builder
+        id: build
+        run: |
+          node scripts/build-code-context.mjs --verbose
+          # Emit a small summary line for the workflow log
+          echo "cache_hash=$(jq -r .cacheHash .manifest/.cache/code-context.json)" >> "$GITHUB_OUTPUT"
+        env:
+          # If you wire the GitHub MCP for cross-repo scans later, set
+          # GITHUB_TOKEN here. The local-path scanner needs no creds.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit cache if changed
+        run: |
+          if git diff --quiet .manifest/.cache/code-context.json; then
+            echo "cache unchanged — nothing to commit"
+            exit 0
+          fi
+          git config user.name "manifest-bot"
+          git config user.email "manifest-bot@users.noreply.github.com"
+          git add .manifest/.cache/code-context.json
+          git commit -m "chore(manifest): refresh code-context cache (hash ${{ steps.build.outputs.cache_hash }})"
+          git push

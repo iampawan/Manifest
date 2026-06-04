@@ -68,6 +68,19 @@ Then ask:
 
 Wait for the user's pick.
 
+**One more option to mention if the user signals they're a dev whose
+PM hands off PRDs:** offer Path 4 — `/contract pickup <source>` (the
+0.18 beta dev-centric flow). Phrase it like:
+
+> If your PM writes PRDs in JIRA / Google Docs / Slack and walks
+> away, there's a new dev-centric entry point: `/contract pickup
+> <source>`. You paste any link; I do the code archaeology and show
+> every gap in three buckets (auto-fill, you decide, ask PM). Want
+> to try that instead of `/contract new`?
+
+Don't push it on PMs or first-time users — they're better served by
+Path 1. Only surface for devs.
+
 ## Path 1: Just try it
 
 Ask one question:

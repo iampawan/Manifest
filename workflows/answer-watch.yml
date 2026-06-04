@@ -1,0 +1,87 @@
+name: Manifest answer watcher
+
+# Polls PM channels (JIRA / Slack / Notion / Google Doc) for replies to
+# open pickup-flow questions. Detects answers; surfaces them as a report.
+# Application of the answers (AC edits + provenance comments + qa.md
+# sidecar updates) is handled by the contract-pickup skill consuming this
+# report — keeps the contract-edit logic in one place (the skill).
+#
+# Cadence rationale (from skills/contract-pickup/SKILL.md): every 5 min
+# for the first 2h after a question is posted, every 15 min for the next
+# 24h, hourly after that. We approximate this on Actions cron by running
+# every 15 minutes — Actions' minimum reliable cadence — and letting the
+# script's own logic filter to questions worth checking on each pass.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"  # every 15 minutes
+  workflow_dispatch:
+    inputs:
+      contractId:
+        description: "Optional: limit to one contract"
+        required: false
+
+concurrency:
+  group: manifest-answer-watch
+  cancel-in-progress: true
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: write
+      issues: write   # in case the dev-notify step opens an issue on stale items
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Node + deps
+        run: |
+          cd scripts && npm install --no-audit --no-fund
+
+      - name: Run watcher
+        id: watcher
+        run: |
+          mkdir -p .manifest/.cache
+          node scripts/answer-watcher.mjs \
+            --emit .manifest/.cache/answer-watch-report.json \
+            --notify-stale
+          # Surface a one-line summary in the workflow log
+          jq -r '"answered=\(.answered|length) noReply=\(.noReply|length) mcpUnavailable=\(.mcpUnavailable|length) stale=\(.stale|length) errors=\(.errors|length)"' \
+            .manifest/.cache/answer-watch-report.json
+
+      - name: Hand off to contract-pickup apply-mode (when answers found)
+        if: ${{ hashFiles('.manifest/.cache/answer-watch-report.json') != '' }}
+        run: |
+          # If any answers were detected, invoke the Claude CLI to run
+          # contract-pickup in apply-mode against the report. The skill
+          # handles the AC-edit + provenance + qa.md updates + incremental
+          # re-verify. We only do this if there's something to apply.
+          ANSWERED=$(jq '.answered|length' .manifest/.cache/answer-watch-report.json)
+          if [ "$ANSWERED" = "0" ]; then
+            echo "No answers to apply this cycle."
+            exit 0
+          fi
+          echo "Applying $ANSWERED detected answer(s)..."
+          # The Claude CLI must be installed and authenticated via secrets.
+          # See workflows/launch-monitor.yml for the canonical setup.
+          # Placeholder: production wiring goes here once the apply-mode
+          # CLI invocation is finalized.
+          echo "(apply step is a stub in v0.18 — re-run /contract pickup manually after the report is committed)"
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+      - name: Commit the report if changed
+        run: |
+          if git diff --quiet .manifest/.cache/answer-watch-report.json 2>/dev/null; then
+            echo "report unchanged — nothing to commit"
+            exit 0
+          fi
+          git config user.name "manifest-bot"
+          git config user.email "manifest-bot@users.noreply.github.com"
+          git add .manifest/.cache/answer-watch-report.json
+          git commit -m "chore(manifest): answer-watch report" || true
+          git push || true

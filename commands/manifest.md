@@ -56,6 +56,7 @@ run `/contract new` against a real feature.
 | New behavior, 1 platform, ≤3 behaviors | `/contract` (Small) | full ceremony, 24h |
 | 2 platforms, ≤8 behaviors, additive schema | `/contract` (Medium) | full ceremony, 72h |
 | Breaking change, migration, auth/billing | normal cycle (Large) | Manifest for spec only |
+| PM authored PRD elsewhere (JIRA / Doc / Slack), dev picks it up | `/contract pickup <source>` *(0.18 beta)* | code archaeology + 3-bucket gap sort; PM stays in their tool |
 
 Process is proportional to risk. Don't run the full contract for a
 one-liner; don't `/fix` a multi-platform feature.
@@ -67,8 +68,10 @@ one-liner; don't `/fix` a multi-platform feature.
 /fix <bug-or-change>                     Triage → fix + regression test → PR
 
 # Spec phase
-/contract new <URL or "description">    Author from JIRA / Linear / text
+/contract new <URL or "description">    Author from JIRA / Linear / text (PM-led)
+/contract pickup <source>                Pick up a PRD that lives elsewhere; 3-bucket gap sort (dev-led, 0.18 beta)
 /contract verify <ID>                    Validator + relevant judgment critics
+/contract fix <ID>                       Bounded verify→fix loop (blockers only)
 /contract promote <ID>                   Freeze revision, start SLA
 
 # Build phase
