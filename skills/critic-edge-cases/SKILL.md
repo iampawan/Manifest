@@ -68,6 +68,53 @@ when the answer isn't covered:
   injection attempts)?
 - What if the same user repeats this action 1000 times/hour?
 
+## State-machine consistency — read the whole contract together
+
+The questions above check for *missing* cases. This section checks
+the cases that ARE in the contract for *internal contradictions* — a
+class of bug that landed a real Cursor-flagged issue (B4 saying "only
+tap/Esc/blur ends the session" while the same behavior also said
+"network/no-speech/aborted errors stop the session").
+
+For every named state transition the contract describes (start, stop,
+end, restart, pause, resume, error, timeout, retry, teardown, etc.),
+do this:
+
+1. **Enumerate every place that transition is mentioned** — behavior
+   descriptions, ACs, diagrams, comms states, implementation notes.
+2. **Compare the statements.** If two statements disagree about what
+   triggers, what the outcome is, or what is preserved across the
+   transition, that's a finding.
+3. **Pay special attention to event-driven transitions** like
+   `onend`, `oncomplete`, `onerror`, `onclose`. These are typically
+   the source of contradictions: the spec describes the
+   "happy-path version of the event" and the "error version of the
+   event" in different places without disambiguating them.
+
+Severity for consistency findings is **blocker** if the contradiction
+makes the spec genuinely undecidable (an implementer has to guess),
+and **warning** otherwise. The finding `suggestion` must include the
+exact disambiguating language to add — don't just say "this
+contradicts itself," say "B4 should split the `onend` handling into
+two clauses: silence-timeout `onend` → auto-restart; error-event
+`onend` → tear down."
+
+This isn't optional; it runs every time the critic runs. It's the
+cheapest place to catch state-machine bugs.
+
+## Rapid-repeat handling — escalate to AC, not just warning
+
+When the standard "same action attempted twice in quick succession"
+check fires (above), do NOT leave the finding at `warning` and call
+it done. The contract must address it concretely — either an AC that
+specifies guarded behavior (button disabled / debounce / ref-based
+guard) or an `outOfScope` line acknowledging the risk is accepted.
+
+If neither exists, the finding is a **blocker** with a `suggestion`
+naming the specific guard pattern. Race conditions on rapid clicks
+are one of the most common bugs Cursor catches in our implementations
+— the spec author needs to think about them before the implementer does.
+
 ## Severity rules
 
 - **blocker** — would cause data corruption, permission escalation, or

@@ -112,6 +112,35 @@ conventions:
   maxFixIterations: 3
   autoFixWarnings: false
 
+  # Implementer pre-push self-review (0.18.2+).
+  #
+  # The implementer runs the code-review critic on its own diff before
+  # the first push, with up to `selfReviewMaxIterations` in-place fix
+  # rounds. The point is to catch the BUG-PATTERNS classes (empty catch
+  # + side effects, useState-as-race-guard, no-op error handling, etc.)
+  # BEFORE CI / Cursor see the diff — so external reviewers find nothing
+  # new and the dev doesn't spend time on fix→re-push rounds.
+  #
+  # Cost: roughly 30s – 3min per implementation run, plus 1.5–2x agent
+  # compute (the critic runs once pre-push and again in CI). On PRs that
+  # would have had 2-3 Cursor rounds otherwise, this is a net wall-clock
+  # win; on PRs that would have been clean anyway, it's a small overhead.
+  #
+  # Tune the threshold if the overhead doesn't pay off for your diffs:
+  #
+  #   selfReview: on        # default — always run pre-push self-review
+  #   selfReview: off       # skip entirely; CI / Cursor become first
+  #                         #   line of defense (faster per run, more
+  #                         #   iterations per PR)
+  #   selfReview: auto      # run only when the diff is substantial
+  #                         #   (above selfReviewMinChangedLines)
+  #
+  # selfReviewMinChangedLines applies only when selfReview is "auto":
+  # diffs below the threshold skip self-review. Default 0 = always run.
+  selfReview: on
+  selfReviewMinChangedLines: 0
+  selfReviewMaxIterations: 2
+
   # How strict the perfBudget gate is. (commsStates is always required for
   # user-facing behaviors and skipped for server-only ones — not toggled.)
   #   required — a missing/incomplete perfBudget is a blocker

@@ -12,6 +12,145 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.18.2] — code quality hardening + dashboard-style PRs + plain-English comments
+
+Driven by Cursor BugBot findings on the first Manifest-shipped PRs.
+Three categories of bug were slipping past `code-review` and getting
+caught in PR review instead. This patch closes them at three layers
+(spec, implementer, critic) and reshapes the PR body so reviewers
+read a single dashboard, not scattered comments.
+
+### Changed
+
+- **`critic-edge-cases`: new state-machine consistency check.** Catches
+  contracts that contradict themselves about the same state transition
+  (e.g. "only tap/Esc/blur ends the session" alongside "errors stop the
+  session"). For every named transition the contract mentions, the
+  critic now enumerates every statement about it and flags
+  disagreements as blockers when the spec is genuinely undecidable.
+  The "rapid double-action" finding also escalates from warning to
+  blocker when no concrete guard (AC / outOfScope) is named — race
+  conditions on rapid clicks were the second Cursor-flagged pattern.
+
+- **`code-review`: three new high-recurrence patterns added to the
+  checklist.** Each catches a real Cursor-flagged class:
+  - Empty catch followed by state mutation / analytics / side effects
+    that assume the try block succeeded → blocker.
+  - `useState` flag used as a race guard (handler reads stale state
+    across rapid double-clicks) → warning with `useRef` / `disabled`
+    fix suggestion.
+  - No-op error handling (caught and not re-thrown, logged, or
+    surfaced) → warning, blocker when hiding user-visible failure.
+
+- **`code-review`: findings now require plain-English fields.** Output
+  schema gains `plainTitle`, `whatHappens`, `whyItMatters`, `theFix`,
+  `codeSnippet` alongside the legacy `message`/`suggestion`. Findings
+  render in the four-part style from `reference/PR-COMMENT-STYLE.md`
+  — a busy reviewer (or a PM, or a junior dev) can act on a finding
+  in 10 seconds. No more "useState flag used as concurrency guard"
+  as the lead.
+
+- **`implement`: pre-write reconnaissance is mandatory.** Before
+  creating any file or symbol, the implementer must (a) grep for
+  existing matches in the target repo, (b) read 1–3 sibling files in
+  the target folder to learn conventions, (c) consult
+  `.manifest/.cache/code-context.json` for existing events / i18n /
+  flags / shared modules / similar past contracts. The recon findings
+  go into the PR body so the reviewer can see what was checked. This
+  is the single change that prevents duplicate-utility and
+  convention-mismatch bugs.
+
+- **`implement`: mandatory pre-push self-review pass.** The
+  implementer now runs the `code-review` critic on its own diff
+  *before* the first push. Max 2 fix iterations to clear blockers
+  in-place; if anything remains, push with a self-review comment
+  naming the open issues. Catches the empty-catch / race / no-op-error
+  class before CI does. The implementer's own self-review summary
+  becomes a section in the PR body so the reviewer can see what was
+  caught and fixed.
+
+- **`implement`: PR body becomes a dashboard.** New required template
+  with sections: "What this PR does" (plain English), Contract +
+  SLA + acceptance criteria count, **Mermaid diagram of the
+  change**, Files changed (one-liner per file), AC coverage map,
+  "What I read before writing code" (recon report), Self-review
+  summary, How to test locally, Risk callouts. A reviewer with 30
+  seconds knows what / why / what to look at; a reviewer with 5
+  minutes can merge confidently without opening other tabs.
+
+- **`reference/BUG-PATTERNS.md` — new living catalog of bug shapes.**
+  Every external reviewer finding (Cursor BugBot, human reviewer,
+  postmortem) that wasn't already caught is permanently added as a
+  `BP-NNN` entry. The implementer reads the catalog before writing
+  (pre-empts every pattern); the `code-review` critic checks the
+  catalog on every diff. The catalog is one-way ratchet — patterns
+  never get caught twice. Seeded with three entries from recent
+  Cursor findings (empty-catch + side-effects, useState-as-race-
+  guard, no-op error handling) plus two adjacent (analytics-before-
+  success, state-after-unmount) and one common React (missing
+  effect deps).
+
+- **`reference/RECOMMENDED-LINT-RULES.md` — copy-paste lint configs
+  per stack.** Most of BUG-PATTERNS is mechanically catchable by the
+  right linter rules at the right severity. Document gives the
+  exact ESLint / Dart analyzer / golangci-lint / ruff blocks plus
+  TypeScript / mypy strictness flags. Repos that adopt all four
+  sections typically see Cursor findings drop by ~70% within a few
+  PRs — the catalog patterns get rejected at editor save time.
+
+- **Self-review must re-scan the FULL catalog on every iteration.**
+  This is the structural fix to the "Cursor finds new things each
+  round" problem. Fixing one finding often introduces (or reveals)
+  another. The implementer's pre-push loop now runs `code-review`
+  with the entire BUG-PATTERNS catalog on each iteration — not just
+  the previous round's class. Convergence: by iteration 2, every
+  pattern has been scanned; round 3 catches only genuinely-new
+  issues, not the next-shape-in-line.
+
+- **Self-review is tunable, default on.** New `repos.yml` keys:
+  - `selfReview: on | off | auto` — `auto` runs only when the diff
+    has ≥ `selfReviewMinChangedLines` changed lines (default 0;
+    set higher to skip on small diffs).
+  - `selfReviewMaxIterations: 2` — cap on fix rounds before pushing
+    with a self-review comment that names the unresolved issues.
+  Cost note (in the example config + this release's docs): self-
+  review adds ~30s – 3min per implementation run and ~1.5–2× the
+  agent compute (`code-review` runs once pre-push and once in CI).
+  Net wall-clock is a win when external reviewers would otherwise
+  catch ≥1 thing per PR; a small overhead on PRs that would have
+  been clean anyway. Tunable so teams can dial up the threshold or
+  turn off if the overhead doesn't pay off for their diff sizes.
+
+- **`reference/PR-COMMENT-STYLE.md` — new shared style guide.** Every
+  PR comment (critic finding, verify-pr coverage, implementer
+  self-review, fix-pr explanation, bug-triage update) follows the
+  same four-part structure: plain-English title with emoji · what
+  happens · why it matters · the fix with code snippet · file:line.
+  Length budgets enforce concision (blocker ≤ 150 words; warning
+  ≤ 80; info ≤ 1 line).
+
+- **`workflows/pr-verify.yml`: optional stack-native static checks.**
+  Added a commented-out block with the canonical lint / typecheck /
+  test commands per stack (Node / Flutter / Go). Repos whose own CI
+  already runs these can leave it off; repos relying on Manifest can
+  uncomment the block for their stack and get strict pre-AI checks
+  on every PR push.
+
+### Why these are 0.18.2, not 0.18.1
+0.18.1 fixed the *pickup* skill (the Spec entry). 0.18.2 fixes the
+*implementer + reviewer* skills (the Build phase). Different code
+paths, different bugs, different commit. The motivating Cursor
+findings on UWS-502 voice-dictation PRs all landed in the implementer's
+output and should never have reached the reviewer's queue in their
+original form.
+
+### Migration
+None. All changes are additive (new critic patterns, new schema
+fields, new SKILL.md sections, a new reference doc). Existing
+contracts and PRs keep working. Repos relying on the pre-0.18.2
+PR-body template will see a richer body on the next implementer
+run — no config flip needed.
+
 ## [0.18.1] — pickup skill hardening from first real-run feedback
 
 First end-to-end test of `/contract pickup` surfaced three real

@@ -35,6 +35,37 @@ jobs:
           fetch-depth: 0
       - name: Install Claude CLI
         run: npm install -g @anthropic-ai/claude-code
+      # OPTIONAL: stack-native static checks — uncomment for your repo
+      # =============================================================
+      # If your repo's own CI doesn't already run lint / typecheck /
+      # tests on every PR, uncomment ONE of the blocks below for your
+      # stack. These are the cheapest pre-checks; they catch the
+      # mechanical issues (empty catches with strict ESLint config,
+      # type errors, missing react-hooks deps) before the AI critics
+      # spend tokens on them.
+      #
+      # The implementer skill ALSO runs these locally before pushing
+      # (step 6 in skills/implement/SKILL.md), so duplication is fine —
+      # the CI run is the safety net.
+      #
+      # Node / TypeScript:
+      # - run: npm ci
+      # - run: npx tsc --noEmit
+      # - run: npx eslint . --max-warnings 0
+      # - run: npm test -- --watchAll=false
+      #
+      # Flutter:
+      # - uses: subosito/flutter-action@v2
+      # - run: flutter pub get
+      # - run: flutter analyze
+      # - run: flutter test
+      #
+      # Go:
+      # - uses: actions/setup-go@v5
+      # - run: go vet ./...
+      # - run: go test ./...
+      # =============================================================
+
       - name: Run verify-pr skill (AC / contract conformance)
         env:
           # Prefer subscription auth; fall back to API key.

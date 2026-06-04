@@ -106,6 +106,63 @@ review the whole repo. For each hunk, walk the four categories:
 - State/lifecycle bugs (React effect deps, Flutter `setState` after
   dispose, goroutine leaks, unclosed resources).
 
+**Always scan `reference/BUG-PATTERNS.md` first.** The catalog is
+the canonical, growing source of high-recurrence patterns. Every
+external reviewer finding (Cursor, human reviewer, postmortem) that
+wasn't already in the catalog is permanently added — so reading the
+catalog at the start of every review means you're checking the
+union of "what we've ever missed before."
+
+For each `BP-NNN` in the catalog, scan the diff for the shape it
+describes. When you find a match, cite the pattern ID in the
+finding's metadata:
+
+```json
+{
+  "id": "CR-007",
+  "metadata": { "bugPattern": "BP-002" },
+  ...
+}
+```
+
+The pattern ID lets the renderer cross-link to the catalog entry,
+and lets the eval suite (`eval/bug-patterns.test.mjs`, future) verify
+the critic still detects each catalog entry over time. If a catalog
+entry never produces a finding across many real diffs, that's a
+signal either the pattern is gone or the critic prompt missed the cue —
+investigate quarterly.
+
+**Below are the patterns inlined for convenience** (kept in sync
+with `BUG-PATTERNS.md`):
+
+- **Empty catch + side effects assuming success.** Any
+  `catch (e) {}` / `catch {}` followed by state mutation, analytics
+  event, navigation, or any side effect that pretends the `try`
+  block succeeded → **blocker**. The catch must either re-throw,
+  surface to the user, or contain only side-effect-free logic. A
+  caught error followed by `setIsActive(true)` is the canonical
+  shape.
+- **`useState` flag used as a concurrency guard.** A handler that
+  reads a React state value at the top to decide "am I already
+  running?" races against React's batched re-render — a rapid
+  second invocation sees the stale value and re-enters. **Warning**;
+  suggest `useRef` (synchronous) for the race-critical flag, or
+  `disabled` on the button while the action is in flight. Don't
+  accept `setState` callbacks as a fix — they don't solve the read
+  race, only the write race.
+- **No-op / silently-swallowed errors.** Caught errors that aren't
+  re-thrown, logged to error tracking (Sentry), surfaced to the
+  user, or counted in analytics. **Warning** minimum; **blocker** if
+  the catch hides a failure that affects user-visible state.
+- **Analytics events fired before the action succeeded.** A
+  `trackEvent(..._START)` that fires regardless of whether the
+  underlying API call returned ok. Skews the metric (inflated start
+  count, lower-than-real completion rate). **Warning**.
+- **State writes after unmount / after dispose.** A callback that
+  calls `setState` / updates a ref / writes to a closed-over object
+  after the component might have unmounted (or after a Flutter
+  `dispose`, or after a Go context cancellation). **Warning**.
+
 **Performance**
 - N+1 queries / calls in a loop; query inside a render or request loop.
 - Unbounded result sets (missing pagination/limit) on a path that grows.
@@ -143,6 +200,51 @@ location is weaker than one with it — prefer fewer, grounded findings.
 Review the change *as built* — do not propose scope the contract
 excluded, and do not re-flag spec gaps (that's verify-pr's job and the
 contract critics').
+
+### 3b. Write findings in plain English — follow PR-COMMENT-STYLE.md
+
+Every finding you produce MUST be readable by the busiest person on
+the team. Lead with what's happening in plain English, not with the
+rule name. See `reference/PR-COMMENT-STYLE.md` for the canonical
+format and a worked example.
+
+**Required additional fields per finding** (extend the existing
+schema; older fields keep working):
+
+```json
+{
+  "id": "CR-007",
+  "category": "correctness",
+  "severity": "warning",
+  "plainTitle": "Race condition on rapid clicks",
+  "whatHappens": "When the user clicks the mic button twice quickly, the second click runs before React has updated `isRecording`. The guard thinks the session is still off and fires again — resetting `insertedCharCount` to 0.",
+  "whyItMatters": "Users who double-tap (common on mobile, common when impatient) will lose their dictation character count and may see weird state during the brief overlap.",
+  "theFix": "Use `useRef` for the \"is it running\" flag instead of `useState`. Refs update synchronously, so the second click sees the right value.",
+  "codeSnippet": "// before\nconst [isRecording, setIsRecording] = useState(false)\n...\n\n// after\nconst isRecordingRef = useRef(false)\n...",
+  "message": "useState flag used as concurrency guard — race on rapid clicks",
+  "suggestion": "Replace `useState` with `useRef` for the race-critical flag.",
+  "file": "voice-dictation-toolbar-button.tsx",
+  "line": 42,
+  "status": "open"
+}
+```
+
+The legacy `message` + `suggestion` are kept for tooling that already
+reads them (the `--check-review` validator, the fix-pr loop). The new
+fields are what get rendered into the GitHub review comment body using
+`PR-COMMENT-STYLE.md`'s four-part structure.
+
+**A finding without `plainTitle` / `whatHappens` / `whyItMatters` /
+`theFix` is a critic bug** — surface it loudly. Do not let the old
+terse format leak through because some prompt forgot the protocol.
+
+**Length budget** (enforced by the renderer; honor at write time):
+
+- Blocker: up to ~150 words across the prose fields + a code snippet.
+- Warning: up to ~80 words + snippet.
+- Info: a single line; if more is needed, escalate to warning.
+
+Going over budget means you have two findings — split them.
 
 ### 4. Post the review
 

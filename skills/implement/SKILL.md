@@ -63,22 +63,101 @@ Record the resolved commands you'll use:
 If the contract spans multiple platforms (e.g., web + iOS + android),
 you'll produce a separate PR per repo, each using that repo's stack.
 
-### 3. Reconnaissance (in the target repo's idiom)
+### 3. Reconnaissance (mandatory — write nothing until this is done)
 
-Use Read / Grep / Glob to learn the EXISTING patterns in this specific
-repo — don't impose patterns from another stack:
+Before you create a file or write a function, you must establish what
+already exists in this repo and how it's organized. **This step is
+non-optional.** PRs that skipped recon are the single biggest source
+of Cursor-flagged issues we ship — duplicate utilities, mismatched
+naming, mismatched error handling, mismatched component patterns.
+
+Do all of this:
+
+**3a. Grep for what you're about to add.** For each new symbol,
+component, or hook the plan says you'll create:
+
+- `grep -rn "<name>" --include='*.<ext>'` in the target repo.
+- If a near-match exists (same name, same name with different casing,
+  same purpose), STOP and re-plan to reuse it. Don't create
+  `formatDate2` next to `formatDate`. Don't create `useDictation`
+  next to `useSpeechToText`.
+
+**3b. Read 1–3 sibling files in the target folder.** The folder
+where you're adding a new file already contains examples of how this
+team writes that *kind* of file. Read them:
+
+- Imports order + style
+- Export style (default vs named, file naming)
+- Component structure (forwardRef? memo? hooks order?)
+- Error handling shape (try/catch + report? Result type? Promise.allSettled?)
+- Naming conventions (handlers, state vars, refs, props)
+- Test file location + naming
+
+Copy the structure of the nearest sibling. The plan says *what* to
+build; the sibling says *how this team builds it*.
+
+**3c.0 — Read the bug-pattern catalog before you write anything.**
+`reference/BUG-PATTERNS.md` is the catalog of shapes Cursor /
+human reviewers / postmortems have caught in past Manifest-shipped
+PRs. Every entry is a thing you must not write. Scan it once at the
+start of every implementation — the catalog is small enough to read
+in 60 seconds, and reading it stops you from writing the same bug
+twice.
+
+For each behavior you're about to implement, ask: which of the
+catalog's patterns could plausibly apply to this code? Pre-empt those
+patterns in the design — pick the safe shape *before* writing the
+risky one. This is the cheapest place to catch them.
+
+**3c.1 — Consult the code-context cache.** Read
+`.manifest/.cache/code-context.json` (built by
+`scripts/build-code-context.mjs`):
+
+- `events.catalog` — does the event name you're about to create
+  already exist? Use the existing one. Match the
+  `naming_patterns.convention`.
+- `i18n` — does a string you'd hardcode already have a key? Use the
+  key. Don't add a near-duplicate key in a different file.
+- `dependencies.flags` — is there a flag for this surface area
+  already? Use it; don't add a parallel one.
+- `dependencies.shared_modules` — is there a shared module you should
+  import from? Don't re-implement.
+- `history` — any rolled-back / partial past contract on this
+  surface? Read its postmortem to learn what went wrong; avoid
+  repeating.
+- `similar_contracts` — any landed contract on the same surface?
+  Look at how its acceptance criteria were tested; mirror.
+
+If the cache is missing or stale, run
+`node scripts/build-code-context.mjs --verbose` once; ~30s. Don't skip
+this — every implementation produces fewer Cursor-flagged issues when
+the cache has been consulted.
+
+**3d. Existing patterns checklist.** Confirm and note in the plan
+(step 4):
+
 - How are components / screens / views / handlers organized here?
 - What's the existing test setup (the resolved test framework)?
 - How are feature flags implemented in THIS repo?
 - How is instrumentation actually called here (match the existing
   call sites, per the SDK pattern in STACK-PROFILES)?
 - How is i18n / localization handled here?
+- What's the existing error-handling pattern (does the repo use
+  Result types? toast helpers? a logger?) — match it. **Do not
+  introduce an empty catch.**
+- How are race-critical guards typically written here — `useRef`,
+  `useState`, button `disabled`, debounce, throttle? Match the
+  established convention rather than inventing.
 
 Match existing conventions exactly. A React repo gets hooks-style
 code; a Flutter repo gets the repo's state-management idiom (Bloc/
 Riverpod/Provider — whatever's already there); a Go repo gets
 idiomatic Go. Never introduce a new pattern unless the contract
 requires it.
+
+**Write the recon findings into the PR body** (see step 8) so the
+reviewer can see what you read before writing — this is the
+transparency that makes the rest of the PR easier to trust.
 
 ### 4. Plan
 
@@ -131,43 +210,213 @@ Examples of what "resolved" means per stack:
 
 If anything fails, iterate. Don't open the PR until everything is green.
 
-### 7. Self-review
+### 7. Self-review — TWO passes, both mandatory
+
+**7a. Eyeball checklist (you do it yourself).**
 
 Re-read your diff before pushing:
 - No debug prints (`console.log`, `print`, `fmt.Println` left in, etc.
   — stack-appropriate), no commented-out code, no TODOs.
+- No empty catch blocks. Every `catch` either re-throws, logs to the
+  repo's error tracking, surfaces to the user, or contains genuinely
+  side-effect-free logic. **No `catch {}` followed by state mutation
+  or analytics — Cursor will flag it and you'll re-do the loop.**
+- No `useState` flag used as a concurrency guard for race-critical
+  paths (rapid double-click, double-fire, double-submit). Use
+  `useRef` or `disabled` instead.
+- No analytics events firing before the underlying action succeeded.
 - All new code paths feature-flagged.
 - All new user-facing strings translated or marked for translation
   per this repo's i18n.
 - No PII in analytics event properties.
 - The diff matches the plan (no drift).
 
-### 8. Open / update the PR
+**7b. Run the `code-review` critic on your own diff — with the FULL
+catalog every time.** This is the same critic that CI runs after
+you push. Run it BEFORE the first push, and **on every fix
+iteration, re-run with the full `reference/BUG-PATTERNS.md` library,
+not just the previous round's class.**
 
-**Lead every PR comment / status update with the SLA line:**
+```bash
+# Invoke the code-review skill as a sub-agent against your diff.
+# Output: findings JSON validated by --check-review.
+#
+# The critic loads BUG-PATTERNS.md at start and checks every active
+# pattern (BP-001 ... BP-NNN) against the diff in one pass.
+```
+
+**Check `repos.yml` for self-review config first.** Three modes:
+
+- `selfReview: on` (default) — always run before first push.
+- `selfReview: off` — skip entirely. CI / Cursor become the first
+  line of defense. Use when implementer time-per-run is the
+  bottleneck and you accept more iterations per PR.
+- `selfReview: auto` — run only when the diff is substantial
+  (changed lines ≥ `selfReviewMinChangedLines`, default 0). Use to
+  skip self-review on tiny patches where the overhead doesn't pay
+  off.
+
+Default `selfReviewMaxIterations: 2`. Per-contract override via
+contract frontmatter `selfReviewMaxIterations`.
+
+The loop (when self-review is enabled):
+
+1. Run `code-review` with the full catalog. Get findings.
+2. If 0 blockers + 0 warnings: push.
+3. If findings: fix them in-place. **Cap: `selfReviewMaxIterations`
+   (default 2).**
+4. **Each iteration must re-scan the full catalog** — don't
+   narrowly fix only what the previous round flagged. The point of
+   the catalog is that fixing pattern X often introduces pattern Y;
+   only a full re-scan catches Y before push. This is the
+   structural fix to the "Cursor catches new things every round"
+   problem.
+5. If the iteration cap is hit with blockers remaining: stop and
+   push with a self-review comment that names the open issues and
+   why you couldn't resolve them. Don't churn.
+
+The point is to catch every pattern in the catalog *before* CI does.
+External reviewers (Cursor / human / Sentry-driven) should find
+nothing new — because if they catch something new, it becomes a
+permanent entry in `reference/BUG-PATTERNS.md` and the next
+implementer run pre-empts it.
+
+**The catalog grows one direction only.** Every new external finding
+that isn't already in `BUG-PATTERNS.md` is a permanent addition.
+This is the structural mechanism that converges Manifest's
+self-review with what Cursor catches — over time, *fewer* iterations
+per PR, not more.
+
+### 8. Open / update the PR — write it like a dashboard
+
+The PR body is the single artifact every reviewer reads. Make it
+**at-a-glance complete**: a reviewer with 30 seconds should know what
+this PR is, why, what changed, what's been checked, and what to look
+at. A reviewer with 5 minutes should be able to merge confidently
+without opening any other tab.
+
+**The PR body MUST follow this template.** Sections in order:
+
+````markdown
+## What this PR does
+
+<2–3 sentences in plain English. What problem does this solve, for whom.
+NO jargon as the lead. A PM reading should understand it. A new
+engineer reading should understand it.>
+
+## Contract
+
+**SC-001 · Voice dictation in the script editor**  ·  Medium · 72h SLA · web
+
+⏳ SLA: 14h 30m left (due 2026-06-07 11:50 IST)
+📄 [`.manifest/contracts/SC-001.r1.md`](link to the revision)
+🎯 4 behaviors · 12 acceptance criteria
+
+## Shape of the change
+
+```mermaid
+<paste or generate a flow diagram of the new behavior. If the
+contract already has a diagram in its Diagrams section, reuse it.
+Otherwise generate one showing the user-flow this PR enables.>
+```
+
+## Files changed
+
+| File | Why |
+|---|---|
+| `src/.../voice-dictation-toolbar-button.tsx` (new) | Mic button + active state + volume pulse |
+| `src/.../use-web-speech-dictation.ts` (new) | Web Speech API hook |
+| `src/.../punctuation-commands.ts` (moved from `use-speech-to-text.ts`) | Shared punctuation map (REG-001) |
+| `src/.../events.ts` | New EDITOR_VOICE_DICTATION_* action constants |
+| `tests/...` | AC1–AC12 coverage |
+
+(One-liner each. Reviewers should not have to open files to know
+what each does.)
+
+## AC coverage
+
+| AC | What it checks | Test | Status |
+|----|----------------|------|--------|
+| AC1 | Mic toggle starts session, fires start event | tests/voice-dictation-toolbar-button.test.tsx:18 | ✅ |
+| AC2 | Spoken text + punctuation inserts at caret | tests/use-web-speech-dictation.test.ts:42 | ✅ |
+| ... | ... | ... | ... |
+
+## What I read before writing code
+
+This is the recon I did (step 3 of the implementer skill):
+
+- `src/.../TtsToolbarButton.tsx` — followed the toolbar registration pattern
+- `src/.../use-speech-to-text.ts:41` — extracted `applyPunctuationCommands`
+  to a shared util rather than duplicating
+- `events/catalog.ts` — used existing `EVENT_TYPE.BUTTON_CLICK` + new
+  `ACTION.EDITOR_VOICE_DICTATION_*` constants, matching the `SHERPA_VOICE_INPUT_*` shape
+- `i18n/en.json` — added 8 new strings; no near-duplicates of existing keys
+- `.manifest/.cache/code-context.json` — confirmed no existing dictation hook on the editor surface
+
+## Self-review summary
+
+Ran `code-review` critic on my own diff before pushing.
+
+**Caught and fixed (2):**
+- 🐛 Empty catch in `useWebSpeechDictation` start handler → now logs to Sentry + surfaces toast
+- 🐢 Unnecessary re-render of toolbar on every interim transcript → memoized the volume-pulse component
+
+**Open (0).** All blockers resolved.
+
+(If anything is left open, list it here with one line + why it's
+acceptable. Reviewer can challenge.)
+
+## How to test locally
+
+```bash
+<the exact commands a reviewer needs — install, run, navigate to the screen>
+```
+
+Manual test path:
+1. Open a chapter in the script editor (Chrome, mic permission allowed)
+2. Tap the new mic button in the toolbar — should show "Listening…" state
+3. Say "hello world period" — should insert "hello world." at the caret
+4. Tap again to stop — should fire `editor_voice_dictation_stop` with `inserted_char_count > 0`
+
+## Risk callouts — look here first if something breaks
+
+- **AnalyserNode lifecycle.** New `getUserMedia` stream needs to be torn
+  down on editor blur / unmount or the OS mic indicator lingers. Tested
+  in `use-web-speech-dictation.test.ts:88`; risk is real-world browser
+  edge cases (Safari behaves differently on tab-hide).
+- **Rapid double-click on mic button.** Guarded with `useRef` (not
+  `useState`) to avoid the race that landed in PR #1234. Tested with
+  `userEvent.dblClick` in `voice-dictation-toolbar-button.test.tsx:54`.
+- **Hindi recognition accuracy.** Web Speech API on Chrome routes audio
+  to Google; out-of-our-hands quality. Monitored via the
+  `dictation_session_completion_rate` metric.
+````
+
+**Rules for the body:**
+
+- **Plain English everywhere.** No jargon as a lead in any section.
+  Pretend a PM and a new engineer are reading; both should follow.
+- **The Mermaid diagram is required.** If the contract has a diagram,
+  reuse it. If not, generate the user-flow diagram for this PR. A
+  picture beats five paragraphs.
+- **Risk callouts are required.** Even if it's just "no risky areas —
+  changes are additive and feature-flagged." Don't skip the section;
+  skip the *content* if there genuinely isn't risk.
+
+**Lead the FIRST comment on the PR with the SLA line:**
 
 ```bash
 node <plugin-root>/scripts/validate.mjs --sla .manifest/contracts/<ID>.md
 ```
 
-Prepend its output (e.g., `⏳ SLA: 14h 30m left (due ...)`) to the AC
-coverage comment and any Slack ping, so the reviewer sees the
-countdown at a glance.
+Prepend its output (e.g., `⏳ SLA: 14h 30m left (due ...)`) to the
+first review comment and any Slack ping, so the reviewer sees the
+countdown without opening the PR body.
 
-Via the GitHub MCP: push commits, create/update the PR with title from
-`contract.title` and body referencing the revision file. Post an AC
-coverage comment mapping each AC to its test file in this stack:
-
-```markdown
-## AC Coverage (<repo-name> · <framework>)
-
-| AC | Test | Status |
-|----|------|--------|
-| AC1 | integration_test/auth_test.dart:12 | ✅ |
-| AC2 | integration_test/auth_test.dart:34 | ✅ |
-```
-
-Plus "Files changed" and "Tests added (using <test framework>)".
+**Subsequent comments (code-review findings, fix-pr updates, AC
+coverage refreshes)** must follow `reference/PR-COMMENT-STYLE.md` —
+plain-English title, what / why-it-matters / the-fix, code snippet,
+file:line. No exceptions.
 
 ### 9. Stop
 
