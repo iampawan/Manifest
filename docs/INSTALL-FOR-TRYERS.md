@@ -45,20 +45,50 @@ cp ~/.claude/plugins/manifest/examples/repos.yml.example .manifest/repos.yml
 
 ## Try it
 
+Two entry points to pick from, depending on where the PRD already
+lives:
+
+**Option A — you're the author / co-author.** No PRD yet, just an
+idea or a JIRA link:
+
 ```
 /contract new "A small real feature from your backlog"
 ```
 
-The intake skill will ask five questions and produce a draft contract
+The intake skill asks five questions and produces a draft contract
 in `.manifest/contracts/<ID>.md`. Then:
 
 ```
 /contract verify <ID>
 ```
 
-This runs the nine critics in parallel and writes a findings file
-next to the contract. You'll see what the critics caught and what
-gates aren't yet green.
+This runs the critics in parallel and writes a findings file next to
+the contract. You'll see what got caught and which gates aren't yet
+green.
+
+**Option B — you're a dev and your PM already wrote the PRD somewhere
+else** (0.18 beta). Paste any source — JIRA URL, Google Doc, Slack
+message link, Notion page, or just paste the text:
+
+```
+/contract pickup https://your-org.atlassian.net/browse/ENG-1234
+```
+
+The agent fetches the PRD, runs the critics, and sorts every gap
+into three buckets you can act on in minutes — auto-fill from code,
+dev decides, only PM can answer. Questions to your PM go out as one
+batched JIRA comment / Slack reply in your voice — PM stays in their
+tool. Opt in per repo in `.manifest/repos.yml`:
+
+```yaml
+pickup:
+  enabled: true
+  identifyAgent: true
+  defaultChannel: jira
+```
+
+See [GUIDE.md section 1g](../GUIDE.md#1g-pickup-flow--when-the-pm-authored-elsewhere-018-beta)
+for the full walkthrough.
 
 ## Updates
 

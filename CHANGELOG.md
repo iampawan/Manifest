@@ -12,6 +12,111 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.18.0] — dev-centric pickup flow (beta, opt-in)
+
+A new mental model for the most common real-world case: the PM
+writes a PRD elsewhere (JIRA / Google Doc / Slack / Notion / paste /
+screenshot) and walks away, and the dev has to make it build-ready
+on their own — using code, history, and dependency context the PM
+doesn't have. Manifest does the code archaeology *for* the dev and
+surfaces only the decisions that need a human.
+
+The PM stays in their normal tool. They never have to touch
+Manifest — questions go out as one batched JIRA comment / Slack DM
+in the dev's voice; answers materialize as AC edits with provenance
+comments.
+
+This release ships the design + scaffolding for the flow. It's
+opt-in per repo via `pickup.enabled: true` in `repos.yml`; without
+the flag, `/contract pickup` falls back to `/contract new` with a
+notice. Existing flows (`/contract new`, verify, promote, implement,
+canary, launch) are unchanged.
+
+### Added
+- **`/contract pickup <source>`** — new subcommand for the
+  dev-centric flow. Source can be any URL (JIRA, Google Doc,
+  Linear, Notion, Confluence, Slack message link, GitHub issue,
+  Figma), pasted text, or a dropped image. Fetches via the right
+  MCP, follows linked docs one level deep, pulls related history
+  (past contracts, postmortems, recent Sentry, active concurrent
+  work). See [skills/contract-pickup/SKILL.md](skills/contract-pickup/SKILL.md).
+- **Three-bucket gap sorter.** Every gap in the PRD lands in
+  exactly one of: **A. agent fills from code/history** (one-tap
+  accept), **B. dev decides** (engineering judgment), **C. only PM
+  can answer** (drafted as a PM-facing question). Dev burns through
+  A in seconds, walks B with judgment, sends batched C questions
+  to the PM.
+- **`critic-code-context`** — new dev-side critic that produces the
+  Bucket A auto-fill proposals (perfBudget from stack defaults,
+  event names from the existing catalog, copy from i18n keys, AC
+  patterns from similar landed contracts) and Bucket B dev-decides
+  items (rolled-back history, dependency budgets, shared modules,
+  locale/device branches the codebase already handles). See
+  [skills/critic-code-context/SKILL.md](skills/critic-code-context/SKILL.md).
+- **PM-channel question posting.** Drafted questions go to the PM
+  via the channel the source came from (JIRA comment, Slack
+  reply-in-thread, Notion comment, Google Doc suggestion) in the
+  dev's voice. Optional `— <dev> (via Manifest)` footer for audit
+  (`pickup.identifyAgent` in `repos.yml`).
+- **Answer watcher.** Polls the PM channel for replies; on
+  detection, parses the answer, applies it as an AC edit with a
+  provenance comment (`<!-- From: Q-N · <PM> · <date> -->`), moves
+  the question to the sidecar `<ID>.qa.md` log, and re-verifies
+  incrementally. Implementation on non-blocking behaviors can run
+  in parallel.
+- **`ROADMAP.md`** at the repo root — captures the broader vision
+  (development / customer support / operations agents) and the
+  impact-ordered immediate priority list this release is one piece
+  of.
+
+### Configuration
+New `pickup` block in `repos.yml`:
+
+```yaml
+pickup:
+  enabled: true            # opt in
+  identifyAgent: true      # "(via Manifest)" footer on PM-facing posts
+  defaultChannel: jira     # or: slack | notion | gdoc
+  blockingByDefault: false # questions are non-blocking unless dev flags
+  cacheTTL: 24h            # codebase analysis cache lifetime
+```
+
+### Cache builder + answer watcher (closed mid-cycle)
+What started as deferred made it into this release:
+- **`scripts/build-code-context.mjs`** — idempotent, atomically-writing
+  cache builder. Scans target repos for event catalog, i18n keys, flags,
+  shared modules; indexes past contracts by surface area; flags
+  rolled-back / partial history. Output goes to
+  `.manifest/.cache/code-context.json`. Sub-second lookups after the
+  first build. Runnable locally (`node scripts/build-code-context.mjs`)
+  or on cron via `workflows/code-context-build.yml`.
+- **`scripts/answer-watcher.mjs`** — polls PM channels for replies to
+  open pickup-flow questions. Stateless detector that emits a JSON
+  report; the contract-pickup skill consumes the report and applies AC
+  edits + provenance comments + qa.md updates. Runnable locally or on
+  the 15-minute cron in `workflows/answer-watch.yml`.
+
+### Known gaps (still deferred)
+- **Answer-watcher channel adapters are stubs** — they log what they
+  would call but return `mcp-unavailable` by default. Production
+  detection needs either (a) running from inside Claude Code / Cowork
+  with the relevant MCP, or (b) a thin REST proxy on the MCP host. v0.18
+  ships the detection harness + report schema; production wiring lands
+  in a follow-up.
+- **Cross-repo scanning in the cache builder** uses the `path:` field
+  from `repos.yml`. GitHub-only entries (no local `path:`) are skipped
+  for now — pulling source via the GitHub MCP is a follow-up.
+- **Slack message-link parsing** covers the common URL shape; exotic
+  workspace URLs may need a follow-up patch.
+
+### Mental model — when to use which entry point
+- **PM authors in Manifest** (rare today, but the ideal) →
+  `/contract new`. Same as before. Conversational; PM owns the
+  contract.
+- **PM authored elsewhere; dev picks it up** (the common case) →
+  `/contract pickup <source>`. Dev owns the contract; PM stays in
+  their tool.
+
 ## [0.17.0] — see your diagrams + findings tell you HOW to fix
 
 ### Added

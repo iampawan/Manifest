@@ -1,6 +1,6 @@
 ---
 name: contract
-description: Author, verify, or promote a Manifest contract. Run with no args (or `help`) to get a quick tutorial. Subcommands: new, verify, promote.
+description: Author, verify, or promote a Manifest contract. Run with no args (or `help`) to get a quick tutorial. Subcommands: new, pickup (beta), verify, fix, promote.
 ---
 
 # /contract
@@ -54,6 +54,55 @@ If you're new, the **contract-new** skill will narrate what it's
 doing as it goes.
 
 Invokes the **contract-new** skill.
+
+### /contract pickup <source>  *(BETA — dev-centric flow)*
+
+For the case where the PM authored the PRD elsewhere (JIRA, Google
+Doc, Slack, Notion, paste, screenshot) and walked away, and the dev
+has to make it build-ready themselves. Different mental model from
+`/contract new`:
+
+- Dev is the user. Manifest is on the dev's side.
+- PM is an asynchronous input source. The agent talks to the PM
+  through their existing tool (JIRA comment, Slack DM) in the dev's
+  voice — PM never has to touch Manifest.
+- Agent does the code archaeology: reads the codebase, past
+  contracts, postmortems, Sentry, active concurrent work.
+- Output: one card with every gap sorted into three buckets —
+  **A. agent fills from code**, **B. dev decides**, **C. only PM
+  can answer**. Dev burns through A in seconds, walks B with
+  judgment, sends batched questions for C to PM via PM's own
+  channel.
+
+```
+/contract pickup https://your-org.atlassian.net/browse/ENG-1234
+/contract pickup https://docs.google.com/document/d/<...>
+/contract pickup https://yourcorp.slack.com/archives/C123/p1234567890
+/contract pickup        # then paste text or drop an image
+/pickup ENG-1234        # short alias once /pickup is registered
+```
+
+End-to-end time for a small contract: ~3–5 minutes of dev review,
+then PM-bound questions go async via JIRA / Slack. Implementation
+on the unblocked behaviors can start in parallel — non-blocking
+questions don't pause work.
+
+Beta-gated per repo. Enable in `.manifest/repos.yml`:
+
+```yaml
+pickup:
+  enabled: true            # opt in
+  identifyAgent: true      # "(via Manifest)" footer on PM-facing posts
+  defaultChannel: jira     # or: slack | notion | gdoc
+  blockingByDefault: false
+  cacheTTL: 24h
+```
+
+Without `pickup.enabled: true`, this subcommand falls back to
+`/contract new` with a notice.
+
+Invokes the **contract-pickup** skill. See `skills/contract-pickup/SKILL.md`
+for the full flow.
 
 ### /contract verify <ID>
 

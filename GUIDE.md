@@ -265,6 +265,122 @@ so it's never even staged — local ignore, no shared `.gitignore` edit.)
 
 ---
 
+## 1g. Pickup flow — when the PM authored elsewhere (0.18 beta)
+
+The flow in section 2 below assumes you (or someone in your Claude
+Code session) is the one writing the contract. In real-world teams
+that's often not how PRDs arrive. The PM writes one in JIRA, a Google
+Doc, a Slack thread, or a Notion page, assigns it to a dev, and walks
+away. The dev is the one who has to figure out what's missing —
+because the PM doesn't know the code, the history, the dependencies,
+or what might break.
+
+The **pickup flow** is for that case. It's a dev-centric counterpart
+to `/contract new`: dev pastes any source, Manifest does the code
+archaeology, and the dev sees every gap sorted into three buckets
+they can act on in minutes.
+
+**The mental model.**
+
+- *You* are the dev. Manifest is on your side.
+- *PM* is an asynchronous input source. The agent talks to PM through
+  their existing tool — a JIRA comment, a Slack reply, a Notion
+  comment — in your voice. **PM never has to touch Manifest.**
+- The contract is your working document — captures decisions, gaps,
+  history, the PM's answers — but it lives in git for audit and feeds
+  the rest of the pipeline like any other contract.
+
+**How it runs.**
+
+```
+/contract pickup https://your-org.atlassian.net/browse/ENG-1234
+/contract pickup https://docs.google.com/document/d/<...>
+/contract pickup https://yourcorp.slack.com/archives/C123/p1234567890
+/contract pickup                              # then paste text or drop an image
+```
+
+The agent does four things, mostly in parallel:
+
+1. **Fetches the source via the right MCP** (Atlassian, Google Drive,
+   Slack, Notion, Linear, Confluence, Figma, GitHub) and follows
+   embedded links one level deep — Figmas linked from a JIRA ticket,
+   tech specs linked from a Google Doc.
+2. **Pulls related history in the background** — past contracts on
+   the same surface (especially archived `rolled-back` or `partial`
+   ones — they're full of lessons), past postmortems, recent Sentry
+   clusters, open PRs touching the same files, past Slack threads
+   with this PM mentioning this feature.
+3. **Runs the standard critics + a new dev-side critic
+   (`critic-code-context`) in parallel.** The new critic proposes
+   auto-fillable defaults from the codebase: stack-default
+   perfBudget, event names from your existing catalog, copy from
+   i18n keys, AC patterns from similar landed contracts.
+4. **Sorts every gap into three buckets** and shows you one card:
+
+   - **A. Agent fills from code/history** — high-confidence proposals
+     with a source. One tap to accept.
+   - **B. Dev decides** — engineering judgment the PM can't give
+     (past rolled-back patterns, dependency budgets, shared modules,
+     locale branches). [Yes] / [No] / [Show me more].
+   - **C. Only PM can answer** — genuine product unknowns. Each
+     drafted as a PM-facing question, scoped to a behavior, in plain
+     language. [Ask PM] / [I'll handle it] / [Skip].
+
+**PM-channel posting.** When you hit "Send to PM," the agent composes
+*one batched message in your voice* on the channel the source came
+from — a JIRA comment on the ticket, a reply in the Slack thread, a
+Notion comment, a Google Doc suggestion. Optional `— <you> (via
+Manifest)` audit footer. PM sees a normal message from you and
+answers in their tool.
+
+**Answer watcher.** After you send, the agent watches for replies.
+Polls every 5 min for 2h, then every 15 min for 24h, hourly after.
+When PM answers, the agent parses the reply, applies it as an AC
+edit with a provenance comment (`<!-- From: Q-N · <PM> · <date> -->`),
+moves the question to the sidecar `<ID>.qa.md` log, re-verifies
+incrementally on just the changed fragments, and pings you with a
+one-line summary. Implementation on non-blocking behaviors can run
+in parallel while you wait.
+
+**Why this is fast.** End-to-end review time for a typical small
+contract: about 3–5 minutes. Compare to today's "read PRD + grep
+repo + check Slack history + ask around" cycle, which can take an
+hour. The wins come from the agent doing the code archaeology, the
+three-bucket sort, and the batched PM message (one round-trip
+instead of five Slack pings spread across the day).
+
+**Opt-in per repo.** In `.manifest/repos.yml`:
+
+```yaml
+pickup:
+  enabled: true            # opt in
+  identifyAgent: true      # "(via Manifest)" footer on PM-facing posts
+  defaultChannel: jira     # or: slack | notion | gdoc
+  blockingByDefault: false # questions are non-blocking unless you flag them
+  cacheTTL: 24h            # codebase analysis cache lifetime
+```
+
+Without `pickup.enabled: true`, `/contract pickup` falls back to
+`/contract new` with a notice. No surprises for repos that don't opt
+in. See `skills/contract-pickup/SKILL.md` for the full skill spec and
+`docs/releases/v0.18.0.md` for the release notes including known
+gaps in this first cut.
+
+**When to use which entry point.**
+
+| Situation | Use |
+|---|---|
+| PM is in Cowork with you, co-authoring the spec | `/contract new` (section 2 below) |
+| PM authored elsewhere and handed off | `/contract pickup <source>` |
+| Quick bug fix, no real spec | `/fix` |
+
+Pickup doesn't replace anything. It adds the missing entry point.
+Once a contract has been picked up, everything downstream (verify,
+promote, implement, canary, launch) is identical to a contract that
+came in through `/contract new`.
+
+---
+
 ## 2. The four phases (for Small/Medium contracts)
 
 ### ① SPEC — author and verify

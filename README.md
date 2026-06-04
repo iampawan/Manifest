@@ -1,7 +1,7 @@
 # Manifest
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-![Version](https://img.shields.io/badge/version-0.17.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.18.0-blue.svg)
 ![Tests](https://img.shields.io/badge/tests-node%20--test-green.svg)
 
 A Claude Code / Cowork plugin that takes a PRD ("contract") through the full
@@ -15,6 +15,17 @@ Git is your audit trail; no external database required.
 For the full walkthrough — mental model, day-by-day flow, recovery
 playbooks — read **[GUIDE.md](GUIDE.md)**.
 
+> **Beta: dev-centric pickup flow.** If your PM writes PRDs in JIRA /
+> Google Docs / Slack and walks away — and your dev does all the
+> homework to make the spec build-ready — try **`/contract pickup
+> <source>`**. The dev pastes any source; the agent does the code
+> archaeology and presents every gap in three buckets (auto-fill from
+> code, dev decides, only PM can answer). Questions for the PM go out
+> as one batched JIRA comment / Slack DM in the dev's voice — PM
+> never has to touch Manifest. See [skills/contract-pickup/SKILL.md](skills/contract-pickup/SKILL.md)
+> and [ROADMAP.md](ROADMAP.md). Opt in per repo via
+> `pickup.enabled: true` in `repos.yml`.
+
 ## Pick the right path — process proportional to risk
 
 Manifest scales the ceremony to the change. Four tiers:
@@ -26,12 +37,14 @@ Manifest scales the ceremony to the change. Four tiers:
 | New behavior, 1 platform, ≤3 behaviors | **`/contract`** → Small | full pipeline, 24h SLA |
 | ≤2 platforms, ≤8 behaviors, additive schema | **`/contract`** → Medium | full pipeline, 72h SLA |
 | Breaking change, migration, auth/billing | **`/contract decompose`** → epic | broken into Small/Medium children; migrations human-led |
+| PM wrote PRD elsewhere (JIRA / Doc / Slack), dev has to make it build-ready | **`/contract pickup <source>`** *(0.18 beta)* | code archaeology + three-bucket gap sort; PM stays in their tool |
 
 ## What the full pipeline does (Small / Medium)
 
 | Stage | What runs | Output |
 |---|---|---|
-| **Author** | `/contract new` (JIRA/Linear/Notion link or text) | `.manifest/contracts/<ID>.md` |
+| **Author** (PM-led) | `/contract new` (JIRA/Linear/Notion link or text) | `.manifest/contracts/<ID>.md` |
+| **Pickup** (dev-led, 0.18 beta) | `/contract pickup <source>` — fetches PRD, runs critics, sorts gaps into 3 buckets (auto-fill / dev / PM), drafts batched PM-channel questions | `.manifest/contracts/<ID>.md` + `.qa.md` sidecar |
 | **Verify** | `/contract verify` (validator + only the relevant judgment critics) | `.manifest/contracts/<ID>.findings.md` (+ `.findings.json`) |
 | **Promote** | `/contract promote` | Frozen revision, JIRA epic, SLA timer (24h/72h) |
 | **Implement** | `/implement <ID>` (PR comment, runs in CI) | PR with code + tests in the repo's stack |

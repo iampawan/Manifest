@@ -108,6 +108,26 @@ cp /path/to/manifest/workflows/*.yml .github/workflows/   # for CI later
 git add .manifest/ .github/workflows/ && git commit -m "chore: add Manifest"
 ```
 
+### 7a. Enable the pickup beta (optional, 0.18+)
+
+If devs on this repo will pick up PRDs that PMs author in JIRA /
+Google Docs / Slack / Notion, opt into the pickup flow in the same
+`.manifest/repos.yml`:
+
+```yaml
+pickup:
+  enabled: true            # opt in
+  identifyAgent: true      # "(via Manifest)" footer on PM-facing posts
+  defaultChannel: jira     # or: slack | notion | gdoc
+  blockingByDefault: false # questions are non-blocking unless dev flags
+  cacheTTL: 24h            # codebase analysis cache lifetime
+```
+
+Without this flag, `/contract pickup` falls back to `/contract new`
+with a notice. Existing flows are unchanged either way. See
+[GUIDE.md section 1g](../GUIDE.md#1g-pickup-flow--when-the-pm-authored-elsewhere-018-beta)
+for the full spec.
+
 Set the CI secret (one of):
 - `CLAUDE_CODE_OAUTH_TOKEN` (subscription auth — preferred), or
 - `ANTHROPIC_API_KEY`
