@@ -5,7 +5,7 @@ description: Critic that ensures every behavior carries an analytics event and t
 
 # Instrumentation coverage critic
 
-> **Protocol:** Follow `reference/CRITIC-PROTOCOL.md` at the plugin root for severity
+> **Protocol:** Follow `reference/CRITIC-RULES.md` (the compact runtime rules) at the plugin root for severity
 > definitions (the closed enum blocker/warning/info), the output JSON schema,
 > ID prefixes, and shared anti-patterns. This skill defines only WHAT to look
 > for. Do not invent severities like "high"/"medium" — the validator rejects them.

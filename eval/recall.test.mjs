@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-import { scoreRecall } from "../scripts/recall.mjs";
+import { scoreRecall, scoreStability } from "../scripts/recall.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const golden = JSON.parse(readFileSync(join(here, "golden", "judgment-gaps.expected.json"), "utf8"));
@@ -68,6 +68,58 @@ test("recall: bonus misses are reported but do not fail the run", () => {
 
 test("recall: non-array actual is a schema error", () => {
   const r = scoreRecall({}, golden);
+  assert.equal(r.ok, false);
+  assert.ok(r.schemaErrors.length > 0);
+});
+
+// ─── Stability / variance across repeated runs ───────────────────────
+
+// A run that MISSES the security (blocker) required gap.
+const missesSecurity = () => goodActual().filter((f) => f.critic !== "security");
+
+test("stability: every run catching every required gap passes (hit rate 1.0)", () => {
+  const r = scoreStability([goodActual(), goodActual(), goodActual()], golden);
+  assert.equal(r.ok, true);
+  assert.equal(r.runs, 3);
+  assert.equal(r.minRequiredRecall, 1);
+  assert.equal(r.stdevRequiredRecall, 0);
+  assert.equal(r.flakyRequiredGaps.length, 0);
+});
+
+test("stability: a gap caught in some runs but not others is flagged flaky", () => {
+  // 2 good runs + 1 that misses security → security hit rate 2/3, flaky.
+  const r = scoreStability([goodActual(), goodActual(), missesSecurity()], golden);
+  assert.equal(r.ok, false);
+  const sec = r.perGap.find((g) => g.critic === "security");
+  assert.equal(sec.flaky, true);
+  assert.ok(sec.hitRate > 0 && sec.hitRate < 1);
+  assert.ok(r.flakyRequiredGaps.length >= 1);
+  assert.ok(r.stdevRequiredRecall > 0); // variance is real
+});
+
+test("stability: a relaxed threshold tolerates an occasional miss", () => {
+  const relaxed = { ...golden, stabilityThreshold: 0.6 };
+  // security at 2/3 = 0.67 ≥ 0.6 → tolerated.
+  const r = scoreStability([goodActual(), goodActual(), missesSecurity()], relaxed);
+  assert.equal(r.ok, true);
+  assert.equal(r.stabilityThreshold, 0.6);
+});
+
+test("stability: a forbidden severity in any run is a schema error", () => {
+  const bad = goodActual();
+  bad.push({ id: "X", critic: "security", severity: "critical", message: "x", suggestion: "y", fragmentRef: "B1", status: "open" });
+  const r = scoreStability([goodActual(), bad], golden);
+  assert.equal(r.ok, false);
+  assert.ok(r.schemaErrors.some((e) => e.includes("forbidden severity")));
+});
+
+test("stability: scoring is deterministic given the same runs", () => {
+  const runs = [goodActual(), missesSecurity(), goodActual()];
+  assert.deepEqual(scoreStability(runs, golden), scoreStability(runs, golden));
+});
+
+test("stability: no runs is a schema error, not a crash", () => {
+  const r = scoreStability([], golden);
   assert.equal(r.ok, false);
   assert.ok(r.schemaErrors.length > 0);
 });

@@ -56,6 +56,18 @@ Remaining: golden-contract recall tests for the LLM judgment critics
 - Run evals in CI on every plugin change. A drop in recall on the
   golden set fails the build.
 
+**Stability sweep (run-to-run variance).** Recall scores one run; it
+doesn't catch a critic that's *flaky* — catching a required gap on some
+runs but not others. That's the specific risk introduced by routing
+critics to different models per tier. `scoreStability(runs, golden)` in
+`scripts/recall.mjs` scores N repeated runs of the same fixture, reports a
+per-gap hit rate + the run-to-run stdev of required recall, and fails if
+any required gap's hit rate falls below `stabilityThreshold` (default 1.0).
+Wired into `eval.yml` as an opt-in sweep gated on the
+`MANIFEST_STABILITY_RUNS` repo variable (it multiplies LLM cost by N, so
+it's off by default — good for a nightly/scheduled run). CLI:
+`recall.mjs --stability <golden> <run1.json> <run2.json> …`.
+
 ### 3. No shared rule layer
 **Status: done.**
 - `reference/CRITIC-PROTOCOL.md` is the single source for severity defs, output
@@ -145,6 +157,24 @@ REFUSES on null/empty target with a distinct `{ "result": "refused" }`
   when a model update changes outputs, before that reaches users.
 - **Remaining**: can't control model behavior; the eval gate is the
   mitigation. Document the supported/tested model per release.
+
+### 10. Context-window exhaustion on long runs (lossy auto-summarization)
+**Status: mitigated.**
+- The Implementer runs for hours; the context window fills and the runtime
+  auto-summarizes earlier turns *lossily*, so an agent that trusts its
+  in-context memory of the plan/ACs/progress can drift or redo work.
+- **Fix — externalize state, don't memorize it.** Every load-bearing fact
+  lives in a durable file the agent re-reads as ground truth: the revision
+  (spec + ACs), the implementation-plan (scope), the code-context cache
+  (conventions), and a new working-state file
+  `<ID>.implement-state.json` the Implementer checkpoints after every
+  behavior (AC status, files touched, decisions).
+- A deterministic read — `validate.mjs --implement-status <ID>` — recovers
+  exactly what's done and what's left in ~100 tokens after any
+  summarization, and makes runs **resumable** (re-invoking continues from
+  the state file instead of restarting). Schema + status are unit-tested.
+- **Remaining**: can't stop the runtime from compacting; the mitigation is
+  to make compaction non-destructive by keeping the source of truth on disk.
 
 ---
 

@@ -137,8 +137,21 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Optional cost/latency tuning — both opt-in; unset = today's behavior.
+          # MANIFEST_ADVISOR_MODEL lets the Implementer escalate hard calls
+          # (committing to a fix, declaring the PR green, a stuck fix loop) to a
+          # stronger model at decision points instead of running strong
+          # throughout — typically cheaper. Pair with a mid-tier main model via
+          # MANIFEST_IMPLEMENTER_MODEL for the biggest saving.
+          # REQUIRES the Anthropic API (OAuth token or API key) + Claude Code
+          # >= 2.1.98. NOT available on Bedrock/Vertex/Foundry — leave the
+          # variable unset there and the run proceeds without an advisor.
+          IMPLEMENTER_MODEL: ${{ vars.MANIFEST_IMPLEMENTER_MODEL }}
+          ADVISOR_MODEL: ${{ vars.MANIFEST_ADVISOR_MODEL }}
         run: |
-          claude --skill implement \
+          claude ${IMPLEMENTER_MODEL:+--model "$IMPLEMENTER_MODEL"} \
+                 ${ADVISOR_MODEL:+--advisor "$ADVISOR_MODEL"} \
+                 --skill implement \
             --input '{ "contractId": "${{ steps.parse.outputs.contractId }}", "prNumber": ${{ github.event.issue.number }}, "mode": "fix" }'
 
   implement-on-comment:
@@ -167,6 +180,18 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Optional cost/latency tuning — both opt-in; unset = today's behavior.
+          # MANIFEST_ADVISOR_MODEL lets the Implementer escalate hard calls
+          # (committing to a plan, declaring ACs covered) to a stronger model at
+          # decision points instead of running strong throughout — typically
+          # cheaper. Pair with a mid-tier main model via MANIFEST_IMPLEMENTER_MODEL.
+          # REQUIRES the Anthropic API (OAuth token or API key) + Claude Code
+          # >= 2.1.98. NOT available on Bedrock/Vertex/Foundry — leave the
+          # variable unset there and the run proceeds without an advisor.
+          IMPLEMENTER_MODEL: ${{ vars.MANIFEST_IMPLEMENTER_MODEL }}
+          ADVISOR_MODEL: ${{ vars.MANIFEST_ADVISOR_MODEL }}
         run: |
-          claude --skill implement \
+          claude ${IMPLEMENTER_MODEL:+--model "$IMPLEMENTER_MODEL"} \
+                 ${ADVISOR_MODEL:+--advisor "$ADVISOR_MODEL"} \
+                 --skill implement \
             --input '{ "contractId": "${{ steps.parse.outputs.contractId }}", "prNumber": ${{ github.event.issue.number }} }'

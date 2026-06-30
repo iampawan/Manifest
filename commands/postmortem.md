@@ -33,6 +33,15 @@ from it.
 6. Posts the verdict to Slack (thread + a top-level alert) and DMs the
    owner.
 
+**Learns from it.** If a contributing factor is a code-shaped bug class
+review could have caught, the postmortem proposes a *candidate* bug
+pattern in `reference/bug-patterns.candidates.md` (staging — not yet
+enforced). A maintainer reviews and, if it generalizes, promotes it into
+`reference/BUG-PATTERNS.md`, where `code-review` then checks it on every
+future diff — so the same class of bug can't ship twice. The human-accept
+gate and the `warning`-until-proven default keep a new pattern from
+blocking every PR. See the learning loop in `BUG-PATTERNS.md`.
+
 ## Blameless by design
 
 The postmortem describes systems, specs, and gaps — never a person as

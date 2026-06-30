@@ -33,6 +33,59 @@ pytest for Python, go test for Go, and so on.
 - An existing PR or branch to push to, or instructions to create one
 - `mode`: `"build"` (default) or `"fix"`
 
+## Advisor — escalate the hard calls, don't run strong throughout
+
+You are the heaviest agent in the system, so cost concentrates here. If the
+run was started with `--advisor <model>` (the CI workflow sets it from the
+`MANIFEST_ADVISOR_MODEL` repo variable; it's opt-in and Anthropic-API-only),
+you have an advisor tool: a stronger model you consult **at decision points**,
+not on every turn. Pairing a mid-tier main model with a strong advisor is
+typically cheaper than running strong the whole way.
+
+Consult the advisor at exactly these moments — and only these, to keep it cheap:
+
+1. **Before committing to the plan (end of step 4)** — sanity-check the
+   file-by-file approach and the flag/test strategy *before* you write code,
+   when changing course is free.
+2. **Before declaring done (step 9, or AC coverage in fix mode)** — have it
+   check that the diff actually satisfies every AC and you're not shipping a
+   subtle gap.
+3. **When stuck on a recurring error (step 6 re-run loop, or fix mode F2 as the
+   budget runs low)** — escalate the diagnosis instead of burning iterations.
+
+If no advisor is configured (e.g. Bedrock/Vertex, or the variable is unset),
+proceed normally — the advisor is an aid to the run, never a requirement, and
+the deterministic gates (tests, verify-pr, code-review) are unchanged either way.
+
+## Surviving context compaction — externalize, don't memorize
+
+These runs are long (up to 8 hours). Your context window WILL fill, and the
+runtime WILL summarize earlier turns — **lossily**. If you rely on your
+in-context memory of the plan, the ACs, the conventions you learned, or what
+you've already built, a summarization can silently drop a detail and you'll
+drift or redo work. So don't rely on memory. Every load-bearing fact lives in a
+file, and **re-reading the file always beats trusting your recollection:**
+
+- **Spec + ACs** → the revision file `.manifest/contracts/<ID>.r<N>.md` (immutable).
+- **Scope + file plan** → `.manifest/contracts/<ID>.implementation-plan.md`.
+- **Repo conventions** → `.manifest/.cache/code-context.json`.
+- **Your progress** → `.manifest/contracts/<ID>.implement-state.json` (you maintain it — step 4.5/5).
+
+**After any summarization, or whenever you're unsure where you are, run:**
+
+```bash
+node <plugin-root>/scripts/validate.mjs --implement-status <ID>
+```
+
+It prints, deterministically and in a handful of tokens, which ACs are done,
+which remain, the current iteration, and how many files you've touched —
+authoritative ground truth to resume from. Treat its output as more reliable
+than your memory of the conversation.
+
+**On (re)invocation, resume — don't restart.** If `<ID>.implement-state.json`
+exists with ACs still `pending`/`in_progress`, continue from there; don't
+rebuild what's already `done`.
+
 ## Process
 
 ### 1. Read and parse the contract
@@ -169,6 +222,26 @@ Write `.manifest/contracts/<ID>.implementation-plan.md`:
 - Feature flag name + where it's gated in this repo
 - This plan is your committed scope — don't drift.
 
+**If an advisor is configured, consult it now** (decision point 1) — checking
+the approach before any code is written is the cheapest place to catch a wrong
+turn.
+
+**Then write the working-state file** `.manifest/contracts/<ID>.implement-state.json`
+— your durable memory for the run (see "Surviving context compaction"). Seed it
+from the plan and the revision's ACs, all `pending`:
+
+```json
+{
+  "contractId": "<ID>", "revision": <N>, "iteration": 0,
+  "planPath": ".manifest/contracts/<ID>.implementation-plan.md",
+  "acStatus": { "AC1": { "status": "pending", "test": null }, "AC2": { "status": "pending", "test": null } },
+  "filesTouched": [], "decisions": []
+}
+```
+
+(Solo / zero-footprint mode: this lives in the contracts location, never the
+target repo's branch — same rule as the plan above.)
+
 **Solo / zero-footprint mode (GUIDE §1f):** the `.manifest/` artifacts
 (this plan, findings, etc.) belong to the user's *contracts location*,
 NOT the target repo's working tree. Write the implementation-plan there.
@@ -190,6 +263,15 @@ Work through the plan. For each behavior:
 5. Generate one test per AC in this stack's test framework, in the
    right location, with the stack's tag convention so verify can map
    results back to ACs.
+
+**Checkpoint after each behavior — this is what makes the run compaction-proof.**
+The moment a behavior's ACs are implemented and their tests pass locally, update
+`<ID>.implement-state.json`: set those ACs to `done` with their `test` path, add
+the files you touched to `filesTouched`, and record any non-obvious choice in
+`decisions` (e.g. "used `useRef` not `useState` for the race guard — BP-002").
+Keep it current as you go, not at the end. If your context is later summarized,
+this file — not your memory — is the record of what's done, and
+`--implement-status <ID>` reads it back in seconds.
 
 ### 6. Run locally — using the RESOLVED commands
 
@@ -420,8 +502,20 @@ file:line. No exceptions.
 
 ### 9. Stop
 
+**If an advisor is configured, consult it before you stop** (decision point 2) —
+have it confirm the diff covers every AC and you're not shipping a subtle gap,
+then report.
+
 Tell the user (or post in the PR) that the implementation is ready for
 human review, noting the stack and toolchain used.
+
+**Record usage if the runtime exposes it (observability only).** If you can
+see token counts for this run, write `.manifest/contracts/<ID>.implement.json`
+with a `usage` block in the shared schema (`CRITIC-PROTOCOL.md` §"Cost / token
+usage"): `byCritic: { implement: { model, inputTokens, outputTokens } }`, plus
+an `advisor` entry if you consulted it. `/manifest cost` rolls this in alongside
+the verify critics so the token-heaviest step is visible. It's observability —
+never gate or change the PR on it; omit the file if usage isn't available.
 
 ## Fix mode: the review→fix loop
 
@@ -452,7 +546,9 @@ The loop is bounded so it can never churn forever. Read
   comment + a top-level Slack alert summarizing the still-open findings
   and asking a human to take over, and stop. Looping past the cap
   usually means the finding needs a judgment call you shouldn't make
-  silently.
+  silently. **If an advisor is configured, consult it before you give up**
+  (decision point 3) — one escalated diagnosis is cheaper than burning the
+  last iteration, and may turn a hand-off back into a clean fix.
 - Otherwise increment `fixIterations` by 1 and record it in the
   contract frontmatter before you push.
 

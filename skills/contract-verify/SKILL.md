@@ -156,8 +156,17 @@ feature — flip `changeType` and treat it as one.
 
 Spawn the selected critics as sub-agents in ONE parallel Task batch.
 A single-platform web feature typically runs ~5-6 critics; a bug fix
-runs ~2-3. Each critic must return output conforming to
-`reference/CRITIC-PROTOCOL.md`.
+runs ~2-3. Each critic must return output conforming to the compact
+`reference/CRITIC-RULES.md` (which it loads — not the full protocol).
+
+**Keep critic input lean (cuts tokens ×N critics).** Give each critic the
+contract's *spec* — frontmatter intent, behaviors, ACs, out-of-scope — and the
+deterministic findings it should build on. Do NOT paste the machine provenance
+into the prompt: the findings `.json` blocks (hashes, `regressionScan`,
+`usage`, `verifiedWith`), the `.qa` sidecar, or prior raw findings dumps —
+critics don't read those to do their job, and they multiply input across the
+parallel batch. (Don't slice the *behaviors* per critic, though — a critic
+needs the whole spec to catch cross-cutting gaps; trim provenance, not content.)
 
 **Narrow the batch with the re-run plan (1b.D).** On a re-verify, only
 run the localized critics over `localizedBehaviors`, only re-run the
@@ -165,16 +174,47 @@ cross-cutting critics if `rerunCrossCutting`, and follow the plan's
 `regression` directive (rescan / reason-only / reuse). Findings you
 don't re-run are carried over from the prior `<ID>.findings.json`.
 
-**Model tiering (latency + cost).** Assign models per critic:
-- **Strong model** for the heavy reasoning: `edge-cases`, `security`,
-  `regression`, `scalability`.
-- **Fast model** for the lighter, pattern-style critics:
-  `comms-completeness`, `instrumentation`, `perf-budget`,
-  `platform-parity`.
-A team can override the mapping with `conventions.criticModels` in
-`repos.yml`. (If the runtime doesn't support per-critic model
-selection, run them all on the default model — the tiering is an
-optimization, not a correctness requirement.)
+**Model tiering — the validator already decided; just obey it.** Nobody
+picks a model by hand. The validator output (step 2) includes a
+`modelPlan` computed deterministically from the contract's `sizing`:
+
+```jsonc
+"modelPlan": {
+  "complexity": "large",
+  "heavyModel": "opus",
+  "models": {
+    "minimality": "haiku", "comms-completeness": "haiku",
+    "edge-cases": "sonnet", "instrumentation": "sonnet",
+    "perf-budget": "sonnet", "platform-parity": "sonnet",
+    "regression": "opus", "security": "opus", "scalability": "opus"
+  }
+}
+```
+
+When you spawn the parallel Task batch, give **each critic the model in
+`modelPlan.models[<critic>]`** — don't choose your own. The plan routes
+the light critics (`minimality`, `comms-completeness`) to a fast model,
+the mid critics to the default, and the heavy critics (`regression`,
+`security`, `scalability`) to a strong model **only when the contract is
+large/risky** — a trivial fix runs the whole suite cheap; an auth-flow
+change across three platforms automatically pulls the strong model onto
+the heavy critics, because `sizing` already flagged it. A team can
+override any critic with `conventions.criticModels` in `.manifest/repos.yml`
+(the validator folds this into `modelPlan` for you).
+
+If the runtime doesn't support per-critic model selection, run them all
+on the default model — the tiering is an optimization, not a correctness
+requirement, and the deterministic verdict is identical either way.
+
+**Advisor escalation (opt-in, advisory findings only).** If
+`conventions.criticAdvisor: true` in `.manifest/repos.yml` AND an advisor
+is available, a fast-tier critic may consult the advisor on a *borderline
+`warning`/`info`* call — never a blocker (see `CRITIC-PROTOCOL.md` §"Advisor
+escalation"). Mark any such finding `metadata.advisorConsulted: true`, and
+if the advisor was consulted at all this run, set `advisorConsulted: true`
+in the findings `.json` provenance. The validator **rejects** an
+advisor-influenced blocker, so the promotability gate stays deterministic.
+Default off — when disabled or unavailable, critics run exactly as before.
 
 State which critics you ran, which you reused, and which you skipped
 (and why) in the findings file, so the verdict is transparent.
@@ -240,10 +280,22 @@ verifyMode: full                 # full | fast — "fast" is NOT promotable
 
 All machine provenance — `fragmentHashes`, `apiSurfaceHash`,
 `regressionScan` (the incremental/--changed inputs), `verifiedWith`
-(model/protocol/contractHash), `criticsRun`/`criticsSkipped`, and any
-critic-normalization notes — goes in `<ID>.findings.json` ONLY. The
-`--changed` planner and tooling read the `.json`; the human reads the
-`.md`.
+(the per-tier `models` map + `complexity` + `protocolVersion` +
+`contractHash` — copy `models`/`complexity` straight from the validator's
+`modelPlan`; see `reference/CRITIC-PROTOCOL.md` for the v2 schema),
+`criticsRun`/`criticsSkipped`, and any critic-normalization notes — goes
+in `<ID>.findings.json` ONLY. The `--changed` planner and tooling read
+the `.json`; the human reads the `.md`.
+
+**Record token usage if the runtime exposes it (observability only).**
+When you can see per-critic token counts for the critics you spawned, add
+a `usage` block to the `.json` (schema in `CRITIC-PROTOCOL.md` §"Cost /
+token usage") — `byCritic[<critic>] = { model, inputTokens, outputTokens }`,
+using the model each critic actually ran on (from `modelPlan.models`). This
+powers `/manifest cost`. It is **observability, never a gate**: if usage
+isn't available, omit the block entirely — the verdict, readiness, and
+caching are unaffected. Do NOT let cost data influence findings or the
+verdict.
 
 **Write the `.md` for a human, not a machine** — the `.json` companion
 (below) carries the machine detail, so the `.md` is plain English and

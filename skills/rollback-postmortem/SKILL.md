@@ -103,6 +103,41 @@ The contract reopens at the spec phase: address the contributing
 factors in a new revision, re-verify, re-promote. Link the follow-up.
 ```
 
+### 3.5 Propose a bug pattern — if (and only if) the cause is a code shape
+
+Look at the contributing factors. If one is a **code-level bug class a
+diff-level review could have caught** — the shape of the bug, not a one-off
+typo, not a spec/infra/process gap — propose it for the catalog so the same
+class can't ship twice. This is the learning loop in `reference/BUG-PATTERNS.md`.
+
+Append a *candidate* entry to `reference/bug-patterns.candidates.md` (the
+staging file — **never** edit `BUG-PATTERNS.md` directly; a human accepts it
+there). Use the catalog entry format plus two fields:
+
+```
+### <next-id> — <plain-English name>
+
+**Where it bites**: <the user-visible impact this rollback showed>
+**The shape**: <minimal stack-agnostic code example of the bug>
+**Why it slips past basic review**: <one line>
+**The fix**: <minimal code example after the fix>
+**Where first observed**: postmortem <ID>
+**Severity**: warning      # machine-proposed → warning until proven
+**Status**: provisional
+```
+
+Get `<next-id>` deterministically: `node <plugin-root>/scripts/validate.mjs
+--next-pattern-id`. Then validate the staging file structure:
+`node <plugin-root>/scripts/validate.mjs --check-patterns
+<plugin-root>/reference/BUG-PATTERNS.md <plugin-root>/reference/bug-patterns.candidates.md`.
+
+**Be conservative.** Only propose when the bug genuinely generalizes and is
+detectable on a diff. If the cause was a missed edge case in the *spec*, a
+flaky test, a config mistake, or an infra outage, do NOT propose a pattern —
+that belongs in Action items, not the catalog. No candidate is fine; a noisy
+catalog is worse than a small one. Note in the postmortem whether you proposed
+one (and its candidate id) so the maintainer knows to review it.
+
 ### 4. Stamp the contract
 
 - `landed: rolled-back`

@@ -1,8 +1,18 @@
 # Critic protocol (shared rule layer)
 
-Every critic skill references THIS file instead of redefining severity,
-output format, or anti-patterns. One source of truth. If you change a
-rule, change it here and every critic inherits it.
+This is the **full** reference: the runtime rules a critic needs *plus* the
+orchestrator/maintainer concerns (provenance, model pinning, cost, advisor
+mechanics, rationale). One source of truth for the rules.
+
+**At run time, critics load the compact `CRITIC-RULES.md` digest instead of
+this file** — it carries only what's needed to emit valid output (schema,
+severity enum, ID prefixes, determinism caps, anti-patterns, framing, the
+advisor constraint), so ~9 parallel critics don't each re-read this whole
+document every verify. This file stays the source of truth; if you change a
+hard rule (severity enum, ID prefixes, the 12-cap, schema), update the digest
+to match — `eval/validate.test.mjs` enforces that the digest and the validator
+agree, so drift fails CI. The orchestrator (`contract-verify`) still reads this
+full file for provenance/cost/advisor orchestration.
 
 Each critic SKILL.md should open with:
 
@@ -146,20 +156,99 @@ the right event name and flag collisions.
 ## Model + version pinning
 
 Every findings file records, in its frontmatter, the plugin version
-and the model that produced it:
+and the models that produced it. Critics no longer all run on one model
+— the deterministic router (`computeModelPlan` in `scripts/validate.mjs`)
+assigns each critic a model from the contract's sizing — so provenance
+records the **per-tier model map** that was used, not a single scalar:
 
 ```yaml
 verifiedWith:
-  pluginVersion: 0.2.0
-  model: claude-opus-4-6
-  protocolVersion: 1
+  pluginVersion: 0.19.0
+  protocolVersion: 2
+  complexity: large              # the sizing bucket that drove routing
+  models:                        # the model each tier ran on (from modelPlan)
+    light: claude-haiku-4-5      # minimality, comms-completeness
+    default: claude-sonnet-4-6   # edge-cases, instrumentation, perf-budget, platform-parity
+    heavy: claude-opus-4-8       # regression, security, scalability
   contractHash: sha256:abc123…   # hash of the contract content verified
 ```
 
-This makes findings reproducible-by-reference: if two devs get
-different findings, compare `contractHash` (different contract content)
-and `model`/`pluginVersion` (different engine). The eval suite pins
-all three so behavioral drift is caught in CI, not in production.
+This keeps findings reproducible-by-reference: if two devs get different
+findings, compare `contractHash` (different contract content), `models`
+(different engine per tier), and `pluginVersion`. The model map is a
+deterministic function of `complexity`, so the same contract always
+routes the same way — the routing decision is reproducible, not a
+per-run guess. The eval suite pins all of these so behavioral drift is
+caught in CI, not in production.
+
+**Provenance schema is versioned by `protocolVersion`.** v1 recorded a
+single `model:` scalar; v2 records the `models` map above. Bumping
+`protocolVersion` deliberately invalidates the verify cache (see
+`cacheStatus`), because a findings file written under the old schema
+can't faithfully describe which model produced each finding.
+
+Note: the **advisor** (used by the Implementer, not by verify critics) is
+non-deterministic by design and is therefore NOT part of this reproducible
+provenance or any eval gate; when it fires, the Implementer records it in
+its PR output, never in a verdict-bearing findings file.
+
+## Cost / token usage (observability — NOT a gate)
+
+Token usage is non-deterministic, so it follows the same rule as the
+advisor: it's recorded for observability and is **never** a gate input or
+part of the reproducible-provenance comparison. But turning recorded usage
+into a dollar figure is deterministic code (`computeCost` in
+`scripts/validate.mjs`, priced from `reference/model-pricing.json`), which is
+what lets you measure whether model tiering and the advisor actually saved
+money.
+
+When the runtime exposes per-subagent token counts, record them in the
+findings `.json` companion (best-effort — omit the block if unavailable):
+
+```jsonc
+"usage": {
+  "recordedAt": "<ISO>",
+  "byCritic": {
+    "minimality": { "model": "claude-haiku-4-5",  "inputTokens": 8000,  "outputTokens": 300 },
+    "security":   { "model": "claude-opus-4-8",    "inputTokens": 15000, "outputTokens": 1200 }
+  },
+  "advisor": null            // or { model, inputTokens, outputTokens } if consulted
+}
+```
+
+The rollup (`validate.mjs --cost`, surfaced as `/manifest cost`) scans these
+blocks and reports cost by complexity, model tier, and critic. Because it's
+observability, a missing or partial `usage` block degrades gracefully — the
+verdict and caching are entirely unaffected.
+
+## Advisor escalation (critics) — advisory findings ONLY
+
+A critic running on a fast tier may consult the advisor (Claude Code's
+`/advisor`) on a **borderline** call — but only within a hard boundary that
+protects the deterministic verdict:
+
+- **Allowed:** deciding whether to emit, or how to phrase, a `warning` or
+  `info` finding the critic is genuinely unsure about. The advisor helps the
+  cheap model match the judgment of a strong one *on the soft, advisory layer*.
+- **Forbidden:** influencing a `blocker` in any way. Blockers are the gate
+  (promotable = zero open blockers) and must stay a deterministic-plus-protocol
+  judgment, never an advisor's non-deterministic call. The deterministic
+  validator **rejects** an advisor-influenced blocker (`validateFindings`), so
+  this isn't merely a convention — it's enforced, and a run that tries it fails
+  loud.
+- **Mark it.** An advisor-influenced finding sets
+  `metadata.advisorConsulted: true` (and may record the advisor model). The run
+  records `advisorConsulted: true` in `findings.json` provenance.
+- **Not reproducible, and that's fine.** Advisor-influenced findings are
+  excluded from the reproducible-provenance comparison and the eval recall
+  gates — they're a quality aid on the advisory layer, never part of the
+  reproducible verdict. Since they can only be `warning`/`info`, they never
+  touch promotability.
+
+Opt-in per repo via `conventions.criticAdvisor: true` in `.manifest/repos.yml`
+**and** an advisor being available in the runtime; otherwise critics run
+exactly as before. The point is to spend a strong model's judgment only where a
+soft call is genuinely ambiguous, without ever destabilizing the gate.
 
 ---
 

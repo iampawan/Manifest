@@ -91,8 +91,31 @@ a multi-platform feature.
 # Status + meta
 /status [<ID>]                           Phase + SLA (IST+UTC) + next; or all in-flight
 /manifest                                This tutorial
+/manifest cost                           Token/$ rollup by complexity, model tier, critic
 /setup                                   Detection wizard / MCP check
 ```
+
+## /manifest cost — is the model routing actually saving money?
+
+```
+/manifest cost                # rollup across .manifest/contracts
+/manifest cost <dir>          # a different contracts dir
+```
+
+Runs the deterministic rollup over every `*.findings.json` that recorded a
+`usage` block:
+
+```
+node <plugin-root>/scripts/validate.mjs --cost [dir]        # human table
+node <plugin-root>/scripts/validate.mjs --cost [dir] --json # machine JSON
+```
+
+It reports total spend and a breakdown by **complexity**, **model tier**, and
+**critic**, priced from `reference/model-pricing.json` (estimates — update when
+Anthropic prices change). This is how you tune the routing rubric from data:
+if `haiku`-tier critics are cheap but you're re-running them often, or the
+advisor's line is larger than the tiering saved, the numbers say so. Usage is
+observability only — it never affects a verdict.
 
 ## Deep dives
 

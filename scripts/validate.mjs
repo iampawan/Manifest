@@ -12,10 +12,10 @@
 //
 // Requires: js-yaml  (npm install js-yaml)
 //
-// Output: JSON to stdout — { findings: [...], sizing, readiness, contractHash }
+// Output: JSON to stdout — { findings: [...], sizing, modelPlan, readiness, contractHash }
 // Exit code: 0 if no blockers, 1 if blockers present, 2 on input error.
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -29,7 +29,11 @@ const SEVERITIES = new Set(["blocker", "warning", "info"]);
 //                  warning put to rest this way never re-litigates
 const FINDING_STATUSES = new Set(["open", "resolved", "dismissed", "acknowledged"]);
 const REQUIRED_COMMS = ["empty", "loading", "success", "error"];
-const PROTOCOL_VERSION = 1;
+// v2: findings provenance records a per-tier model MAP (verifiedWith.models)
+// instead of a single model scalar, because critics now run on different
+// models (see computeModelPlan). Bumping this invalidates v1 caches, which is
+// correct — a v1 findings file can't describe which model produced each finding.
+const PROTOCOL_VERSION = 2;
 
 // commsStates is a UI concern — only required for user-facing behaviors.
 // A behavior is "server-only" when every platform it declares is one of
@@ -288,6 +292,265 @@ function computeSizing(contract, judgmentFindings = []) {
   return { complexity: bucket, reasons };
 }
 
+// ─── Model routing (fully deterministic) ─────────────────────────────
+// People shouldn't have to know which model to use — the system picks.
+// The model for each critic is a deterministic function of (a) a fixed
+// baseline tier per critic and (b) the contract's sizing complexity,
+// which we already computed above for free. Heavy critics escalate to
+// the strong model only on large/risky contracts; everything else stays
+// on the fast tier. Because the choice is pure code over an
+// already-deterministic input, it's reproducible — which is what keeps
+// findings reproducible-by-reference (see reference/CRITIC-PROTOCOL.md).
+// This is deliberately NOT an LLM classifier: that would cost a token
+// call and reintroduce non-determinism into the verdict path.
+
+const MODEL_TIERS = { light: "haiku", default: "sonnet", strong: "opus" };
+
+// Baseline tier per critic. "heavy" critics escalate by complexity.
+const CRITIC_BASELINE = {
+  minimality: "light",
+  "comms-completeness": "light",
+  "edge-cases": "default",
+  instrumentation: "default",
+  "perf-budget": "default",
+  "platform-parity": "default",
+  regression: "heavy",
+  security: "heavy",
+  scalability: "heavy",
+};
+
+// Returns { complexity, heavyModel, models: {critic: modelAlias}, note }.
+// `conventions.criticModels` (from .manifest/repos.yml) overrides any
+// critic's model explicitly; the override always wins.
+function computeModelPlan(contract, sizing, conventions = {}) {
+  const sz = sizing || computeSizing(contract);
+  const override = (conventions && conventions.criticModels) || {};
+  // Heavy critics go strong only when the contract is genuinely big or
+  // risky (large = 8+ behaviors, 3+ platforms, or an auth/billing/
+  // migration risk flag). small/medium hold on the fast tier.
+  const heavyModel =
+    sz.complexity === "large" ? MODEL_TIERS.strong : MODEL_TIERS.default;
+
+  const models = {};
+  for (const [critic, baseline] of Object.entries(CRITIC_BASELINE)) {
+    let model;
+    if (baseline === "light") model = MODEL_TIERS.light;
+    else if (baseline === "heavy") model = heavyModel;
+    else model = MODEL_TIERS.default;
+    if (override[critic]) model = override[critic]; // repos.yml wins
+    models[critic] = model;
+  }
+
+  return {
+    complexity: sz.complexity,
+    heavyModel,
+    models,
+    note:
+      `Heavy critics (regression/security/scalability) → ${heavyModel} ` +
+      `for a ${sz.complexity} contract; light critics ` +
+      `(minimality/comms-completeness) → ${MODEL_TIERS.light}; the rest → ` +
+      `${MODEL_TIERS.default}. Override per-critic with ` +
+      `conventions.criticModels in .manifest/repos.yml.`,
+  };
+}
+
+// ─── Cost observability (deterministic GIVEN recorded usage) ─────────
+// Token usage is non-deterministic, so it is NEVER a gate input and never
+// part of reproducible provenance — it's recorded as observability only
+// (same rule as the advisor). But turning recorded usage into a dollar
+// figure IS deterministic code given a pricing table, and that's what
+// closes the loop on model routing: you can measure whether tiering and
+// the advisor actually saved money, instead of assuming they did.
+
+// Normalize a model alias or full ID (claude-sonnet-4-6) to a pricing key.
+function normalizeModel(model) {
+  if (!model) return null;
+  const m = String(model).toLowerCase();
+  for (const fam of ["haiku", "sonnet", "opus", "fable"]) {
+    if (m === fam || m.includes(fam)) return fam;
+  }
+  return null;
+}
+
+// Cost of one usage entry { model, inputTokens, outputTokens } given a
+// pricing table (per-million-token). Unpriced models cost 0 and are
+// flagged priced:false so the rollup can warn rather than hide them.
+function entryCost(entry, pricing) {
+  const fam = normalizeModel(entry && entry.model);
+  const rate = fam && pricing && pricing.models && pricing.models[fam];
+  const inT = Number(entry && entry.inputTokens) || 0;
+  const outT = Number(entry && entry.outputTokens) || 0;
+  if (!rate) {
+    return { model: entry && entry.model, family: fam, priced: false,
+             inputTokens: inT, outputTokens: outT, cost: 0 };
+  }
+  const inputCost = (inT / 1e6) * rate.input;
+  const outputCost = (outT / 1e6) * rate.output;
+  return {
+    model: entry.model, family: fam, priced: true,
+    inputTokens: inT, outputTokens: outT,
+    inputCost, outputCost, cost: inputCost + outputCost,
+  };
+}
+
+// Aggregate a usage object { byCritic: {name: entry}, advisor: entry|null }
+// into a cost breakdown. Pure + deterministic given (usage, pricing).
+function computeCost(usage, pricing) {
+  const byCritic = {};
+  let inputTokens = 0, outputTokens = 0, total = 0, unpriced = 0;
+  const add = (label, entry) => {
+    if (!entry) return;
+    const c = entryCost(entry, pricing);
+    byCritic[label] = c;
+    inputTokens += c.inputTokens || 0;
+    outputTokens += c.outputTokens || 0;
+    total += c.cost || 0;
+    if (!c.priced) unpriced += 1;
+  };
+  const critics = (usage && usage.byCritic) || {};
+  for (const [name, entry] of Object.entries(critics)) add(name, entry);
+  if (usage && usage.advisor) add("advisor", usage.advisor);
+  return {
+    currency: (pricing && pricing.currency) || "USD",
+    inputTokens, outputTokens,
+    total: Number(total.toFixed(6)),
+    unpricedEntries: unpriced,
+    byCritic,
+  };
+}
+
+// ─── Bug-pattern catalog (deterministic structure checks) ────────────
+// The learning loop: a postmortem proposes a candidate bug pattern, a
+// human accepts it into reference/BUG-PATTERNS.md, and code-review then
+// enforces it forever. These pure functions guard that loop — a malformed
+// or duplicate-numbered machine-proposed entry fails loudly instead of
+// silently corrupting the catalog. Next-ID assignment is deterministic so
+// two promotions never collide.
+
+const BP_REQUIRED_FIELDS = [
+  "Where it bites", "The shape", "Why it slips past basic review",
+  "The fix", "Where first observed",
+];
+
+// All BP ids in document order (includes struck-through ~~BP-007~~).
+function parseBugPatternIds(md) {
+  const ids = [];
+  for (const line of String(md).split("\n")) {
+    const m = line.match(/^###\s+~{0,2}(BP-\d+)/);
+    if (m) ids.push(m[1]);
+  }
+  return ids;
+}
+
+// The next monotonic id to assign. Deterministic — no collisions.
+function nextBugPatternId(md) {
+  const nums = parseBugPatternIds(md).map((id) => Number(id.split("-")[1]));
+  const max = nums.length ? Math.max(...nums) : 0;
+  return `BP-${String(max + 1).padStart(3, "0")}`;
+}
+
+// Validate ONE entry block (from its ### header to the next ###).
+function validateBugPatternEntry(text) {
+  const errors = [];
+  const header = String(text).split("\n").find((l) => l.startsWith("### "));
+  if (!header || !/^###\s+BP-\d+\s+—\s+.+/.test(header)) {
+    errors.push("header must match '### BP-NNN — <name>'");
+  }
+  for (const field of BP_REQUIRED_FIELDS) {
+    const re = new RegExp(`\\*\\*${field.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\*\\*\\s*:`);
+    if (!re.test(text)) errors.push(`missing required field "${field}"`);
+  }
+  return errors;
+}
+
+// Validate the whole catalog: every active entry well-formed, ids unique
+// and monotonically increasing. Struck-through (~~BP-NNN~~) entries keep
+// their number but skip field checks.
+function validateBugPatternsDoc(md) {
+  const errors = [];
+  const blocks = [];
+  let cur = null;
+  for (const line of String(md).split("\n")) {
+    if (/^###\s/.test(line)) { if (cur !== null) blocks.push(cur); cur = line + "\n"; }
+    else if (cur !== null) cur += line + "\n";
+  }
+  if (cur !== null) blocks.push(cur);
+
+  const bpBlocks = blocks.filter((b) => /^###\s+~{0,2}BP-\d+/.test(b));
+  const seen = new Set();
+  let prev = 0;
+  for (const b of bpBlocks) {
+    const idm = b.match(/BP-(\d+)/);
+    const struck = /^###\s+~~/.test(b);
+    const id = idm ? `BP-${idm[1]}` : "?";
+    if (idm) {
+      if (seen.has(id)) errors.push(`duplicate ${id}`);
+      seen.add(id);
+      const n = Number(idm[1]);
+      if (n <= prev) errors.push(`${id} not monotonically increasing (followed ${prev})`);
+      prev = n;
+    }
+    if (!struck) {
+      for (const e of validateBugPatternEntry(b)) errors.push(`${id}: ${e}`);
+    }
+  }
+  return { valid: errors.length === 0, count: bpBlocks.length, errors };
+}
+
+// ─── Implementer working state (context-compaction resilience) ───────
+// Long Implementer runs overflow the context window and the runtime
+// auto-summarizes — lossily. So the Implementer must NOT trust its
+// in-context memory of the plan/ACs/progress; it externalizes them to a
+// durable state file and re-reads them as ground truth. This compact,
+// deterministic status read lets the agent (or a resumed run) recover
+// exactly what's done and what's left in ~100 tokens, instead of
+// re-deriving it from a summarized transcript.
+
+const AC_STATES = new Set(["pending", "in_progress", "done"]);
+
+function validateImplementState(state) {
+  const errors = [];
+  if (!state || typeof state !== "object" || Array.isArray(state))
+    return ["implement-state is not an object"];
+  if (typeof state.contractId !== "string" || !state.contractId)
+    errors.push(`missing/invalid "contractId"`);
+  const ac = state.acStatus;
+  if (!ac || typeof ac !== "object" || Array.isArray(ac)) {
+    errors.push(`"acStatus" must be an object map of acId → { status }`);
+  } else {
+    for (const [id, v] of Object.entries(ac)) {
+      if (!v || typeof v !== "object" || !AC_STATES.has(v.status))
+        errors.push(`acStatus["${id}"].status must be one of pending|in_progress|done`);
+    }
+  }
+  if (state.filesTouched != null && !Array.isArray(state.filesTouched))
+    errors.push(`"filesTouched" must be an array`);
+  return errors;
+}
+
+// Compact progress summary derived purely from the state file.
+function computeImplementStatus(state) {
+  const ac = (state && state.acStatus) || {};
+  const ids = Object.keys(ac);
+  const bucket = { pending: [], in_progress: [], done: [] };
+  for (const id of ids) {
+    const s = ac[id] && ac[id].status;
+    if (bucket[s]) bucket[s].push(id);
+  }
+  return {
+    contractId: (state && state.contractId) || null,
+    iteration: (state && state.iteration) || 0,
+    totalAcs: ids.length,
+    done: bucket.done.length,
+    remaining: bucket.pending.length + bucket.in_progress.length,
+    pending: bucket.pending,
+    inProgress: bucket.in_progress,
+    doneIds: bucket.done,
+    filesTouched: (state && Array.isArray(state.filesTouched) ? state.filesTouched.length : 0),
+    complete: ids.length > 0 && bucket.done.length === ids.length,
+  };
+}
+
 // ─── Readiness (fully deterministic) ─────────────────────────────────
 
 function computeReadiness(contract, allFindings) {
@@ -520,6 +783,13 @@ function validateFindings(findings) {
         errors.push(`[${i}] missing/invalid "${k}"`);
     if (!FINDING_STATUSES.has(f.status))
       errors.push(`[${i}] invalid status "${f.status}"`);
+    // Advisor escalation is restricted to advisory findings. The advisor
+    // is non-deterministic, and blockers are the gate — so an
+    // advisor-influenced finding may NEVER be a blocker. This keeps the
+    // promotability verdict (zero open blockers) fully deterministic even
+    // when critics consult the advisor on borderline soft findings.
+    if (f.metadata && f.metadata.advisorConsulted && f.severity === "blocker")
+      errors.push(`[${i}] advisor-influenced finding may not be a blocker — advisor escalation is restricted to warning|info`);
   });
   return errors;
 }
@@ -581,6 +851,15 @@ export {
   parseContract,
   checkContract,
   computeSizing,
+  computeModelPlan,
+  computeCost,
+  normalizeModel,
+  parseBugPatternIds,
+  nextBugPatternId,
+  validateBugPatternEntry,
+  validateBugPatternsDoc,
+  validateImplementState,
+  computeImplementStatus,
   computeReadiness,
   validateFindings,
   validateReviewFindings,
@@ -689,6 +968,153 @@ function main() {
     process.exit(cs.cached ? 0 : 1);
   }
 
+  if (args[0] === "--cost") {
+    // Cost rollup across verified contracts. Scans <dir> (default
+    // .manifest/contracts) for *.findings.json that carry a `usage` block,
+    // computes cost from reference/model-pricing.json, and reports totals
+    // by complexity, by critic, and by model. Powers `/manifest cost`.
+    // Usage: validate.mjs --cost [dir] [--json]
+    const dir = args[1] && !args[1].startsWith("--") ? args[1] : ".manifest/contracts";
+    const asJson = args.includes("--json");
+    const here = dirname(fileURLToPath(import.meta.url));
+    let pricing = { currency: "USD", models: {} };
+    try {
+      pricing = JSON.parse(readFileSync(join(here, "..", "reference", "model-pricing.json"), "utf8"));
+    } catch { /* no pricing file → costs render as 0, tokens still sum */ }
+
+    let files = [];
+    // findings.json carries critic usage; implement.json carries Implementer
+    // (+ its advisor) usage — the token-heaviest step. Roll up both.
+    try {
+      files = readdirSync(dir).filter(
+        (f) => f.endsWith(".findings.json") || f.endsWith(".implement.json")
+      );
+    } catch { console.error(`Cannot read directory: ${dir}`); process.exit(2); }
+
+    const byComplexity = {}, byCritic = {}, byModel = {};
+    let grandTotal = 0, grandIn = 0, grandOut = 0, contractsWithUsage = 0, unpriced = 0;
+    const rows = [];
+
+    for (const f of files) {
+      let doc;
+      try { doc = JSON.parse(readFileSync(join(dir, f), "utf8")); } catch { continue; }
+      const usage = doc.usage;
+      if (!usage || !usage.byCritic) continue;
+      contractsWithUsage += 1;
+      let complexity = (doc.verifiedWith && doc.verifiedWith.complexity) || null;
+      // An implement.json has no sizing of its own — borrow it from the
+      // sibling findings.json so the by-complexity view stays accurate.
+      if (!complexity && f.endsWith(".implement.json")) {
+        const sib = join(dir, f.replace(/\.implement\.json$/, ".findings.json"));
+        try { complexity = JSON.parse(readFileSync(sib, "utf8")).verifiedWith?.complexity; } catch { /* none */ }
+      }
+      complexity = complexity || "unknown";
+      const cost = computeCost(usage, pricing);
+      unpriced += cost.unpricedEntries || 0;
+      grandTotal += cost.total; grandIn += cost.inputTokens; grandOut += cost.outputTokens;
+      byComplexity[complexity] = (byComplexity[complexity] || 0) + cost.total;
+      for (const [name, c] of Object.entries(cost.byCritic)) {
+        byCritic[name] = (byCritic[name] || 0) + c.cost;
+        if (c.family) byModel[c.family] = (byModel[c.family] || 0) + c.cost;
+      }
+      const name = f.replace(/\.(findings|implement)\.json$/, "");
+      const step = f.endsWith(".implement.json") ? "implement" : "verify";
+      rows.push({ contract: name, step, complexity, cost: Number(cost.total.toFixed(4)) });
+    }
+
+    const round = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, Number(v.toFixed(4))]));
+    const result = {
+      currency: pricing.currency || "USD",
+      pricingLastUpdated: pricing.lastUpdated || "unknown",
+      contractsWithUsage,
+      totalCost: Number(grandTotal.toFixed(4)),
+      totalInputTokens: grandIn, totalOutputTokens: grandOut,
+      byComplexity: round(byComplexity), byCritic: round(byCritic), byModel: round(byModel),
+      unpricedEntries: unpriced,
+      perContract: rows.sort((a, b) => b.cost - a.cost),
+    };
+
+    if (asJson) { console.log(JSON.stringify(result, null, 2)); process.exit(0); }
+
+    const cur = result.currency;
+    const fmtMoney = (n) => `${cur} ${n.toFixed(4)}`;
+    if (contractsWithUsage === 0) {
+      console.log(`No usage data found in ${dir}. Verify a contract after enabling usage recording (findings.json \`usage\` block).`);
+      process.exit(0);
+    }
+    console.log(`Cost rollup — ${contractsWithUsage} contract(s) with usage · prices as of ${result.pricingLastUpdated} (estimates)\n`);
+    console.log(`Total: ${fmtMoney(result.totalCost)}  (${grandIn.toLocaleString()} in / ${grandOut.toLocaleString()} out tokens)\n`);
+    console.log("By complexity:");
+    for (const [k, v] of Object.entries(result.byComplexity)) console.log(`  ${k.padEnd(8)} ${fmtMoney(v)}`);
+    console.log("\nBy model tier:");
+    for (const [k, v] of Object.entries(result.byModel)) console.log(`  ${k.padEnd(8)} ${fmtMoney(v)}`);
+    console.log("\nBy critic:");
+    for (const [k, v] of Object.entries(result.byCritic).sort((a, b) => b[1] - a[1])) console.log(`  ${k.padEnd(20)} ${fmtMoney(v)}`);
+    if (unpriced > 0) console.log(`\n⚠ ${unpriced} usage entr(y/ies) had an unpriced model — update reference/model-pricing.json.`);
+    process.exit(0);
+  }
+
+  if (args[0] === "--check-patterns") {
+    // Structurally validate the bug-pattern catalog (+ optional candidates
+    // file). Fails loudly on a malformed or duplicate-numbered entry so a
+    // machine-proposed pattern can't silently corrupt the catalog.
+    // Usage: validate.mjs --check-patterns [BUG-PATTERNS.md] [candidates.md]
+    const here = dirname(fileURLToPath(import.meta.url));
+    const paths = args.slice(1).filter((a) => !a.startsWith("--"));
+    if (paths.length === 0) paths.push(join(here, "..", "reference", "BUG-PATTERNS.md"));
+    let allOk = true;
+    for (const p of paths) {
+      let md;
+      try { md = readFileSync(p, "utf8"); }
+      catch { console.error(`Cannot read ${p}`); process.exit(2); }
+      const r = validateBugPatternsDoc(md);
+      console.log(JSON.stringify({ file: p, ...r }, null, 2));
+      if (!r.valid) allOk = false;
+    }
+    process.exit(allOk ? 0 : 1);
+  }
+
+  if (args[0] === "--next-pattern-id") {
+    // Print the next BP-NNN to assign. Deterministic — used when promoting
+    // a candidate so two promotions never collide on a number.
+    const here = dirname(fileURLToPath(import.meta.url));
+    const p = (args[1] && !args[1].startsWith("--")) ? args[1]
+      : join(here, "..", "reference", "BUG-PATTERNS.md");
+    console.log(nextBugPatternId(readFileSync(p, "utf8")));
+    process.exit(0);
+  }
+
+  if (args[0] === "--implement-status") {
+    // Compact, authoritative progress read for a long Implementer run —
+    // what's done, what's left — straight from the durable state file, so
+    // the agent recovers ground truth after a context summarization instead
+    // of trusting a lossy transcript. Usage: --implement-status <ID|path> [--json]
+    const id = args[1];
+    if (!id || id.startsWith("--")) { console.error("usage: validate.mjs --implement-status <ID> [--json]"); process.exit(2); }
+    const path = id.endsWith(".json") ? id : `.manifest/contracts/${id}.implement-state.json`;
+    if (!existsSync(path)) {
+      console.log(`No working state at ${path} — treat as a fresh run (build from the plan + revision ACs).`);
+      process.exit(0);
+    }
+    let state;
+    try { state = JSON.parse(readFileSync(path, "utf8")); }
+    catch (e) { console.error(`Cannot parse ${path}: ${e.message}`); process.exit(2); }
+    const errors = validateImplementState(state);
+    const status = computeImplementStatus(state);
+    if (args.includes("--json")) { console.log(JSON.stringify({ ...status, schemaErrors: errors }, null, 2)); process.exit(errors.length ? 1 : 0); }
+    if (errors.length) { console.error("Invalid implement-state:\n  " + errors.join("\n  ")); process.exit(1); }
+    console.log(
+      `${status.contractId} — iteration ${status.iteration}\n` +
+      `  ACs:   ${status.done}/${status.totalAcs} done` +
+        (status.remaining ? ` · ${status.remaining} remaining` : "") + `\n` +
+      (status.pending.length ? `  todo:  ${status.pending.join(", ")}\n` : "") +
+      (status.inProgress.length ? `  wip:   ${status.inProgress.join(", ")}\n` : "") +
+      `  files: ${status.filesTouched} touched\n` +
+      `  ${status.complete ? "✅ all ACs done — finish, self-review, push." : "↻ resume from todo/wip above. Re-read the plan + revision; don't rely on memory."}`
+    );
+    process.exit(0);
+  }
+
   if (args[0] === "--status") {
     // A compact status block for a contract: phase, SLA, readiness,
     // next action. Deterministic. Powers the /status command.
@@ -726,12 +1152,24 @@ function main() {
   const readiness = computeReadiness(contract, findings);
   const contractHash = hashOf(md);
 
+  // Best-effort: pick up per-critic model overrides from repos.yml if it
+  // exists. Routing falls back to the deterministic defaults otherwise.
+  let conventions = {};
+  try {
+    if (existsSync(".manifest/repos.yml")) {
+      const ry = yaml.load(readFileSync(".manifest/repos.yml", "utf8")) || {};
+      conventions = ry.conventions || {};
+    }
+  } catch { /* malformed repos.yml → use default routing */ }
+  const modelPlan = computeModelPlan(contract, sizing, conventions);
+
   const out = {
     protocolVersion: PROTOCOL_VERSION,
     contractHash,
     changeType: contract.frontmatter.changeType || "feature",
     deterministicFindings: findings,
     sizing,
+    modelPlan,
     readiness,
     note: "Deterministic layer only. Run LLM judgment critics for edge-cases, security reasoning, regression, copy quality, and platform UX specifics. For changeType: bug-fix, run the LEAN set (minimality + scoped edge-cases + regression + security-if-relevant).",
   };

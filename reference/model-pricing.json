@@ -1,0 +1,13 @@
+{
+  "_comment": "Per-million-token USD prices used by the cost rollup (scripts/validate.mjs --cost). ESTIMATES for relative comparison — update when Anthropic changes prices. Keys are model-family aliases; full model IDs (claude-haiku-4-5, claude-sonnet-4-6, claude-opus-4-8) are normalized to these by validate.mjs.",
+  "currency": "USD",
+  "unit": "per_million_tokens",
+  "lastUpdated": "2026-06-29",
+  "source": "https://docs.claude.com/en/docs/about-claude/pricing",
+  "models": {
+    "haiku":  { "input": 1,  "output": 5 },
+    "sonnet": { "input": 3,  "output": 15 },
+    "opus":   { "input": 5,  "output": 25 },
+    "fable":  { "input": 10, "output": 50 }
+  }
+}

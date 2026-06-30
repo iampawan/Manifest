@@ -22,8 +22,8 @@ slip past spec-conformance almost always live in your half.
 
 ## Severity + output
 
-> **Protocol:** reuse the closed severity enum from
-> `reference/CRITIC-PROTOCOL.md` — `blocker | warning | info`, and ONLY
+> **Protocol:** reuse the closed severity enum from the compact
+> `reference/CRITIC-RULES.md` — `blocker | warning | info`, and ONLY
 > those. Do not invent "high"/"medium"/"critical"; the validator
 > (`scripts/validate.mjs --check-review`) rejects them and the run fails.
 
@@ -124,6 +124,15 @@ finding's metadata:
   ...
 }
 ```
+
+**Honor a pattern's `**Severity**` field if it sets one.** Patterns
+promoted from a postmortem carry `**Severity**: warning` until they're
+proven precise (see the learning loop in `BUG-PATTERNS.md`). For those,
+emit `warning`, not `blocker`, even if the impact reads severe — a
+newly-promoted pattern that fires as a blocker on every PR is how a
+good catch becomes a false-positive nuisance. A maintainer promotes it
+to `blocker` in the catalog once it's earned trust. Patterns with no
+`**Severity**` field use your normal judgment per the enum above.
 
 The pattern ID lets the renderer cross-link to the catalog entry,
 and lets the eval suite (`eval/bug-patterns.test.mjs`, future) verify

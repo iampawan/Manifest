@@ -71,6 +71,26 @@ conventions:
   apiBoundaryRequiresBoth: true
   scanDepth: inventory
   fullSweepOnUnmatchedApi: true
+  # Per-critic model override (optional). The validator routes critic
+  # models automatically from contract sizing (light→fast, heavy→strong
+  # on large/risky contracts); set any critic here to pin it explicitly.
+  # criticModels:
+  #   security: opus         # always run security on the strong model
+  #   minimality: haiku
+  # Let fast-tier critics consult the advisor on borderline WARNING/INFO
+  # calls (never blockers — the validator rejects advisor-influenced
+  # blockers, so the gate stays deterministic). Requires an advisor in the
+  # runtime. Default false.
+  # criticAdvisor: true
+
+# Implementer advisor (optional, CI). The advisor lets the Implementer
+# escalate hard calls to a stronger model at decision points instead of
+# running strong throughout — usually cheaper. Enabled via GitHub repo
+# VARIABLES (not this file, not secrets), read by pr-verify.yml:
+#   MANIFEST_ADVISOR_MODEL=opus       # enable; advisor model alias
+#   MANIFEST_IMPLEMENTER_MODEL=sonnet # optional mid-tier main model to pair
+# Requires the Anthropic API + Claude Code >= 2.1.98. Not available on
+# Bedrock/Vertex/Foundry — leave unset there. Unset = today's behavior.
 
 # ── Native + Flutter coexistence ─────────────────────────────────────
 # If you have native iOS + native Android + Flutter, decide a convention:

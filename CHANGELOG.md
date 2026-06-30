@@ -12,6 +12,106 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.19.0] — self-tuning models: smart routing, advisor escalation, cost observability, and a learning loop
+
+The system now chooses the right model for each task itself, escalates the
+hard calls to a stronger model, measures its own token cost, guards its own
+determinism, and learns from each incident — without anyone having to pick a
+model. The consistent rule: everything non-deterministic (model-choice
+variance, the advisor, token cost) is kept strictly out of the verdict path,
+so the "verdict is computed, not judged" property is unchanged.
+
+### Added
+
+- **Smart per-critic model routing (`computeModelPlan`).** The validator now
+  emits a `modelPlan` that assigns each critic a model deterministically from
+  the contract's `sizing` — light critics on a fast model, heavy critics
+  (regression/security/scalability) on a strong model **only** when the
+  contract is large/risky (8+ behaviors, 3+ platforms, or an auth/billing/
+  migration flag). A trivial fix verifies cheap; an auth-flow change across
+  three platforms automatically pulls the strong model onto the heavy critics.
+  Nobody picks a model. Override per-critic with `conventions.criticModels` in
+  `repos.yml`. Routing is pure code over an already-deterministic input, so it's
+  reproducible — not an LLM classifier.
+
+- **`/advisor` escalation.** The Implementer (the token-heaviest step) can pair
+  a mid-tier main model with a strong advisor it consults at decision points —
+  before committing to a plan, before declaring done, when a fix loop is stuck.
+  Opt-in via the `MANIFEST_ADVISOR_MODEL` / `MANIFEST_IMPLEMENTER_MODEL` repo
+  variables in `pr-verify.yml` (Anthropic-API only; unset = unchanged). Critics
+  may also consult the advisor on borderline **`warning`/`info`** calls only,
+  opt-in via `conventions.criticAdvisor` — never blockers (enforced; see below).
+
+- **Cost / token observability (`/manifest cost`).** A deterministic rollup
+  (`validate.mjs --cost`) prices recorded token `usage` from
+  `reference/model-pricing.json` and reports spend by complexity, model tier,
+  and critic, across both verify critics (`findings.json`) and the Implementer
+  (`<ID>.implement.json`). This closes the loop on routing — you can measure
+  whether tiering and the advisor actually saved money. Usage is observability
+  only: never a gate or provenance input.
+
+- **Finding-stability / variance tracker (`recall.mjs --stability`).** Scores N
+  repeated runs of a fixture — per-gap hit rate, run-to-run stdev of required
+  recall, and a flaky-gap list — failing if a required gap drops below
+  `stabilityThreshold`. Guards the judgment layer against drift introduced by
+  per-tier model routing. Opt-in `eval.yml` sweep gated on
+  `MANIFEST_STABILITY_RUNS` (off by default — it multiplies LLM cost by N).
+
+- **Postmortem → bug-pattern learning loop.** When `/postmortem` finds a
+  diff-detectable bug class, it proposes a candidate in
+  `reference/bug-patterns.candidates.md` (staging — unenforced). A maintainer
+  promotes accepted patterns into `BUG-PATTERNS.md`, where `code-review`
+  enforces them on every future diff, so the same class of bug can't ship
+  twice. Safety: human-accept gate + `warning`-until-proven default. A
+  deterministic catalog validator (`--check-patterns`, `--next-pattern-id`)
+  guards structure (well-formed entries, unique + monotonic ids) and runs in CI.
+
+- **Context-compaction resilience for long Implementer runs.** Multi-hour runs
+  overflow the context window and the runtime auto-summarizes lossily. The
+  Implementer now externalizes its working state to
+  `<ID>.implement-state.json` (AC status, files touched, decisions),
+  checkpoints after every behavior, and re-reads spec/plan/state files as
+  ground truth instead of trusting summarized memory.
+  `validate.mjs --implement-status <ID>` recovers what's done and what's left in
+  ~100 tokens after a summarization and makes runs resumable. Schema + status
+  unit-tested.
+
+- **Compact critic rule digest (`CRITIC-RULES.md`) — cuts input tokens ×N.**
+  The ~9 critics fanned out per verify each re-read the full `CRITIC-PROTOCOL.md`
+  (≈290 lines) every run. They now load a compact digest (~70 lines) with only
+  what's needed to emit valid output — schema, severity enum, ID prefixes,
+  determinism caps, anti-patterns, framing, the advisor constraint. The full
+  protocol stays the source of truth for orchestrator/maintainer concerns
+  (provenance, cost, model pinning); a test enforces the digest can't drift from
+  the validator's enum/prefixes/caps. The orchestrator also passes critics the
+  spec content, not the machine provenance/sidecars.
+
+### Changed
+
+- **Findings provenance schema → v2 (`protocolVersion` 1 → 2).** `verifiedWith`
+  now records a per-tier `models` map + `complexity` instead of a single
+  `model` scalar, because critics run on different models. Documented in
+  `CRITIC-PROTOCOL.md`. **Compatibility:** this bump invalidates v1 verify
+  caches by design — a findings file written under the old schema can't say
+  which model produced each finding, so the next verify re-runs. No action
+  needed; it self-corrects on first re-verify.
+
+- **The promotability gate stays deterministic even with the advisor.**
+  `validateFindings` now **rejects** any advisor-influenced finding
+  (`metadata.advisorConsulted: true`) that is a `blocker`. Advisor escalation is
+  structurally confined to the advisory layer, so the gate (zero open blockers)
+  is never influenced by a non-deterministic call. Enforced in code and gated by
+  `--check-findings` in CI, not just documented.
+
+### Notes
+
+- Token `usage` blocks populate only when the runtime exposes per-subagent token
+  counts; when unavailable the block is omitted and everything else is
+  unaffected.
+- Design rationale for the whole release is in
+  `docs/proposals/model-tiering-and-advisor.md` and
+  `docs/proposals/next-features-roadmap.md`.
+
 ## [0.18.2] — code quality hardening + dashboard-style PRs + plain-English comments
 
 Driven by Cursor BugBot findings on the first Manifest-shipped PRs.

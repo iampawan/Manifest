@@ -86,6 +86,7 @@ version of this.
 
 ```bash
 # You: bump version in plugin.json + marketplace.json, update CHANGELOG
+node scripts/build-docs.mjs          # regenerate docs/manifest-docs.html from the latest docs
 git commit -am "Manifest v0.3.1"
 git tag v0.3.1 && git push origin main v0.3.1
 
@@ -93,6 +94,11 @@ git tag v0.3.1 && git push origin main v0.3.1
 /plugin refresh
 /plugin install manifest@v0.3.1     # or re-install to get latest tag
 ```
+
+`scripts/build-docs.mjs` rebuilds the single-file docs hub
+(`docs/manifest-docs.html`) from the current markdown — run it after
+updating the CHANGELOG so the browsable docs and the version badge stay in
+sync. New `docs/releases/*.md` files are picked up automatically.
 
 Claude Code doesn't auto-update plugins — teammates re-install to pull
 a new version. Announce updates (Slack) so people know to refresh.

@@ -5,7 +5,7 @@ description: Dev-side critic for the pickup flow. Surfaces auto-fillable default
 
 # Code-context critic
 
-> **Protocol:** Follow `reference/CRITIC-PROTOCOL.md` at the plugin root for
+> **Protocol:** Follow `reference/CRITIC-RULES.md` (the compact runtime rules) at the plugin root for
 > severity definitions, output JSON schema, ID prefixes, and shared
 > anti-patterns. This critic uses two non-standard tags in its output —
 > `bucket: "A"` (auto-fill) or `bucket: "B"` (dev-decides) — which the
@@ -189,7 +189,7 @@ The pickup orchestrator merges:
 
 ## Output
 
-Standard `CRITIC-PROTOCOL.md` shape, with two extra optional fields per
+Standard `CRITIC-RULES.md` shape, with two extra optional fields per
 finding (`bucket`, `proposal` / `question`). The validator's
 `--check-findings` ignores unknown fields by default; pickup reads them.
 
@@ -221,7 +221,8 @@ finding (`bucket`, `proposal` / `question`). The validator's
   this critic's output.
 - `skills/critic-regression/SKILL.md` — sibling critic; same data
   sources, different question.
-- `reference/CRITIC-PROTOCOL.md` — the shared protocol you must follow.
+- `reference/CRITIC-RULES.md` — the compact runtime rules you must follow
+  (full reference: `reference/CRITIC-PROTOCOL.md`).
 - `scripts/build-code-context.mjs` — the cache builder; output at
   `.manifest/.cache/code-context.json`.
 - `workflows/code-context-build.yml` — nightly cache rebuild.

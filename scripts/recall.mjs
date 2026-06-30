@@ -84,10 +84,99 @@ export function scoreRecall(actual, golden) {
   };
 }
 
+// ─── Stability / variance across repeated runs ───────────────────────
+// scoreRecall scores ONE run against golden. But the thing that erodes
+// trust is run-to-run *variance* on the judgment layer — a required gap
+// that's caught 5/5 times is stable; one caught 3/5 is flaky, and flaky
+// is exactly the risk introduced by routing critics to different models
+// per tier. This scores N runs of the SAME fixture and surfaces which
+// required gaps flap. Pure + deterministic given (runs, golden), so it's
+// unit-testable (eval/recall.test.mjs) even though the runs that feed it
+// are the non-deterministic part.
+
+function stdev(xs) {
+  if (xs.length === 0) return 0;
+  const mean = xs.reduce((a, b) => a + b, 0) / xs.length;
+  const variance = xs.reduce((a, b) => a + (b - mean) ** 2, 0) / xs.length;
+  return Math.sqrt(variance);
+}
+
+// runs: array of findings arrays (one per repeated LLM run on the fixture).
+// Returns per-gap hit rates, per-run required recall, variance stats, and a
+// flaky list. `ok` is false if any required gap's hit rate is below the
+// stability threshold, or any run leaked a forbidden severity.
+export function scoreStability(runs, golden) {
+  if (!Array.isArray(runs) || runs.length === 0)
+    return { ok: false, schemaErrors: ["no runs provided"], runs: 0 };
+
+  const expected = golden.expected || [];
+  const required = expected.filter((e) => e.required);
+  // Default: every required gap must be caught in EVERY run (hit rate 1.0).
+  // A golden file can relax this with `stabilityThreshold` (e.g. 0.8).
+  const threshold = golden.stabilityThreshold ?? 1.0;
+
+  const schemaErrors = [];
+  runs.forEach((run, i) => {
+    if (!Array.isArray(run)) { schemaErrors.push(`run[${i}] is not an array`); return; }
+    run.forEach((f, j) => {
+      if (!f || typeof f !== "object") { schemaErrors.push(`run[${i}][${j}] not an object`); return; }
+      if (!(f.severity in SEV_RANK)) schemaErrors.push(`run[${i}][${j}] forbidden severity "${f.severity}"`);
+    });
+  });
+
+  const validRuns = runs.filter(Array.isArray);
+  const perGap = required.map((e) => {
+    const hits = validRuns.filter((run) => isMatched(e, run)).length;
+    const hitRate = validRuns.length ? hits / validRuns.length : 0;
+    return { gap: e.gap, critic: e.critic, hits, runs: validRuns.length,
+             hitRate, flaky: hitRate > 0 && hitRate < 1 };
+  });
+
+  const requiredRecallPerRun = validRuns.map((run) => {
+    if (required.length === 0) return 1;
+    return required.filter((e) => isMatched(e, run)).length / required.length;
+  });
+
+  const flakyRequiredGaps = perGap.filter((g) => g.hitRate < threshold).map((g) => g.gap);
+  const ok = schemaErrors.length === 0 && flakyRequiredGaps.length === 0;
+
+  return {
+    ok,
+    schemaErrors,
+    runs: validRuns.length,
+    stabilityThreshold: threshold,
+    minRequiredRecall: requiredRecallPerRun.length ? Math.min(...requiredRecallPerRun) : 1,
+    meanRequiredRecall: requiredRecallPerRun.length
+      ? requiredRecallPerRun.reduce((a, b) => a + b, 0) / requiredRecallPerRun.length : 1,
+    stdevRequiredRecall: stdev(requiredRecallPerRun),
+    requiredRecallPerRun,
+    perGap,
+    flakyRequiredGaps,
+  };
+}
+
 function main() {
-  const [actualPath, goldenPath] = process.argv.slice(2);
+  const argv = process.argv.slice(2);
+
+  if (argv[0] === "--stability") {
+    // recall.mjs --stability <golden.json> <run1.json> <run2.json> ...
+    const [goldenPath, ...runPaths] = argv.slice(1);
+    if (!goldenPath || runPaths.length === 0) {
+      console.error("usage: recall.mjs --stability <golden.json> <run1.json> [run2.json ...]");
+      process.exit(1);
+    }
+    const golden = JSON.parse(readFileSync(goldenPath, "utf8"));
+    const runs = runPaths.map((p) => JSON.parse(readFileSync(p, "utf8")));
+    const r = scoreStability(runs, golden);
+    console.log(JSON.stringify(r, null, 2));
+    if (r.schemaErrors.length) process.exit(1);
+    process.exit(r.ok ? 0 : 4);
+  }
+
+  const [actualPath, goldenPath] = argv;
   if (!actualPath || !goldenPath) {
     console.error("usage: recall.mjs <actual-findings.json> <golden.expected.json>");
+    console.error("       recall.mjs --stability <golden.json> <run1.json> [run2.json ...]");
     process.exit(1);
   }
   const actual = JSON.parse(readFileSync(actualPath, "utf8"));

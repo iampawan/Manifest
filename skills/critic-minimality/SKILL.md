@@ -5,7 +5,7 @@ description: Critic that pushes back on disproportionate scope — the counterwe
 
 # Minimality critic (the counterweight)
 
-> **Protocol:** Follow `reference/CRITIC-PROTOCOL.md` at the plugin root for severity
+> **Protocol:** Follow `reference/CRITIC-RULES.md` (the compact runtime rules) at the plugin root for severity
 > definitions (the closed enum blocker/warning/info), the output JSON schema,
 > ID prefixes (this critic uses `MIN-`), and shared anti-patterns. Do not invent
 > severities. Do not re-check anything the deterministic validator covers.

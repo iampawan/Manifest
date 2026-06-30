@@ -32,6 +32,32 @@ Pattern IDs follow `BP-NNN`, monotonically increasing. Don't renumber
 when you remove a pattern (rare); strike through with `~~BP-007~~`
 and a one-line reason.
 
+## The learning loop (postmortem → candidate → accept)
+
+Patterns from a postmortem are **not added here directly.** The loop has a
+deliberate human gate so a machine-proposed check can't start blocking every
+PR unreviewed:
+
+1. **Propose.** When `/postmortem` finds a contributing factor that is a
+   code-shaped bug class a diff-level review could have caught, it appends a
+   *candidate* entry to `reference/bug-patterns.candidates.md` (the staging
+   file — nothing there is enforced), with `**Severity**: warning`,
+   `**Status**: provisional`, and `Where first observed: postmortem <ID>`.
+2. **Accept (human).** A maintainer reviews the candidate. If it's a real,
+   generalizable, diff-detectable class of bug, they move it into this file
+   under the next id and delete it from candidates. Get the next id with
+   `node scripts/validate.mjs --next-pattern-id`.
+3. **Enforce.** Once here, `code-review` checks it on every diff. A
+   newly-promoted pattern stays at `warning` severity until it's proven
+   precise in practice; only then promote it to `blocker` — this avoids
+   false-positive blockers from an over-broad new pattern.
+
+Validate catalog + candidates structure (run in CI):
+
+```
+node scripts/validate.mjs --check-patterns reference/BUG-PATTERNS.md reference/bug-patterns.candidates.md
+```
+
 ## Rules
 
 - **The implementer's pre-write step** (`skills/implement/SKILL.md`

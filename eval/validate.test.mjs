@@ -15,6 +15,7 @@ import {
   parseContract,
   checkContract,
   computeSizing,
+  computeModelPlan,
   computeReadiness,
   validateFindings,
 } from "../scripts/validate.mjs";
@@ -203,6 +204,255 @@ test("sizing: 2 platforms escalates to medium", () => {
   assert.ok(reasons.some((r) => r.includes("platform")));
 });
 
+// ─── Model routing (deterministic) ───────────────────────────────────
+
+test("model plan: light critics always run on the fast model", () => {
+  const c = parseContract(read("clean.md"));
+  const { models } = computeModelPlan(c, computeSizing(c));
+  assert.equal(models.minimality, "haiku");
+  assert.equal(models["comms-completeness"], "haiku");
+});
+
+test("model plan: small contract holds heavy critics on the default model", () => {
+  const c = parseContract(read("clean.md")); // sized small
+  const plan = computeModelPlan(c, computeSizing(c));
+  assert.equal(plan.complexity, "small");
+  assert.equal(plan.heavyModel, "sonnet");
+  assert.equal(plan.models.security, "sonnet");
+  assert.equal(plan.models.regression, "sonnet");
+});
+
+test("model plan: large contract escalates heavy critics to the strong model", () => {
+  const c = parseContract(read("clean.md"));
+  c.frontmatter.touchesAuth = true; // forces sizing → large
+  const sizing = computeSizing(c);
+  assert.equal(sizing.complexity, "large");
+  const plan = computeModelPlan(c, sizing);
+  assert.equal(plan.heavyModel, "opus");
+  assert.equal(plan.models.security, "opus");
+  assert.equal(plan.models.scalability, "opus");
+  // light critics never escalate
+  assert.equal(plan.models.minimality, "haiku");
+});
+
+test("model plan: routing is a pure function of the sizing input (reproducible)", () => {
+  const c = parseContract(read("clean.md"));
+  const sz = computeSizing(c);
+  assert.deepEqual(computeModelPlan(c, sz), computeModelPlan(c, sz));
+});
+
+test("model plan: conventions.criticModels override wins", () => {
+  const c = parseContract(read("clean.md"));
+  const plan = computeModelPlan(c, computeSizing(c), {
+    criticModels: { security: "opus", minimality: "sonnet" },
+  });
+  assert.equal(plan.models.security, "opus");   // overrode the sonnet default
+  assert.equal(plan.models.minimality, "sonnet"); // overrode the haiku baseline
+});
+
+// ─── Cost observability (deterministic given usage + pricing) ─────────
+
+import { computeCost, normalizeModel } from "../scripts/validate.mjs";
+
+const PRICING = {
+  currency: "USD",
+  models: {
+    haiku: { input: 1, output: 5 },
+    sonnet: { input: 3, output: 15 },
+    opus: { input: 5, output: 25 },
+  },
+};
+
+test("normalizeModel maps aliases and full IDs to a pricing family", () => {
+  assert.equal(normalizeModel("opus"), "opus");
+  assert.equal(normalizeModel("claude-sonnet-4-6"), "sonnet");
+  assert.equal(normalizeModel("claude-haiku-4-5"), "haiku");
+  assert.equal(normalizeModel("gpt-4"), null);
+  assert.equal(normalizeModel(undefined), null);
+});
+
+test("computeCost prices input + output per million tokens", () => {
+  const usage = {
+    byCritic: {
+      security: { model: "claude-opus-4-8", inputTokens: 1_000_000, outputTokens: 100_000 },
+    },
+  };
+  const c = computeCost(usage, PRICING);
+  // 1M opus input @ $5 + 100k opus output @ $25/M = 5 + 2.5 = 7.5
+  assert.equal(c.total, 7.5);
+  assert.equal(c.inputTokens, 1_000_000);
+  assert.equal(c.outputTokens, 100_000);
+});
+
+test("computeCost sums critics + advisor", () => {
+  const usage = {
+    byCritic: {
+      minimality: { model: "haiku", inputTokens: 1_000_000, outputTokens: 0 }, // $1
+      "edge-cases": { model: "sonnet", inputTokens: 1_000_000, outputTokens: 0 }, // $3
+    },
+    advisor: { model: "opus", inputTokens: 1_000_000, outputTokens: 0 }, // $5
+  };
+  const c = computeCost(usage, PRICING);
+  assert.equal(c.total, 9);
+  assert.ok(c.byCritic.advisor.priced);
+});
+
+test("computeCost flags unpriced models instead of hiding them", () => {
+  const usage = { byCritic: { x: { model: "mystery-model", inputTokens: 5000, outputTokens: 5000 } } };
+  const c = computeCost(usage, PRICING);
+  assert.equal(c.total, 0);
+  assert.equal(c.unpricedEntries, 1);
+  assert.equal(c.byCritic.x.priced, false);
+});
+
+test("computeCost is deterministic given usage + pricing", () => {
+  const usage = { byCritic: { security: { model: "opus", inputTokens: 123456, outputTokens: 7890 } } };
+  assert.deepEqual(computeCost(usage, PRICING), computeCost(usage, PRICING));
+});
+
+// ─── Critic rules digest ↔ validator consistency ─────────────────────
+// Critics load the compact CRITIC-RULES.md at run time instead of the full
+// protocol. This guards against the digest drifting from what the validator
+// actually enforces — if they disagree, critics would emit output the
+// validator rejects. So the digest's hard facts must match the code.
+
+import { SEVERITIES as SEV_SET } from "../scripts/validate.mjs";
+
+const RULES = read("../../reference/CRITIC-RULES.md");
+
+test("digest: lists exactly the validator's severity enum", () => {
+  for (const s of SEV_SET) assert.ok(RULES.includes(s), `digest missing severity "${s}"`);
+  // forbidden severities must be called out as forbidden, not allowed
+  assert.ok(/FORBIDDEN/.test(RULES));
+  assert.ok(RULES.includes("high") && RULES.includes("medium"));
+});
+
+test("digest: carries every canonical critic ID prefix", () => {
+  for (const p of ["MIN-", "EC-", "PP-", "INS-", "COMMS-", "PERF-", "RG-", "SEC-", "SC-", "SZ-"])
+    assert.ok(RULES.includes(p), `digest missing prefix "${p}"`);
+});
+
+test("digest: keeps the 12-finding cap and the core schema fields", () => {
+  assert.ok(RULES.includes("12"), "digest dropped the 12-finding cap");
+  for (const f of ["severity", "fragmentRef", "suggestion", "status"])
+    assert.ok(RULES.includes(f), `digest missing schema field "${f}"`);
+});
+
+test("digest: states the advisor blocker constraint", () => {
+  assert.ok(/advisorConsulted/.test(RULES));
+  assert.ok(/blocker/i.test(RULES));
+});
+
+// ─── Bug-pattern catalog (learning loop) ─────────────────────────────
+
+import {
+  parseBugPatternIds, nextBugPatternId,
+  validateBugPatternEntry, validateBugPatternsDoc,
+} from "../scripts/validate.mjs";
+
+const GOOD_ENTRY = `### BP-007 — Example proven pattern
+
+**Where it bites**: something user-visible breaks.
+**The shape**:
+\`\`\`ts
+doThing()
+\`\`\`
+**Why it slips past basic review**: it's non-obvious.
+**The fix**:
+\`\`\`ts
+if (ok) doThing()
+\`\`\`
+**Where first observed**: postmortem SC-9
+`;
+
+test("bug-patterns: the real catalog is structurally valid", () => {
+  const md = read("../../reference/BUG-PATTERNS.md");
+  const r = validateBugPatternsDoc(md);
+  assert.equal(r.valid, true, JSON.stringify(r.errors));
+  assert.ok(r.count >= 6);
+});
+
+test("bug-patterns: nextBugPatternId increments past the highest id", () => {
+  const md = "### BP-001 — a\n### BP-006 — f\n";
+  assert.equal(nextBugPatternId(md), "BP-007");
+  assert.equal(nextBugPatternId(""), "BP-001");
+});
+
+test("bug-patterns: parseBugPatternIds includes struck-through entries", () => {
+  const md = "### BP-001 — a\n### ~~BP-002~~ — removed\n### BP-003 — c\n";
+  assert.deepEqual(parseBugPatternIds(md), ["BP-001", "BP-002", "BP-003"]);
+});
+
+test("bug-patterns: a well-formed entry passes field validation", () => {
+  assert.deepEqual(validateBugPatternEntry(GOOD_ENTRY), []);
+});
+
+test("bug-patterns: a missing required field is caught", () => {
+  const bad = GOOD_ENTRY.replace("**The fix**:", "**Fixaroo**:"); // field marker gone
+  const errors = validateBugPatternEntry(bad);
+  assert.ok(errors.some((e) => e.includes("The fix")));
+});
+
+test("bug-patterns: duplicate and non-monotonic ids are rejected", () => {
+  const dup = GOOD_ENTRY + "\n" + GOOD_ENTRY; // BP-007 twice
+  const r = validateBugPatternsDoc(dup);
+  assert.equal(r.valid, false);
+  assert.ok(r.errors.some((e) => e.includes("duplicate")));
+});
+
+test("bug-patterns: struck-through entry skips field checks but keeps its id", () => {
+  const md = "### ~~BP-007~~ — removed because superseded by BP-003\n\nno fields here\n";
+  const r = validateBugPatternsDoc(md);
+  assert.equal(r.valid, true, JSON.stringify(r.errors));
+  assert.equal(r.count, 1);
+});
+
+// ─── Implementer working state (compaction resilience) ───────────────
+
+import { validateImplementState, computeImplementStatus } from "../scripts/validate.mjs";
+
+const STATE = () => ({
+  contractId: "SC-5", revision: 2, iteration: 1,
+  acStatus: {
+    AC1: { status: "done", test: "t.test.ts:9" },
+    AC2: { status: "in_progress" },
+    AC3: { status: "pending" },
+  },
+  filesTouched: ["src/a.ts", "tests/a.test.ts"],
+});
+
+test("implement-state: a well-formed state validates", () => {
+  assert.deepEqual(validateImplementState(STATE()), []);
+});
+
+test("implement-state: a bad AC status is rejected", () => {
+  const s = STATE(); s.acStatus.AC2.status = "almost";
+  const errors = validateImplementState(s);
+  assert.ok(errors.some((e) => e.includes("AC2")));
+});
+
+test("implement-state: missing contractId / acStatus is caught", () => {
+  assert.ok(validateImplementState({}).some((e) => e.includes("contractId")));
+  assert.ok(validateImplementState({ contractId: "X" }).some((e) => e.includes("acStatus")));
+});
+
+test("implement-status: computes done/remaining and resume buckets", () => {
+  const st = computeImplementStatus(STATE());
+  assert.equal(st.totalAcs, 3);
+  assert.equal(st.done, 1);
+  assert.equal(st.remaining, 2);
+  assert.deepEqual(st.pending, ["AC3"]);
+  assert.deepEqual(st.inProgress, ["AC2"]);
+  assert.equal(st.filesTouched, 2);
+  assert.equal(st.complete, false);
+});
+
+test("implement-status: complete only when every AC is done", () => {
+  const s = STATE();
+  s.acStatus.AC2.status = "done"; s.acStatus.AC3.status = "done";
+  assert.equal(computeImplementStatus(s).complete, true);
+});
+
 // ─── Findings schema validation ──────────────────────────────────────
 
 test("schema: rejects out-of-enum severities (high, medium)", () => {
@@ -229,6 +479,31 @@ test("schema: rejects missing required fields", () => {
   const errors = validateFindings(bad);
   assert.ok(errors.some((e) => e.includes("message")));
   assert.ok(errors.some((e) => e.includes("suggestion")));
+});
+
+test("advisor: an advisor-influenced blocker is rejected (gate stays deterministic)", () => {
+  const bad = [{
+    id: "SEC-9", critic: "security", severity: "blocker", message: "m", suggestion: "s",
+    fragmentRef: "B1", status: "open", metadata: { advisorConsulted: true },
+  }];
+  const errors = validateFindings(bad);
+  assert.ok(errors.some((e) => e.includes("advisor-influenced finding may not be a blocker")));
+});
+
+test("advisor: an advisor-influenced warning/info is allowed", () => {
+  const good = [
+    { id: "EC-9", critic: "edge-cases", severity: "warning", message: "m", suggestion: "s",
+      fragmentRef: "B1", status: "open", metadata: { advisorConsulted: true } },
+    { id: "EC-10", critic: "edge-cases", severity: "info", message: "m", suggestion: "s",
+      fragmentRef: "B2", status: "open", metadata: { advisorConsulted: true } },
+  ];
+  assert.deepEqual(validateFindings(good), []);
+});
+
+test("advisor: a normal (non-advisor) blocker is still allowed", () => {
+  const good = [{ id: "SEC-1", critic: "security", severity: "blocker", message: "m",
+    suggestion: "s", fragmentRef: "B1", status: "open" }];
+  assert.deepEqual(validateFindings(good), []);
 });
 
 test("epic contract skips behavior-level checks", () => {
@@ -313,7 +588,7 @@ test("time: shows both IST and UTC", () => {
 
 // ─── Content-hash cache ──────────────────────────────────────────────
 
-import { cacheStatus, hashOf } from "../scripts/validate.mjs";
+import { cacheStatus, hashOf, PROTOCOL_VERSION } from "../scripts/validate.mjs";
 
 test("cache: stale when no prior findings", () => {
   const c = cacheStatus("sha256:abc", "0.3.0", 1, {});
@@ -338,6 +613,19 @@ test("cache: stale when plugin version differs", () => {
   const c = cacheStatus("sha256:abc", "0.3.0", 1, fm);
   assert.equal(c.cached, false);
   assert.ok(c.reason.includes("plugin version"));
+});
+
+test("cache: a v1-provenance findings file is stale under protocol v2", () => {
+  // Provenance schema bumped to v2 (per-tier models map). Old v1 findings
+  // must be re-verified, not reused.
+  const fm = { verifiedWith: { contractHash: "sha256:abc", pluginVersion: "0.3.0", protocolVersion: 1 } };
+  const c = cacheStatus("sha256:abc", "0.3.0", PROTOCOL_VERSION, fm);
+  assert.equal(c.cached, false);
+  assert.ok(c.reason.includes("protocol version"));
+});
+
+test("cache: current protocol version is 2", () => {
+  assert.equal(PROTOCOL_VERSION, 2);
 });
 
 test("cache: hashOf is deterministic + content-sensitive", () => {

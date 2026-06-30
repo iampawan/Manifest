@@ -71,6 +71,13 @@ jobs:
           echo "judgment-gaps deterministic findings: $COUNT"
           test "$COUNT" = "0"
 
+      - name: Validate bug-pattern catalog + candidates structure
+        run: |
+          # Every entry well-formed, ids unique + monotonic. Guards the
+          # learning loop — a malformed machine-proposed pattern fails here.
+          node scripts/validate.mjs --check-patterns \
+            reference/BUG-PATTERNS.md reference/bug-patterns.candidates.md
+
   # Critic recall: the non-deterministic half. Runs the verify skill
   # against the judgment-gaps fixture and scores its findings against the
   # golden set with the deterministic scorer. Requires LLM creds — when
@@ -115,3 +122,27 @@ jobs:
           node scripts/recall.mjs \
             .manifest/contracts/JGAPS-001.findings.json \
             eval/golden/judgment-gaps.expected.json
+
+      # Stability sweep — re-verify the SAME fixture N times and score
+      # run-to-run variance, surfacing critics that flap (the risk that
+      # per-tier model routing introduces). Opt-in via the
+      # MANIFEST_STABILITY_RUNS repo variable because it multiplies LLM cost
+      # by N; unset = skip. A flaky required gap exits non-zero and fails CI.
+      - name: Critic stability sweep (opt-in)
+        if: steps.creds.outputs.has == 'true' && vars.MANIFEST_STABILITY_RUNS != ''
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          RUNS: ${{ vars.MANIFEST_STABILITY_RUNS }}
+        run: |
+          mkdir -p /tmp/stability
+          for i in $(seq 1 "$RUNS"); do
+            # Clear cached findings so each pass is a fresh critic run.
+            rm -f .manifest/contracts/JGAPS-001.findings.json \
+                  .manifest/contracts/JGAPS-001.findings.md
+            claude --skill contract-verify --input '{ "contractId": "JGAPS-001" }'
+            cp .manifest/contracts/JGAPS-001.findings.json /tmp/stability/run-$i.json
+          done
+          node scripts/recall.mjs --stability \
+            eval/golden/judgment-gaps.expected.json \
+            /tmp/stability/run-*.json
