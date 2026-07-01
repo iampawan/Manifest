@@ -46,11 +46,22 @@ agent fetches whatever you give it, drafts a contract, runs the
 critics inline, and walks you through the gaps. There's no separate
 "author" step.
 
+**Before that, on the PM side: `/ready-check <source>`.** Ready Check is
+the Level-1 gate a PM clears *before* dev grooming — 11 plain questions
+(the Definition of Ready), a live edge-case review, and a tamper-evident
+gate code. `/contract pickup` verifies that code automatically ("no code,
+no grooming"). It runs three ways off one rubric: the `/ready-check`
+skill (Claude Code + Cowork), an offline web page
+(`gate/prd-readiness-gate.html`), and a **Cowork live artifact**
+(`gate/ready-check-cowork.html`) where Claude reviews edge cases in-page
+with no backend. See `reference/READY-CHECK-RUBRIC.md` and `gate/README.md`.
+
 ## What the full pipeline does (Small / Medium)
 
 | Stage | What runs | Output |
 |---|---|---|
-| **Spec** | `/contract pickup <source-or-description>` — fetches the PRD (JIRA / Linear / Notion / Google Doc / Slack / paste / image), runs the validator + relevant judgment critics inline, sorts every gap into 3 buckets (auto-fill from code, dev decides, only PM can answer), drafts batched questions back to the PM in their own tool | `.manifest/contracts/<ID>.md` + `.findings.{md,json}` + `.qa.md` sidecar |
+| **Ready Check** (PM, Level 1) | `/ready-check <source>` — the PM clears an 11-item Definition of Ready before grooming; also an offline web page and a Cowork live artifact (Claude reviews edge cases in-page, no backend). Mints a tamper-evident gate code | gate code + hand-off in the ticket |
+| **Spec** | `/contract pickup <source-or-description>` — fetches the PRD (JIRA / Linear / Notion / Google Doc / Slack / paste / image), **verifies the Ready Check gate code**, runs the validator + relevant judgment critics inline, sorts every gap into 3 buckets (auto-fill from code, dev decides, only PM can answer), drafts batched questions back to the PM in their own tool | `.manifest/contracts/<ID>.md` + `.findings.{md,json}` + `.qa.md` sidecar |
 | **Promote** | `/contract promote` | Frozen revision, JIRA epic, SLA timer (24h/72h) |
 | **Implement** | `/implement <ID>` (PR comment, runs in CI) | PR with code + tests in the repo's stack |
 | **Verify PR** | `pr-verify.yml` → `verify-pr` (AC conformance) + `code-review` (code-level defects) | coverage comment + `CR-` findings; open blockers gate merge |

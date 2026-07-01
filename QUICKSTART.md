@@ -51,6 +51,17 @@ It drafts a short spec, then quietly checks it for the things that bite later �
 missing edge cases, unclear states, security gaps — and shows you what to tighten
 *before* any code is written.
 
+**Or, if you're a PM, check a PRD is ready before handing it to dev:**
+
+```
+/ready-check <a JIRA / Notion / Doc / Slack / Figma link, or "a description">
+```
+
+It asks a few plain questions (the Definition of Ready), flags the edge cases
+you're missing, and — when it's ready — gives you a clean hand-off with a gate
+code to drop in the ticket. No jargon. (Also available as a web page and a live
+Cowork panel — see `gate/README.md`.)
+
 That's it. You've used Manifest.
 
 ## What just happened
