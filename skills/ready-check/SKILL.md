@@ -77,29 +77,59 @@ and only with a real reason the PM confirms — never to dodge a question. For
 everything you can't find, ask the PM in plain words, one short batch. Do not
 invent answers.
 
-### Phase 3 — Judge (make it smart)
+### Phase 3 — Judge (make it smart — actually find the edge cases)
 
-Before scoring, read each answer critically and surface *text-judgeable*
-blockers the PM should fix themselves. Keep it plain and specific:
+This is the heart of the check, and it must go beyond "is the field filled."
+**Actively run the text-judgeable critics on the PRD and surface real
+findings the PM can fix themselves** — do not just confirm presence.
 
-- **goal/metric** — is the metric an actual number with a window? "Improve
-  engagement" is not ready; "+6% D1 retention in 4 weeks" is.
-- **edge** — name the obvious cases the PRD skipped (empty, offline, expired,
-  concurrent, permission-denied). One line each.
-- **states** — for a user-facing change, is there copy for nothing-yet /
-  loading / done / error?
-- **scope** — is there an explicit *out of scope*? Vague scope is a blocker.
+1. **Edge cases — always run the `critic-edge-cases` critic on the PRD.**
+   Enumerate the failure/boundary cases this specific feature implies and
+   check each against the PRD: empty, offline, timeout, expired, concurrent
+   edit, permission denied, partial failure, mid-flow cancel, and any
+   domain-specific ones. List every case the PRD *doesn't* cover, one plain
+   line each. A PRD whose `edge` answer misses cases the critic finds is
+   **not** ready just because the field is non-empty — reopen it.
+2. **Clarity (`critic-minimality`)** — is the goal a real problem and the
+   metric an actual number with a window? "Improve engagement" fails; "+6% D1
+   retention in 4 weeks" passes.
+3. **UI states (`critic-comms-completeness`)** — for a user-facing change, is
+   there copy for nothing-yet / loading / done / error?
+4. **Instrumentation (`critic-instrumentation`)** — will the stated events
+   actually let us measure the success metric? If not, name the gap.
+5. **Scope / parity** — explicit out-of-scope present? Behavior consistent
+   across the stated platforms?
 
-Do NOT push code-level decisions onto the PM (schema, security design, perf
-strategy). If a concern needs the repo to answer, note it as "dev will confirm"
-— it belongs to Level 2, not here.
+Present these as a short, plain-language blocker list the PM can act on
+immediately. The point of Ready Check is that the PM sees — and fixes — the
+edge cases *before* dev, not that dev finds them later.
 
-**Code-aware notes (if a cache exists).** If `.manifest/.cache/code-context.json`
-is present, call `ready-check.mjs --cache-check <answers.json>
-.manifest/.cache/code-context.json` and fold the notes in — e.g. an event name
-that breaks the app's convention, or a flow that touches more surfaces than the
-PRD lists. These are non-blocking nudges the PM can act on without touching
-code. No cache? Skip silently; the check still works on text alone.
+Guardrail: don't push code-level *decisions* onto the PM (schema choices,
+security design, perf strategy). Surface the product-level gap; if the answer
+needs the repo, note it for Level 2. Finding a missing edge case is the PM's
+job here; deciding its implementation is dev's.
+
+### Access modes — the depth scales with what's available
+
+Run at the deepest mode you have access to; each is a strict superset:
+
+- **Text only (always works).** Judge purely from the PRD. Catches most
+  product-level edge cases and every completeness gap. No setup.
+- **+ code-context cache.** If `.manifest/.cache/code-context.json` exists,
+  call `ready-check.mjs --cache-check <answers.json>
+  .manifest/.cache/code-context.json` and fold the notes in — event-naming
+  drift, a flow that touches more surfaces than the PRD lists, known past
+  failures on this surface. No repo credentials needed.
+- **+ repo read access (opt-in).** If the PM/session has read-only access to
+  the product repo(s) in `.manifest/repos.yml`, ground the edge-case pass in
+  real code: check that the `flows` named actually match the surfaces in the
+  code, and pull historical edge cases from prior handling of the same screen.
+  This is the same evidence Level 2 uses, run earlier — so PMs can catch more
+  themselves. **Grant this deliberately:** read-only, per the team's policy;
+  it's optional, and the check degrades cleanly to the modes above without it.
+
+Whatever mode you're in, say which one you used, so the PM knows how deep the
+edge-case check went.
 
 ### Phase 4 — Score + mint (deterministic)
 
@@ -122,22 +152,22 @@ thread. If a Slack/JIRA MCP is connected and the PM asks, post it for them in
 their voice. The block carries the **design link** and the **gate code** so the
 feature and its design travel together.
 
-## Enforcement — "no code, no grooming"
+## Enforcement — "no code, no grooming" (automatic)
 
 The gate code is content-bound (a djb2 hash of the answers), so it's checkable,
-not decorative. Dev-side, before grooming:
+not decorative. **Dev runs nothing extra.** When the dev runs `/contract
+pickup <ticket>`, pickup reads the `Ready-Check:` line from the ticket/hand-off
+and verifies it automatically, then acts:
 
-```
-node scripts/ready-check.mjs --verify <pasted-handoff.txt>   # → VALID | STALE | INVALID
-```
+- `VALID` → proceed; record `readyCheck: RC-…` in the contract frontmatter.
+- `STALE` (PRD changed after it cleared) → stop and ask the PM for a fresh
+  Ready Check.
+- `INVALID` / missing → refuse pickup: the PRD never passed the gate.
 
-- `VALID` — the PRD matches the code; groom it.
-- `STALE` — the PRD was edited after clearing; re-run Ready Check.
-- `INVALID` — no/garbled code; it never passed the gate.
-
-`contract-pickup` should refuse to promote a contract whose source lacks a
-`VALID` Ready Check code (record it as `readyCheck: RC-…` in the contract
-frontmatter). That turns the team rule into a pipeline gate.
+So the only person who ever thinks about the code is the PM (they paste the
+hand-off once). Dev just picks up as usual and the gate enforces itself. The
+manual `ready-check.mjs --verify <handoff>` exists as a fallback for anyone who
+wants to check by hand, but the normal flow needs no command.
 
 ## Scenarios to handle
 

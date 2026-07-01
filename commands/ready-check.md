@@ -34,13 +34,14 @@ you only what's missing, and gives a clear verdict.
   Paste it into the ticket or the dev thread. Dev grooms only PRDs with a valid
   code.
 
-## For devs — verify before grooming
+## For devs — nothing extra to run
 
-```
-node scripts/ready-check.mjs --verify <pasted-handoff.txt>   # VALID | STALE | INVALID
-```
-
-`STALE` means the PRD changed after it cleared — ask for a fresh Ready Check.
+When you `/contract pickup <ticket>`, pickup reads the `Ready-Check:` code from
+the ticket and verifies it automatically: it proceeds on `VALID`, and refuses
+on `STALE` (the PRD changed after it cleared — ask for a fresh Ready Check) or a
+missing/`INVALID` code. The gate enforces itself; the PM is the only one who
+touches the code. (`node scripts/ready-check.mjs --verify <handoff>` is there as
+a manual fallback if you ever want to check by hand.)
 
 ## Where the depth is
 

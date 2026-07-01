@@ -38,6 +38,22 @@ eating the delay when a half-baked PRD moves mid-sprint.
 - **Code-aware, no repo access.** When `.manifest/.cache/code-context.json`
   exists, Ready Check adds non-blocking notes (event-naming drift, extra
   surfaces a flow touches) from the published digest — no source credentials.
+- **Live smart check with no backend (Cowork artifact).**
+  `gate/ready-check-cowork.html` is a Cowork artifact: the deterministic gate
+  runs in-page and the edge-case review is done by Claude live via
+  `window.cowork.askClaude` — Cowork is the backend, no server or API key. Same
+  gate-code algorithm as the engine, so codes still verify dev-side.
+- **Edge-case checking moves to the PM.** The skill's judgement pass runs the
+  edge-cases critic (plus clarity / comms / instrumentation) to surface real
+  missing cases, not just field presence. Depth scales with access:
+  text-only → code-context cache → opt-in read-only repo access.
+- **Waivers.** A PM can proceed without an item by waiving it *with a written
+  reason*; the waiver is hashed into the code and surfaced in the hand-off for
+  the dev to accept or push back. Empty waivers don't clear.
+- **Auto-verify on pickup.** `/contract pickup` verifies the Ready Check code
+  itself — the dev runs nothing extra; the PM is the only one who handles it.
+- **Practical extras.** Dark mode, a Do's & Don'ts panel, a flat professional
+  UI, and two annotated example PRDs (`gate/examples/PRD-good-*`, `PRD-bad-*`).
 - Rubric: `reference/READY-CHECK-RUBRIC.md`. Level 2 (deep, code-grounded) is
   still `/contract pickup`, dev-side, after the gate is green.
 

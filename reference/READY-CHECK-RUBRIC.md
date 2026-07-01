@@ -61,6 +61,22 @@ rides in every hand-off so "the design wasn't even there" can't recur.
 - **Not ready** — any required item missing. The gate code is withheld and the
   exact gaps are listed. Recommended items never block; they're flagged.
 
+## Waivers — proceed with a justification
+
+Sometimes a PM genuinely can't answer an item yet (e.g. the metric is owned by
+another team, a decision is pending). Rather than hard-block or let them fake an
+answer, they can **waive** any required item *with a written reason*. A waiver:
+
+- clears that item (a reason ≥ 3 chars is required — an empty waiver does not
+  clear), so the PRD can move; but
+- is recorded in the gate-code hash (change the reason, the code changes), and
+- is surfaced prominently in the hand-off under a **Waivers — dev to accept or
+  push back** block, and the verdict reads "Ready with N waiver(s)".
+
+So nothing is hidden: the PM justifies the gap, the dev sees every waiver on
+pickup and can accept it or send it back. This keeps the gate honest while
+respecting that not everything is knowable at PM time.
+
 ## Gate code — deterministic + tamper-evident
 
 Format `RC-<AAA>-<6>` (`RC-SAV-WCWA86`). It's a djb2 hash of the normalized
@@ -74,10 +90,29 @@ satisfied answers + title, so:
 The code is content-bound, not a random token — that's what makes "no code, no
 grooming" an actual gate rather than a sticker.
 
-## Code-aware notes (no repo access)
+## Edge-case checking happens here, at the PM side
 
-When `.manifest/.cache/code-context.json` is present, the engine adds *non-
-blocking* notes from the published digest — e.g. an event name that breaks the
-app's `snake_case` convention, or a named flow that touches more surfaces than
-the PRD lists. This is how the PM check gets code-aware without ever holding
-source credentials. The precise, live scanning stays dev-side.
+Ready Check doesn't just confirm the `edge` field is filled — the skill runs
+the edge-cases critic on the PRD and lists the specific failure/boundary cases
+it's missing (empty, offline, expired, concurrent, partial failure, …). The PM
+fixes them *before* dev. A non-empty `edge` answer that still misses cases the
+critic finds is not ready.
+
+## Access modes — depth scales with access
+
+The check runs at the deepest mode available, each a superset of the last:
+
+1. **Text only** (always) — judges from the PRD alone; catches most product-
+   level edge cases and every completeness gap.
+2. **+ code-context cache** — when `.manifest/.cache/code-context.json` exists,
+   adds non-blocking notes from the published digest (event-naming drift, a
+   flow touching more surfaces than listed, past failures on this surface). No
+   source credentials.
+3. **+ repo read access (opt-in)** — if the PM/session is granted read-only
+   access to the repos in `repos.yml`, the edge-case pass is grounded in real
+   code and history — the same evidence Level 2 uses, run earlier so PMs catch
+   more themselves. Grant deliberately, read-only, per team policy; the check
+   degrades cleanly to modes 1–2 without it.
+
+The precise, exhaustive live scanning (cross-repo regression, security) still
+runs dev-side at Level 2.

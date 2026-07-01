@@ -148,6 +148,43 @@ test("cacheChecks returns nothing without a cache", () => {
   assert.deepEqual(cacheChecks(ready, null), []);
 });
 
+test("a waiver with a reason clears the item and is recorded", () => {
+  const w = structuredClone(ready);
+  delete w.items.metric.detail;                       // no answer
+  assert.equal(checkReadiness(w).cleared, false);     // blocked without justification
+  w.items.metric = { waived: true, reason: "metric owned by growth team, decision pending this week" };
+  const v = checkReadiness(w);
+  assert.equal(v.cleared, true);                      // waiver clears it
+  assert.equal(v.waivers.length, 1);
+  assert.equal(v.waivers[0].id, "metric");
+});
+
+test("a waiver with no reason does NOT clear", () => {
+  const w = structuredClone(ready);
+  w.items.metric = { waived: true, reason: "" };
+  assert.equal(checkReadiness(w).cleared, false);
+  assert.ok(checkReadiness(w).missing.some((m) => m.id === "metric"));
+});
+
+test("waivers surface in the hand-off and round-trip through verify", () => {
+  const w = structuredClone(ready);
+  w.items.metric = { waived: true, reason: "owned by growth, decision pending" };
+  const block = renderHandoff(w, { date: "01 Jul 2026" });
+  assert.match(block, /1 waiver\(s\), dev to accept/);
+  assert.match(block, /Waivers — PM asks to proceed/);
+  assert.match(block, /\[metric\].*reason: owned by growth/);
+
+  const parsed = parseHandoff(block);
+  assert.equal(parsed.items.metric.waived, true);
+  assert.equal(verifyGateCode(parsed.code, { title: parsed.title, items: parsed.items }), "valid");
+});
+
+test("changing a waiver reason changes the code (tamper-evident)", () => {
+  const a = structuredClone(ready); a.items.metric = { waived: true, reason: "reason one" };
+  const b = structuredClone(ready); b.items.metric = { waived: true, reason: "reason two" };
+  assert.notEqual(gateCode(a), gateCode(b));
+});
+
 test("djb2 is stable (pins the cross-port algorithm)", () => {
   assert.equal(djb2("abc"), 193485963);
   assert.equal(djb2(""), 5381);

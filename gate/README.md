@@ -82,7 +82,40 @@ the PM do dev's job.
 - Week 2–3: measure follow-ups per PRD, re-estimation rate, first-try pass rate.
 - Then generalize (writer-impact → configurable "stakeholder impact") for other teams.
 
-## Next build
+## Example PRDs (practical reference)
 
-Wire the gate code into `/contract pickup` so Manifest itself refuses to promote a PRD without
-a valid Ready Check code — turning the team rule into an enforced pipeline gate.
+Two annotated examples live in `gate/examples/`:
+
+- `PRD-good-saved-cards.md` — a complete PRD that passes the gate (all 11 items,
+  specific). Share this as the template of what "ready" looks like.
+- `PRD-bad-saved-cards.md` — a realistic under-specified PRD that fails 1/11,
+  with a table of exactly what's missing and the question dev would have chased.
+
+The same two are wired into the web page as **Load complete example** / **Load
+rough example**, so you can demo the contrast live.
+
+## Do's & Don'ts
+
+**Do**
+
+- Write the metric as a number with a timeframe — "+6% in 4 weeks", not "improve engagement".
+- Paste the final, approved design link (Figma) — not a WIP frame.
+- List the edge cases you already know: offline, expired, empty, mid-flow cancel.
+- State what's explicitly out of scope.
+- Mark N/A honestly, with a reason (backend-only, brand-new feature).
+
+**Don't**
+
+- Don't write "TBD" or leave a field vague just to get past the gate.
+- Don't skip the design because "it's obvious" — that was the P0 miss.
+- Don't specify implementation (schema, security design) — that's the dev's call.
+- Don't tick a box you haven't genuinely answered.
+- Don't hand off without the gate code — dev won't groom it.
+
+(These also appear on the web page and drive the skill's judgement pass.)
+
+## Enforced end to end
+
+The gate code is wired into `/contract pickup`: Manifest verifies it
+automatically on pickup and refuses a PRD without a valid one — the team rule is
+now an enforced pipeline gate, with no extra step for the dev.

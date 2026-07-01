@@ -59,7 +59,17 @@ const MIN_DETAIL = 3;
 export function isSatisfied(item, ans = {}) {
   if (!ans) return false;
   if (item.skippable && ans.na === true) return true;
+  if (hasDetail(ans)) return true;
+  // Waiver: the PM can proceed without answering, but MUST justify it. The
+  // waiver is recorded and surfaced in the hand-off for the dev to accept.
+  if (ans.waived === true && typeof ans.reason === "string" && ans.reason.trim().length >= MIN_DETAIL) return true;
+  return false;
+}
+function hasDetail(ans = {}) {
   return typeof ans.detail === "string" && ans.detail.trim().length >= MIN_DETAIL;
+}
+function isWaived(item, ans = {}) {
+  return isSatisfied(item, ans) && ans.waived === true && !hasDetail(ans) && !(item.skippable && ans.na === true);
 }
 
 export function checkReadiness(answers = {}) {
@@ -73,6 +83,9 @@ export function checkReadiness(answers = {}) {
   const optionalMissing = optional
     .filter((r) => !isSatisfied(r, items[r.id]))
     .map((r) => ({ id: r.id, name: r.name }));
+  const waivers = RUBRIC
+    .filter((r) => isWaived(r, items[r.id]))
+    .map((r) => ({ id: r.id, name: r.name, reason: (items[r.id].reason || "").trim() }));
   const cleared = missing.length === 0;
   return {
     cleared,
@@ -81,6 +94,7 @@ export function checkReadiness(answers = {}) {
     pct: Math.round((met.length / required.length) * 100),
     missing,
     optionalMissing,
+    waivers,
   };
 }
 
@@ -103,6 +117,7 @@ function normalize(answers = {}) {
     if (!isSatisfied(r, a)) continue;
     let val;
     if (r.skippable && a.na === true) val = "na";
+    else if (isWaived(r, a)) val = "waived:" + a.reason.trim().toLowerCase().replace(/\s+/g, " ");
     else if (r.id === "design") val = firstUrl(a.detail) || "present"; // link shown separately; hash a stable token so the hand-off round-trips
     else val = a.detail.trim().toLowerCase().replace(/\s+/g, " ");
     lines.push(`${r.id}:${val}`);
@@ -141,7 +156,10 @@ export function renderHandoff(answers = {}, meta = {}) {
   const design = items.design && items.design.na ? "(no UI)"
     : (items.design && items.design.detail ? firstUrl(items.design.detail) || items.design.detail.trim() : "⚠ add link");
   const out = [];
-  out.push(v.cleared ? `✅ READY CHECK PASSED` : `⛔ NOT READY (${v.met}/${v.total})`);
+  const nWaive = v.waivers ? v.waivers.length : 0;
+  out.push(v.cleared
+    ? `✅ READY CHECK PASSED${nWaive ? ` — ${nWaive} waiver(s), dev to accept` : ""}`
+    : `⛔ NOT READY (${v.met}/${v.total})`);
   out.push(`${HANDOFF_MARK} ${code || "—"}`);
   out.push(`Feature: ${answers.title || "Untitled feature"}`);
   out.push(`Platforms: ${items.scope && items.scope.detail ? items.scope.detail.trim() : "—"}`);
@@ -154,8 +172,14 @@ export function renderHandoff(answers = {}, meta = {}) {
       const a = items[r.id];
       if (!isSatisfied(r, a)) continue;
       if (r.id === "design") continue;
+      if (isWaived(r, a)) continue; // listed in the waivers block below
       const val = r.skippable && a.na ? "N/A" : a.detail.trim();
       out.push(`• [${r.id}] ${r.name} | ${val}`);
+    }
+    if (nWaive) {
+      out.push("");
+      out.push("Waivers — PM asks to proceed without these (dev to accept or push back):");
+      v.waivers.forEach((w) => out.push(`• [${w.id}] ${w.name} | reason: ${w.reason}`));
     }
     out.push("");
     out.push("Grooming can start. (Dev: verify this code before pickup.)");
@@ -182,7 +206,11 @@ export function parseHandoff(text = "") {
       items.design = d === "(no UI)" ? { na: true } : { detail: d };
     } else if ((m = line.match(/^[•*-]\s*\[(\w+)\][^|]*\|\s*(.+)/))) {
       const id = m[1], val = m[2].trim();
-      if (byId[id]) items[id] = val === "N/A" ? { na: true } : { detail: val };
+      if (byId[id]) {
+        if (/^reason:\s*/i.test(val)) items[id] = { waived: true, reason: val.replace(/^reason:\s*/i, "") };
+        else if (val === "N/A") items[id] = { na: true };
+        else items[id] = { detail: val };
+      }
     }
   }
   return { title, items, code };
