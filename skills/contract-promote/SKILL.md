@@ -42,6 +42,27 @@ scope introspection isn't available in the runtime, attempt the
 write and treat a permission error as a hard, reported failure — not
 a silent pass.
 
+## Precondition: require a valid Ready Check (the PM gate)
+
+"No code, no grooming." A contract should carry a `readyCheck:` gate
+code (from `/ready-check`, the Level-1 PM gate). Before promoting:
+
+- If the contract frontmatter has `readyCheck: RC-…`, verify it against
+  the contract's own hand-off/answers:
+  `node scripts/ready-check.mjs --verify <handoff.txt>`.
+  - `VALID` → proceed.
+  - `STALE` → the PRD changed after it cleared. Refuse: "Ready Check is
+    stale — the requirement changed since it passed. Re-run `/ready-check`
+    and promote with the fresh code."
+  - `INVALID` / missing → refuse: "This contract hasn't cleared the PM
+    Ready Check. Run `/ready-check <source>` first — grooming shouldn't
+    start on an unready PRD." (See `reference/READY-CHECK-RUBRIC.md`.)
+- Teams piloting Ready Check may set `conventions.requireReadyCheck: false`
+  in `repos.yml` to warn instead of block during rollout. Default is to
+  block once the team has adopted it.
+
+This is the enforcement that turns the team rule into a pipeline gate.
+
 ## Process
 
 1. **Read** `.manifest/contracts/<ID>.md`. Confirm it is **promotable**

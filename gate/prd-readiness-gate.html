@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ready Check — Pocket FM PRD Gate</title>
+<style>
+  :root{
+    --bg:#0e1020; --panel:#171a2e; --panel2:#1f2340; --line:#2b3055;
+    --ink:#eef0ff; --muted:#9aa0c4; --faint:#6b7099;
+    --brand:#7c5cff; --brand2:#a78bff; --accent:#ffb454;
+    --pass:#33d69f; --fail:#ff5d6c; --warn:#ffc857;
+    --radius:16px; --shadow:0 12px 40px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 700px at 80% -10%, #23264a 0%, var(--bg) 55%);
+    color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:var(--brand2)}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 22px 80px}
+  header.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .logo{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;
+    background:linear-gradient(135deg,var(--brand),var(--accent));font-weight:800;color:#12132a;font-size:20px}
+  h1{font-size:22px;margin:0}
+  .tag{color:var(--muted);font-size:13px;margin-top:2px}
+  .pill{margin-left:auto;font-size:12px;color:var(--muted);border:1px solid var(--line);padding:6px 11px;border-radius:999px;background:var(--panel)}
+  .lead{color:var(--muted);max-width:780px;margin:12px 0 20px;font-size:14.5px}
+  .lead b{color:var(--ink)}
+  .grid{display:grid;grid-template-columns:1.35fr .95fr;gap:22px;align-items:start}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .card .hd{padding:15px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+  .card .hd h2{font-size:14px;margin:0;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
+  .card .bd{padding:16px 18px}
+  .scanrow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .btn{border:1px solid var(--line);background:var(--panel2);color:var(--ink);padding:9px 13px;border-radius:10px;font-size:13px;cursor:pointer;transition:.15s;font-weight:600}
+  .btn:hover{border-color:var(--brand);transform:translateY(-1px)}
+  .btn.primary{background:linear-gradient(135deg,var(--brand),#6d4cff);border-color:transparent}
+  .btn.ghost{background:transparent}
+  .btn.bad{border-color:#5a2733;color:#ffb3bb} .btn.good{border-color:#1f5344;color:#9af0d3}
+  textarea.prd{width:100%;min-height:110px;resize:vertical;background:#0c0e1e;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:12px;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+  .hint{color:var(--faint);font-size:12px;margin:8px 2px 0}
+
+  .crit{border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin:10px 0;background:var(--panel2);transition:.15s}
+  .crit.ok{border-color:#1f5344;background:linear-gradient(0deg,rgba(51,214,159,.06),rgba(51,214,159,.06)),var(--panel2)}
+  .crit.miss{border-color:#5a2733}
+  .crit.skip{opacity:.55}
+  .crit .row{display:flex;align-items:flex-start;gap:11px}
+  .crit .box{width:22px;height:22px;border-radius:7px;border:1.5px solid var(--faint);flex:0 0 auto;margin-top:1px;display:grid;place-items:center;cursor:pointer;font-size:13px;font-weight:800;transition:.15s;background:#0c0e1e}
+  .crit.ok .box{background:var(--pass);border-color:var(--pass);color:#08221a}
+  .crit .meta{flex:1}
+  .crit .name{font-weight:700;font-size:14px}
+  .crit .req{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);margin-left:7px;border:1px solid var(--line);padding:1px 6px;border-radius:6px}
+  .crit .req.r{color:var(--accent);border-color:#5a4620}
+  .crit .why{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .crit input.detail{width:100%;margin-top:9px;background:#0c0e1e;border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:8px 10px;font-size:12.5px}
+  .crit input.detail::placeholder{color:#565b85;font-style:italic}
+  .crit .na{margin-top:8px;font-size:12px;color:var(--faint);display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+  .crit .na input{accent-color:var(--brand)}
+
+  .verdict{position:sticky;top:18px}
+  .prog-line{font-size:13px;color:var(--muted);margin-bottom:12px}
+  .prog-line b{color:var(--ink)}
+  .stamp{border-radius:14px;padding:16px;text-align:center;border:1.5px dashed}
+  .stamp.blocked{border-color:var(--warn);background:rgba(255,200,87,.07)}
+  .stamp.cleared{border-color:var(--pass);background:rgba(51,214,159,.08)}
+  .stamp .big{font-size:22px;font-weight:900;letter-spacing:1px}
+  .stamp.blocked .big{color:var(--warn)} .stamp.cleared .big{color:var(--pass)}
+  .stamp .sub{color:var(--muted);font-size:12.5px;margin-top:3px}
+  .todo{margin-top:12px}
+  .todo h3{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:0 0 7px}
+  .t{display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:6px 0;border-bottom:1px dashed var(--line);cursor:pointer}
+  .t:hover{color:var(--brand2)}
+  .t .dot{width:7px;height:7px;border-radius:50%;margin-top:6px;flex:0 0 auto;background:var(--warn)}
+  .t.none{color:var(--faint);cursor:default}
+
+  .handoff{margin-top:14px;border:1px solid var(--line);border-radius:14px;overflow:hidden;display:none}
+  .handoff.show{display:block}
+  .handoff .hh{background:linear-gradient(135deg,var(--brand),#6d4cff);padding:11px 14px;display:flex;justify-content:space-between;align-items:center}
+  .handoff .hh b{font-size:13px;letter-spacing:.5px} .handoff .hh span{font-size:11px;opacity:.85}
+  .handoff .hb{background:#0c0e1e;padding:12px 14px;font:12px/1.55 ui-monospace,Menlo,monospace;color:#cdd2f5;white-space:pre-wrap;max-height:230px;overflow:auto}
+  .handoff .ha{padding:11px 14px;background:var(--panel2);display:flex;gap:8px}
+
+  .foot{margin-top:22px;color:var(--faint);font-size:12px;line-height:1.6}
+  .foot b{color:var(--muted)}
+  .lvl{display:flex;gap:10px;margin-top:10px}
+  .lvl .l{flex:1;border:1px solid var(--line);border-radius:11px;padding:10px 12px;background:var(--panel2)}
+  .lvl .l b{font-size:12px} .lvl .l p{margin:4px 0 0;color:var(--muted);font-size:11.5px}
+  .lvl .l.on{border-color:var(--brand)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo">P</div>
+    <div><h1>Ready Check</h1><div class="tag">Pocket FM · the 2-minute check before you hand a feature to dev</div></div>
+    <div class="pill">Green = ready to build</div>
+  </header>
+
+  <p class="lead">
+    Answer a few plain questions about your feature. When it's <b>Ready</b>, one click sends a clean,
+    complete brief to your dev — <b>with the design link attached</b> — so nobody has to chase you for basics.
+    No forms, no jargon. If something's missing, you'll see exactly what to add.
+  </p>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <div class="hd"><h2>Start from your PRD (optional)</h2></div>
+        <div class="bd">
+          <div class="scanrow">
+            <button class="btn primary" onclick="scan()">⚡ Auto-fill from my PRD</button>
+            <button class="btn bad" onclick="loadSample('thin')">Try a rough example</button>
+            <button class="btn good" onclick="loadSample('ready')">Try a complete example</button>
+            <button class="btn ghost" onclick="clearAll()">Reset</button>
+          </div>
+          <textarea id="prd" class="prd" placeholder="Paste your PRD / ticket / doc here and click Auto-fill — it pre-answers what it can find. Or just fill the questions below directly."></textarea>
+          <p class="hint">Nothing leaves your browser. Auto-fill is a head start; you confirm every answer.</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:18px">
+        <div class="hd"><h2>Your feature, in plain terms</h2>
+          <span class="pill" id="reqcount" style="margin-left:auto">0 / 0 done</span></div>
+        <div class="bd" id="criteria"></div>
+      </div>
+    </div>
+
+    <div class="verdict">
+      <div class="card">
+        <div class="hd"><h2>Status</h2></div>
+        <div class="bd">
+          <div class="prog-line" id="progline">Answer the questions to see if you're ready.</div>
+
+          <div class="stamp blocked" id="stamp">
+            <div class="big" id="stampbig">NOT READY YET</div>
+            <div class="sub" id="stampsub">A few things still to add.</div>
+          </div>
+
+          <div class="todo">
+            <h3>Still to add</h3>
+            <div id="todolist"><div class="t none">Nothing checked yet.</div></div>
+          </div>
+
+          <div class="handoff" id="handoff">
+            <div class="hh"><b>✓ READY — hand-off to dev</b><span id="hoCode">PF-…</span></div>
+            <div class="hb" id="hoBody">…</div>
+            <div class="ha">
+              <button class="btn primary" style="flex:1" onclick="copyHand()">📋 Copy hand-off</button>
+              <button class="btn ghost" onclick="flash('Paste this into the JIRA ticket or your dev Slack thread.')">Where does this go?</button>
+            </div>
+          </div>
+          <p class="hint" id="copied" style="text-align:center;height:14px"></p>
+        </div>
+      </div>
+
+      <div class="foot">
+        <b>What happens after you hand off</b>
+        <div class="lvl">
+          <div class="l on"><b>You (2 min)</b><p>This check. Plain questions. You own that the basics are there before dev sees it.</p></div>
+          <div class="l"><b>Dev (automatic)</b><p>Manifest reads the code, fills the technical gaps itself, and only pings you back if a real product decision is needed.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Plain-language rubric. Each item: a question a PM understands, an example, and a detector for auto-fill.
+const CRITERIA = [
+  {id:'goal',  req:true,  name:'What problem are we solving?', why:'One line — the user pain and why now.',
+    eg:'e.g. Returning users re-enter card details every time and drop at payment.',
+    kw:/\b(goal|problem|objective|why|purpose|pain)\b/i},
+  {id:'metric',req:true,  name:'How will we know it worked?', why:'A number we can check later.',
+    eg:'e.g. +6% checkout conversion for returning payers in 4 weeks.',
+    kw:/\b(success metric|kpi|measur|conversion|retention|dau|mau|ctr|% ?(lift|increase)|target|uplift)\b/i},
+  {id:'design',req:true,  name:'Where is the design?', why:'Paste the Figma / mock link. Skip only if there is no UI.',
+    eg:'e.g. https://figma.com/file/pf-saved-cards (final, approved)',
+    kw:/(figma\.com|zeplin|design (link|attached)|mockup|wireframe|https?:\/\/)/i, na:'No screen changes (backend only)'},
+  {id:'scope', req:true,  name:'Which platforms — and what’s NOT included?', why:'Where it ships, and what you are deliberately leaving out.',
+    eg:'e.g. Android + iOS. Not: web, UPI autopay.',
+    kw:/\b(out[- ]of[- ]scope|not in scope|platforms?:|android|ios|web|backend)\b/i},
+  {id:'oldbeh',req:true,  name:'What happens today?', why:'How the feature behaves right now, before this change.',
+    eg:'e.g. The payment screen always shows a blank card form; nothing is saved.',
+    kw:/\b(current behavior|currently|today the|existing behavior|old version|as[- ]is|right now)\b/i, na:'Brand-new — nothing exists yet'},
+  {id:'flows', req:true,  name:'Which screens or flows does it touch?', why:'So dev knows what else might be affected.',
+    eg:'e.g. Checkout flow, payment screen, order-confirmation.',
+    kw:/\b(impacted|affects|touches|flow|screen|surface|entry point)\b/i},
+  {id:'edge',  req:true,  name:'What could go wrong?', why:'The obvious failure and boundary cases.',
+    eg:'e.g. Expired card, save fails, no network, user deletes card mid-checkout.',
+    kw:/\b(edge case|error|invalid|fails?|boundary|no network|timeout|expired)\b/i},
+  {id:'states',req:true,  name:'What does the user see: nothing yet / loading / done / error?', why:'The copy for each of those moments.',
+    eg:'e.g. Empty: "No saved cards yet" · Error: "Couldn’t save card, try again".',
+    kw:/\b(empty|loading|success|error|state)\b/i, na:'Nothing the user sees'},
+  {id:'l10n',  req:true,  name:'Is the wording final and translated?', why:'Copy locked and localised.',
+    eg:'e.g. All strings final, localised EN/HI.',
+    kw:/\b(localiz|localis|locale|translation|copy final|strings? (final|locked))\b/i},
+  {id:'writer',req:true,  name:'Does this affect writers or creators?', why:'If content/creator side is touched, say how. If not, tick skip.',
+    eg:'e.g. No — listener-side payment change only.',
+    kw:/\b(writer|creator|author|content (team|ops)|studio)\b/i, na:'No writer/creator impact'},
+  {id:'events',req:true,  name:'What should we track?', why:'The events/analytics to fire.',
+    eg:'e.g. card_saved, saved_card_used, tokenize_failed.',
+    kw:/\b(event|analytics|instrument|track(ing)?|mixpanel|amplitude|clevertap)\b/i},
+  {id:'deps',  req:false, name:'Does it depend on another team or API?', why:'Nice to flag early.',
+    eg:'e.g. Needs payments backend to expose a tokenization API.',
+    kw:/\b(depend|api|other team|backend team|blocked by|prerequisite)\b/i},
+  {id:'rollout',req:false,name:'How will it roll out?', why:'Flag / staged ramp, if any.',
+    eg:'e.g. Behind flag saved_cards, ramp 1→10→50→100%.',
+    kw:/\b(rollout|feature flag|canary|ramp|gradual|% ?rollout|staged)\b/i},
+];
+
+const state={}; CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false});
+
+function render(){
+  const box=document.getElementById('criteria'); box.innerHTML='';
+  CRITERIA.forEach(c=>{const s=state[c.id];
+    const sat=s.na||(s.checked&&s.detail.trim().length>=3);
+    const el=document.createElement('div');
+    el.className='crit '+(sat?'ok':(c.req?'miss':''))+(s.na?' skip':'');
+    el.id='crit-'+c.id;
+    el.innerHTML=`
+      <div class="row">
+        <div class="box" onclick="toggle('${c.id}')">${sat?'✓':''}</div>
+        <div class="meta">
+          <span class="name">${c.name}</span>
+          <span class="req ${c.req?'r':''}">${c.req?'needed':'optional'}</span>
+          <div class="why">${c.why}</div>
+          <input class="detail" placeholder="${c.eg}" value="${s.detail.replace(/"/g,'&quot;')}"
+            oninput="setDetail('${c.id}',this.value)" ${s.na?'disabled':''}/>
+          ${c.na?`<label class="na"><input type="checkbox" ${s.na?'checked':''} onchange="setNa('${c.id}',this.checked)"> ${c.na}</label>`:''}
+        </div>
+      </div>`;
+    box.appendChild(el);
+  });
+  compute();
+}
+function toggle(id){state[id].checked=!state[id].checked; render();}
+function setDetail(id,v){state[id].detail=v; if(v.trim().length>=3)state[id].checked=true; light();}
+function setNa(id,v){state[id].na=v; render();}
+function light(){CRITERIA.forEach(c=>{const s=state[c.id];const sat=s.na||(s.checked&&s.detail.trim().length>=3);
+  const el=document.getElementById('crit-'+c.id); if(!el)return;
+  el.className='crit '+(sat?'ok':(c.req?'miss':''))+(s.na?' skip':'');
+  el.querySelector('.box').textContent=sat?'✓':'';}); compute();}
+
+function sat(c){const s=state[c.id]; return s.na||(s.checked&&s.detail.trim().length>=3);}
+
+function compute(){
+  const reqs=CRITERIA.filter(c=>c.req);
+  const done=reqs.filter(sat);
+  const miss=reqs.filter(c=>!sat(c));
+  const optMiss=CRITERIA.filter(c=>!c.req&&!sat(c));
+  const cleared=miss.length===0;
+
+  document.getElementById('reqcount').textContent=`${done.length} / ${reqs.length} done`;
+  const pl=document.getElementById('progline');
+  pl.innerHTML=cleared?`<b>All set.</b> Every basic is covered.`
+    :`<b>${miss.length} thing${miss.length>1?'s':''}</b> left before this is ready for dev.`;
+
+  const st=document.getElementById('stamp');
+  st.className='stamp '+(cleared?'cleared':'blocked');
+  document.getElementById('stampbig').textContent=cleared?'READY':'NOT READY YET';
+  document.getElementById('stampsub').textContent=cleared
+    ?'Complete brief. Hand it to dev with confidence.'
+    :`Add the ${miss.length} item${miss.length>1?'s':''} below, then hand off.`;
+
+  const tl=document.getElementById('todolist'); tl.innerHTML='';
+  if(miss.length===0&&optMiss.length===0){tl.innerHTML='<div class="t none">Nothing left — even the optional bits.</div>';}
+  else{
+    miss.forEach(c=>tl.insertAdjacentHTML('beforeend',
+      `<div class="t" onclick="focusCrit('${c.id}')"><span class="dot"></span><span><b>${c.name}</b></span></div>`));
+    optMiss.forEach(c=>tl.insertAdjacentHTML('beforeend',
+      `<div class="t" onclick="focusCrit('${c.id}')"><span class="dot" style="background:var(--faint)"></span><span>${c.name} <i style="color:var(--faint)">(optional)</i></span></div>`));
+  }
+
+  const ho=document.getElementById('handoff'); ho.classList.toggle('show',cleared);
+  if(cleared){document.getElementById('hoCode').textContent=gateCode();
+    document.getElementById('hoBody').textContent=handText();}
+}
+function focusCrit(id){const el=document.getElementById('crit-'+id);
+  el.scrollIntoView({behavior:'smooth',block:'center'}); const i=el.querySelector('input.detail'); if(i&&!i.disabled)setTimeout(()=>i.focus(),300);}
+
+let _code=null; // retained for stray resets; gateCode() is now deterministic
+// djb2 + normalize — byte-identical to scripts/ready-check.mjs so a code minted
+// here verifies dev-side via `ready-check.mjs --verify`. Keep the two in sync.
+function djb2(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;return h;}
+function firstUrl(s){const m=(s||'').match(/https?:\/\/\S+/);return m?m[0]:null;}
+function title(){const t=document.getElementById('prd').value.split('\n').find(l=>l.trim().length>3);
+  return (t||state.goal.detail||'Untitled feature').replace(/^#+\s*/,'').replace(/^(title|goal)[:\s]*/i,'').trim().slice(0,46);}
+function platforms(){const t=(document.getElementById('prd').value+' '+state.scope.detail).toLowerCase();const p=[];
+  ['android','ios','web','backend','server'].forEach(x=>{if(t.includes(x))p.push(x);});return p.length?p.join(', '):(state.scope.detail||'—');}
+function designLink(){if(state.design.na)return '(no UI)';return firstUrl(state.design.detail)||(state.design.detail.trim()||'⚠ add link');}
+function normAnswers(){const t=title().trim().toLowerCase().replace(/\s+/g,' ');const lines=['title:'+t];
+  CRITERIA.forEach(c=>{const s=state[c.id]; if(!(s.na||s.detail.trim().length>=3))return;
+    let v; if(c.na&&s.na)v='na'; else if(c.id==='design')v=firstUrl(s.detail)||'present';
+    else v=s.detail.trim().toLowerCase().replace(/\s+/g,' '); lines.push(c.id+':'+v);});
+  return lines.join('\n');}
+function gateCode(){const h=djb2(normAnswers()).toString(36).toUpperCase().padStart(6,'0').slice(-6);
+  const p=(title().replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase()+'XXX').slice(0,3);return 'RC-'+p+'-'+h;}
+
+function handText(){
+  let t=`✅ READY CHECK PASSED\n`;
+  t+=`Ready-Check: ${gateCode()}\n`;
+  t+=`Feature: ${title()}\n`;
+  t+=`Platforms: ${platforms()}\n`;
+  t+=`Design: ${designLink()}\n`;
+  t+=`Cleared: ${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}\n\n`;
+  t+=`The basics, answered:\n`;
+  CRITERIA.forEach(c=>{if(!sat(c))return; if(c.id==='design')return;
+    const s=state[c.id]; const val=s.na?'N/A':s.detail.trim(); t+=`• [${c.id}] ${c.name} | ${val}\n`;});
+  t+=`\nGrooming can start. (Dev: verify this code before pickup.)`;
+  return t;
+}
+function copyHand(){navigator.clipboard.writeText(handText()).then(()=>flash('Copied — paste into JIRA / Slack.'),()=>flash('Copy failed.'));}
+function flash(m){const c=document.getElementById('copied');c.textContent=m;setTimeout(()=>{if(c.textContent===m)c.textContent='';},2600);}
+
+function scan(){const t=document.getElementById('prd').value; if(!t.trim()){flash('Paste a PRD first, or just answer below.');return;}
+  const lines=t.split('\n');
+  CRITERIA.forEach(c=>{const s=state[c.id]; if(s.na)return;
+    const hit=lines.find(l=>c.kw.test(l));
+    if(hit){s.checked=true; if(!s.detail)s.detail=hit.replace(/^[#*\->\s]+/,'').trim().slice(0,95);}});
+  const low=t.toLowerCase();
+  if(!(low.includes('loading')&&low.includes('error'))&&!state.states.na)state.states.checked=false;
+  _code=null; render(); flash('Auto-filled — review each answer.');}
+function clearAll(){document.getElementById('prd').value=''; CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false}); _code=null; render();}
+
+const SAMPLES={
+thin:`Saved payment cards at checkout
+Goal: let users pay faster by saving their card.
+It should work on the app. Please prioritise for this sprint (P0).`,
+ready:`Saved payment cards at checkout
+Goal / problem: New users drop at payment because they re-enter card details every time. We want returning users to check out in one tap.
+Success metric: +6% checkout conversion for returning payers within 4 weeks; measured in Mixpanel.
+Platforms: Android and iOS. Out of scope: web, UPI autopay, saving netbanking.
+Design: https://figma.com/file/pf-saved-cards (final, approved).
+Current behavior: today the payment screen always shows a blank card form; nothing is stored.
+Impacted flows: checkout flow, payment screen, order-confirmation surface.
+Edge cases / errors: expired saved card, tokenization fails, no network, user deletes card mid-checkout.
+States — empty: "No saved cards yet"; loading spinner on tokenize; success toast; error: "Couldn't save card, try again".
+Localized copy: all strings final and localised EN/HI.
+Writer / creator impact: none — listener-side payment change, content team not affected.
+Tracking: fire card_saved, saved_card_used, tokenize_failed events (Mixpanel).
+Dependencies: payments backend team exposes a tokenization API.
+Rollout: feature flag saved_cards, ramp 1% → 10% → 50% → 100%.`
+};
+function loadSample(k){document.getElementById('prd').value=SAMPLES[k]; CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false}); _code=null; render(); flash('Loaded — click Auto-fill.');}
+
+render();
+</script>
+</body>
+</html>
