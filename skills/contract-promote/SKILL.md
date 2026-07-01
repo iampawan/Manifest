@@ -42,6 +42,26 @@ scope introspection isn't available in the runtime, attempt the
 write and treat a permission error as a hard, reported failure — not
 a silent pass.
 
+## Precondition: require a valid Ready Check (the PM gate)
+
+"No code, no grooming." `/contract pickup` already verifies the PM's
+Ready Check code automatically and records it as `readyCheck: RC-…` in
+the frontmatter. Promote just confirms that stamp is present:
+
+- `readyCheck: RC-…` present → proceed.
+- Missing → refuse: "This contract hasn't cleared the PM Ready Check. Run
+  `/ready-check <source>` first — grooming shouldn't start on an unready
+  PRD." (See `reference/READY-CHECK-RUBRIC.md`.)
+- Only re-verify (`ready-check.mjs --verify`) if the contract's own
+  requirement text changed since pickup — a `STALE` result means re-run
+  `/ready-check` for a fresh code.
+- Teams piloting Ready Check may set `conventions.requireReadyCheck: false`
+  in `repos.yml` to warn instead of block during rollout. Default is to
+  block once the team has adopted it.
+
+This turns the team rule into a pipeline gate — with no extra step for
+the dev; the PM is the only one who handles the code.
+
 ## Process
 
 1. **Read** `.manifest/contracts/<ID>.md`. Confirm it is **promotable**

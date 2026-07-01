@@ -12,6 +12,51 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.20.0] — Ready Check: a PM-side readiness gate before dev grooming
+
+"Airport security for PRDs." A first, cheap gate the PM clears *before*
+engineering estimates — so dev stops chasing PMs for basics and stops
+eating the delay when a half-baked PRD moves mid-sprint.
+
+- **New `/ready-check <source>` (alias `/ready`).** Give any source — a JIRA
+  / Notion / Doc / Slack / Figma URL, pasted text, an image, or a plain
+  description — and Ready Check scores it against the Definition of Ready
+  (11 required items), surfaces the blockers a PM can fix themselves in plain
+  language, and (when ready) mints a gate code + a clean hand-off for dev.
+  Runs identically in Claude Code and Cowork.
+- **Deterministic engine `scripts/ready-check.mjs`.** Presence + specificity
+  scoring, a tamper-evident gate code (djb2 over the normalized answers), and
+  hand-off render/parse. Mirrors `validate.mjs`: deterministic layer, with the
+  skill's judgement layer on top.
+- **"No code, no grooming" enforcement.** The gate code is content-bound, so
+  `ready-check.mjs --verify <handoff>` returns `VALID | STALE | INVALID`.
+  `contract-promote` records `readyCheck:` and refuses a contract without a
+  valid one.
+- **Offline web page (`gate/prd-readiness-gate.html`)** for PMs with no Claude
+  open — same rubric, same gate-code algorithm, so a web-minted code verifies
+  dev-side. Cross-port parity is pinned by `eval/ready-check.test.mjs`.
+- **Code-aware, no repo access.** When `.manifest/.cache/code-context.json`
+  exists, Ready Check adds non-blocking notes (event-naming drift, extra
+  surfaces a flow touches) from the published digest — no source credentials.
+- **Live smart check with no backend (Cowork artifact).**
+  `gate/ready-check-cowork.html` is a Cowork artifact: the deterministic gate
+  runs in-page and the edge-case review is done by Claude live via
+  `window.cowork.askClaude` — Cowork is the backend, no server or API key. Same
+  gate-code algorithm as the engine, so codes still verify dev-side.
+- **Edge-case checking moves to the PM.** The skill's judgement pass runs the
+  edge-cases critic (plus clarity / comms / instrumentation) to surface real
+  missing cases, not just field presence. Depth scales with access:
+  text-only → code-context cache → opt-in read-only repo access.
+- **Waivers.** A PM can proceed without an item by waiving it *with a written
+  reason*; the waiver is hashed into the code and surfaced in the hand-off for
+  the dev to accept or push back. Empty waivers don't clear.
+- **Auto-verify on pickup.** `/contract pickup` verifies the Ready Check code
+  itself — the dev runs nothing extra; the PM is the only one who handles it.
+- **Practical extras.** Dark mode, a Do's & Don'ts panel, a flat professional
+  UI, and two annotated example PRDs (`gate/examples/PRD-good-*`, `PRD-bad-*`).
+- Rubric: `reference/READY-CHECK-RUBRIC.md`. Level 2 (deep, code-grounded) is
+  still `/contract pickup`, dev-side, after the gate is green.
+
 ## [0.19.0] — self-tuning models: smart routing, advisor escalation, cost observability, and a learning loop
 
 The system now chooses the right model for each task itself, escalates the
