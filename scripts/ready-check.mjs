@@ -40,7 +40,7 @@ export const RUBRIC = [
   { id: "goal",    req: true,  name: "What problem are we solving?",                   critic: "minimality" },
   { id: "metric",  req: true,  name: "How will we know it worked?",                    critic: "minimality" },
   { id: "design",  req: true,  name: "Where is the design?",           skippable: "no-ui" },
-  { id: "scope",   req: true,  name: "Which platforms — and what's NOT included?",     critic: "platform-parity" },
+  { id: "scope",   req: true,  name: "Which platforms, and what's NOT included?",       critic: "platform-parity" },
   { id: "oldbeh",  req: true,  name: "What happens today?",            skippable: "new-feature", critic: "regression" },
   { id: "flows",   req: true,  name: "Which screens or flows does it touch?",          critic: "regression", cache: "surface_index" },
   { id: "edge",    req: true,  name: "What could go wrong?",                           critic: "edge-cases" },
@@ -158,11 +158,11 @@ export function renderHandoff(answers = {}, meta = {}) {
   const out = [];
   const nWaive = v.waivers ? v.waivers.length : 0;
   out.push(v.cleared
-    ? `✅ READY CHECK PASSED${nWaive ? ` — ${nWaive} waiver(s), dev to accept` : ""}`
+    ? `✅ READY CHECK PASSED${nWaive ? ` (${nWaive} waiver(s), dev to accept)` : ""}`
     : `⛔ NOT READY (${v.met}/${v.total})`);
-  out.push(`${HANDOFF_MARK} ${code || "—"}`);
+  out.push(`${HANDOFF_MARK} ${code || "(none)"}`);
   out.push(`Feature: ${answers.title || "Untitled feature"}`);
-  out.push(`Platforms: ${items.scope && items.scope.detail ? items.scope.detail.trim() : "—"}`);
+  out.push(`Platforms: ${items.scope && items.scope.detail ? items.scope.detail.trim() : "not set"}`);
   out.push(`Design: ${design}`);
   if (meta.date) out.push(`Cleared: ${meta.date}`);
   out.push("");
@@ -178,7 +178,7 @@ export function renderHandoff(answers = {}, meta = {}) {
     }
     if (nWaive) {
       out.push("");
-      out.push("Waivers — PM asks to proceed without these (dev to accept or push back):");
+      out.push("Waivers (dev to accept or push back):");
       v.waivers.forEach((w) => out.push(`• [${w.id}] ${w.name} | reason: ${w.reason}`));
     }
     out.push("");
@@ -188,6 +188,57 @@ export function renderHandoff(answers = {}, meta = {}) {
     v.missing.forEach((m) => out.push(`• ${m.name}`));
   }
   return out.join("\n");
+}
+
+// ─── PRD generation — compose a clean 11-section PRD from the answers ─
+// The "right format" a PM can publish straight to JIRA. Deterministic, so
+// the panel (JS port) and Claude Code (this CLI) produce the same document.
+const PRD_SECTIONS = [
+  ["goal",   "1. Problem & goal"],
+  ["metric", "2. Success metric"],
+  ["design", "3. Design"],
+  ["scope",  "4. Scope & platforms"],
+  ["oldbeh", "5. What happens today"],
+  ["flows",  "6. Impacted flows & surfaces"],
+  ["edge",   "7. Edge cases & error states"],
+  ["states", "8. UI states (empty / loading / done / error)"],
+  ["l10n",   "9. Localized values / copy"],
+  ["writer", "10. Writer / creator impact"],
+  ["events", "11. Instrumentation / events"],
+];
+const PRD_NA = { design: "No UI (backend only).", oldbeh: "Brand-new feature; nothing exists today.",
+  states: "Not user-facing.", writer: "No writer/creator impact." };
+
+export function prdTitle(answers = {}) { return String(answers.title || "Untitled feature").trim(); }
+
+export function renderPrd(answers = {}, meta = {}) {
+  const items = answers.items || {};
+  const v = checkReadiness(answers);
+  const code = gateCode(answers);
+  const val = (id) => {
+    const r = byId[id], a = items[id] || {};
+    if (r && r.skippable && a.na === true) return PRD_NA[id] || "N/A";
+    if (isWaived(r, a)) return `_Waived (dev to accept): ${a.reason.trim()}_`;
+    const d = (a.detail || "").trim();
+    return d || "_(not provided)_";
+  };
+  const out = [];
+  out.push(`# PRD — ${prdTitle(answers)}`);
+  out.push("");
+  out.push(`> Ready Check: **${code || "not yet ready"}**` +
+    (meta.date ? ` · ${meta.date}` : "") +
+    (v.cleared ? "" : ` · ⚠ ${v.missing.length} required item(s) still missing`));
+  out.push("");
+  for (const [id, heading] of PRD_SECTIONS) { out.push(`## ${heading}`); out.push(val(id)); out.push(""); }
+  const deps = val("deps"), rollout = val("rollout");
+  out.push("## Dependencies"); out.push(deps === "_(not provided)_" ? "None noted." : deps); out.push("");
+  out.push("## Rollout"); out.push(rollout === "_(not provided)_" ? "Standard release." : rollout); out.push("");
+  if (v.waivers && v.waivers.length) {
+    out.push("## Waivers (dev to accept)");
+    v.waivers.forEach((w) => out.push(`- **${w.name}**: ${w.reason}`));
+    out.push("");
+  }
+  return out.join("\n").trim() + "\n";
 }
 
 // Parse a rendered hand-off back into { title, items, code } so a pasted
@@ -249,7 +300,7 @@ export function cacheChecks(answers = {}, cache = null) {
       const key = surface.split(/[._]/).pop();
       if (key && flows.includes(key)) {
         notes.push({ id: "flows", severity: "info",
-          message: `"${surface}" touches ${Array.isArray(files) ? files.length : "several"} file(s) — confirm all are in scope.`,
+          message: `"${surface}" touches ${Array.isArray(files) ? files.length : "several"} file(s); confirm all are in scope.`,
           suggestion: `Cross-check against ${Array.isArray(files) ? files.slice(0, 3).join(", ") : "the surface's files"}.` });
       }
     }
@@ -264,10 +315,11 @@ function fail(msg) { console.error(msg); process.exit(2); }
 function main() {
   const [mode, a1, a2] = process.argv.slice(2);
   if (!mode || mode === "--help" || mode === "-h") {
-    console.log("ready-check — Manifest PM-side gate engine\n" +
+    console.log("ready-check · Manifest PM-side gate engine\n" +
       "  --check <answers.json>          verdict (exit 1 if not ready)\n" +
       "  --code <answers.json>           print gate code\n" +
       "  --handoff <answers.json>        print dev hand-off block\n" +
+      "  --prd <answers.json>            print the 11-section PRD (publish-ready)\n" +
       "  --verify <handoff.txt|json>     validate a code vs its content\n" +
       "  --cache-check <answers.json> <code-context.json>\n" +
       "  --rubric                        print the Definition of Ready");
@@ -285,10 +337,12 @@ function main() {
       process.exit(v.cleared ? 0 : 1);
     } else if (mode === "--code") {
       const c = gateCode(loadJson(a1));
-      if (!c) { console.error("NOT READY — no code minted."); process.exit(1); }
+      if (!c) { console.error("NOT READY: no code minted."); process.exit(1); }
       console.log(c);
     } else if (mode === "--handoff") {
       console.log(renderHandoff(loadJson(a1), { date: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) }));
+    } else if (mode === "--prd") {
+      console.log(renderPrd(loadJson(a1), { date: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) }));
     } else if (mode === "--verify") {
       let answers, code;
       const raw = readFileSync(a1, "utf8");

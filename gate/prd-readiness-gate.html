@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Ready Check — Pocket FM PRD Gate</title>
+<title>Ready Check · Pocket FM PRD Gate</title>
 <style>
   :root{
     --bg:#f4f5f7; --panel:#ffffff; --panel2:#f7f8fa; --line:#e4e7ec;
@@ -134,14 +134,14 @@
 
   <p class="lead">
     Answer a few plain questions about your feature. When it's <b>Ready</b>, one click produces a clean,
-    complete brief for dev — <b>with the design link attached</b> — so nobody has to chase you for basics.
+    complete brief for dev, <b>with the design link attached</b>, so nobody has to chase you for basics.
     If something's missing, you'll see exactly what to add.
   </p>
 
   <div class="grid">
     <div>
       <div class="card">
-        <div class="hd"><h2>Start from your PRD (optional)</h2></div>
+        <div class="hd"><h2>Paste your PRD</h2></div>
         <div class="bd">
           <div class="scanrow">
             <button class="btn primary" onclick="scan()">Auto-fill from PRD</button>
@@ -149,7 +149,7 @@
             <button class="btn good" onclick="loadSample('ready')">Load complete example</button>
             <button class="btn ghost" onclick="clearAll()">Reset</button>
           </div>
-          <textarea id="prd" class="prd" placeholder="Paste your PRD / ticket / doc here and click Auto-fill — it pre-answers what it can find. Or just fill the questions below directly."></textarea>
+          <textarea id="prd" class="prd" placeholder="Paste your PRD / ticket / doc here and click Auto-fill. It pre-answers what it can find. Or just fill the questions below directly."></textarea>
           <p class="hint">Nothing leaves your browser. Auto-fill is a head start; you confirm every answer.</p>
         </div>
       </div>
@@ -200,14 +200,14 @@
   </div>
 
   <div class="card dd">
-    <div class="hd"><h2>Do's &amp; Don'ts — clear the gate fast</h2></div>
+    <div class="hd"><h2>Do's &amp; Don'ts · clear the gate fast</h2></div>
     <div class="bd">
       <div class="ddgrid">
         <div class="ddcol do">
           <h4>Do</h4>
           <ul>
-            <li>Write the metric as a <b>number with a timeframe</b> — "+6% in 4 weeks", not "improve engagement".</li>
-            <li>Paste the <b>final, approved</b> design link (Figma) — not a work-in-progress frame.</li>
+            <li>Write the metric as a <b>number with a timeframe</b>: "+6% in 4 weeks", not "improve engagement".</li>
+            <li>Paste the <b>final, approved</b> design link (Figma), not a work-in-progress frame.</li>
             <li>List the <b>edge cases you already know</b>: offline, expired, empty, mid-flow cancel.</li>
             <li>State what's <b>explicitly out of scope</b>.</li>
             <li>Mark <b>N/A honestly</b>, with a reason (backend-only, brand-new feature).</li>
@@ -217,10 +217,10 @@
           <h4>Don't</h4>
           <ul>
             <li>Don't write <b>"TBD"</b> or leave a field vague just to get past the gate.</li>
-            <li>Don't <b>skip the design</b> because "it's obvious" — that was the P0 miss.</li>
-            <li>Don't specify <b>implementation</b> (schema, security design) — that's the dev's call.</li>
+            <li>Don't <b>skip the design</b> because "it's obvious". That was the P0 miss.</li>
+            <li>Don't specify <b>implementation</b> (schema, security design). That's the dev's call.</li>
             <li>Don't <b>tick a box</b> you haven't genuinely answered.</li>
-            <li>Don't hand off <b>without the gate code</b> — dev won't groom it.</li>
+            <li>Don't hand off <b>without the gate code</b>. Dev won't groom it.</li>
           </ul>
         </div>
       </div>
@@ -231,7 +231,7 @@
 <script>
 // Plain-language rubric. Each item: a question a PM understands, an example, and a detector for auto-fill.
 const CRITERIA = [
-  {id:'goal',  req:true,  name:'What problem are we solving?', why:'One line — the user pain and why now.',
+  {id:'goal',  req:true,  name:'What problem are we solving?', why:'One line: the user pain and why now.',
     eg:'e.g. Returning users re-enter card details every time and drop at payment.',
     kw:/\b(goal|problem|objective|why|purpose|pain)\b/i},
   {id:'metric',req:true,  name:'How will we know it worked?', why:'A number we can check later.',
@@ -239,13 +239,13 @@ const CRITERIA = [
     kw:/\b(success metric|kpi|measur|conversion|retention|dau|mau|ctr|% ?(lift|increase)|target|uplift)\b/i},
   {id:'design',req:true,  name:'Where is the design?', why:'Paste the Figma / mock link. Skip only if there is no UI.',
     eg:'e.g. https://figma.com/file/pf-saved-cards (final, approved)',
-    kw:/(figma\.com|zeplin|design (link|attached)|mockup|wireframe|https?:\/\/)/i, na:'No screen changes (backend only)'},
-  {id:'scope', req:true,  name:'Which platforms — and what’s NOT included?', why:'Where it ships, and what you are deliberately leaving out.',
+    kw:/(figma\.com|figma\.io|zeplin|sketch\.com|design ?(link|attached|:)|mockup|wireframe|prototype)/i, na:'No screen changes (backend only)'},
+  {id:'scope', req:true,  name:'Which platforms, and what’s NOT included?', why:'Where it ships, and what you are deliberately leaving out.',
     eg:'e.g. Android + iOS. Not: web, UPI autopay.',
     kw:/\b(out[- ]of[- ]scope|not in scope|platforms?:|android|ios|web|backend)\b/i},
   {id:'oldbeh',req:true,  name:'What happens today?', why:'How the feature behaves right now, before this change.',
     eg:'e.g. The payment screen always shows a blank card form; nothing is saved.',
-    kw:/\b(current behavior|currently|today the|existing behavior|old version|as[- ]is|right now)\b/i, na:'Brand-new — nothing exists yet'},
+    kw:/\b(current behavior|currently|today the|existing behavior|old version|as[- ]is|right now)\b/i, na:'Brand-new, nothing exists yet'},
   {id:'flows', req:true,  name:'Which screens or flows does it touch?', why:'So dev knows what else might be affected.',
     eg:'e.g. Checkout flow, payment screen, order-confirmation.',
     kw:/\b(impacted|affects|touches|flow|screen|surface|entry point)\b/i},
@@ -259,11 +259,11 @@ const CRITERIA = [
     eg:'e.g. All strings final, localised EN/HI.',
     kw:/\b(localiz|localis|locale|translation|copy final|strings? (final|locked))\b/i},
   {id:'writer',req:true,  name:'Does this affect writers or creators?', why:'If content/creator side is touched, say how. If not, tick skip.',
-    eg:'e.g. No — listener-side payment change only.',
+    eg:'e.g. No, listener-side payment change only.',
     kw:/\b(writer|creator|author|content (team|ops)|studio)\b/i, na:'No writer/creator impact'},
   {id:'events',req:true,  name:'What should we track?', why:'The events/analytics to fire.',
     eg:'e.g. card_saved, saved_card_used, tokenize_failed.',
-    kw:/\b(event|analytics|instrument|track(ing)?|mixpanel|amplitude|clevertap)\b/i},
+    kw:/\b(event|analytics|instrument|tracking|mixpanel|amplitude|clevertap|segment)\b/i},
   {id:'deps',  req:false, name:'Does it depend on another team or API?', why:'Nice to flag early.',
     eg:'e.g. Needs payments backend to expose a tokenization API.',
     kw:/\b(depend|api|other team|backend team|blocked by|prerequisite)\b/i},
@@ -295,7 +295,7 @@ function render(){
             oninput="setDetail('${c.id}',this.value)" ${(s.na||s.waived)?'disabled':''}/>
           ${c.na?`<label class="na"><input type="checkbox" ${s.na?'checked':''} onchange="setNa('${c.id}',this.checked)"> ${c.na}</label>`:''}
           ${c.req&&!s.na?`<div class="waive">
-            <label class="wl"><input type="checkbox" ${s.waived?'checked':''} onchange="setWaived('${c.id}',this.checked)"> Can't provide — waive with a reason for dev</label>
+            <label class="wl"><input type="checkbox" ${s.waived?'checked':''} onchange="setWaived('${c.id}',this.checked)"> Can't provide? Waive with a reason for dev</label>
             ${s.waived?`<input class="detail reason" placeholder="Reason dev should accept (e.g. metric owned by growth, decision pending this week)" value="${s.reason.replace(/"/g,'&quot;')}" oninput="setReason('${c.id}',this.value)"/>`:''}
           </div>`:''}
         </div>
@@ -335,11 +335,11 @@ function compute(){
   const waivers=reqs.filter(c=>{const s=state[c.id];return !s.na&&!(s.detail.trim().length>=3)&&s.waived&&s.reason.trim().length>=3;});
   document.getElementById('stampbig').textContent=cleared?'READY':'NOT READY YET';
   document.getElementById('stampsub').textContent=cleared
-    ?(waivers.length?`Ready with ${waivers.length} waiver(s) — dev to accept.`:'Complete brief. Hand it to dev with confidence.')
+    ?(waivers.length?`Ready with ${waivers.length} waiver(s), dev to accept.`:'Complete brief. Hand it to dev with confidence.')
     :`Add the ${miss.length} item${miss.length>1?'s':''} below, then hand off.`;
 
   const tl=document.getElementById('todolist'); tl.innerHTML='';
-  if(miss.length===0&&optMiss.length===0){tl.innerHTML='<div class="t none">Nothing left — even the optional bits.</div>';}
+  if(miss.length===0&&optMiss.length===0){tl.innerHTML='<div class="t none">Nothing left, even the optional bits.</div>';}
   else{
     miss.forEach(c=>tl.insertAdjacentHTML('beforeend',
       `<div class="t" onclick="focusCrit('${c.id}')"><span class="dot"></span><span><b>${c.name}</b></span></div>`));
@@ -362,7 +362,7 @@ function firstUrl(s){const m=(s||'').match(/https?:\/\/\S+/);return m?m[0]:null;
 function title(){const t=document.getElementById('prd').value.split('\n').find(l=>l.trim().length>3);
   return (t||state.goal.detail||'Untitled feature').replace(/^#+\s*/,'').replace(/^(title|goal)[:\s]*/i,'').trim().slice(0,46);}
 function platforms(){const t=(document.getElementById('prd').value+' '+state.scope.detail).toLowerCase();const p=[];
-  ['android','ios','web','backend','server'].forEach(x=>{if(t.includes(x))p.push(x);});return p.length?p.join(', '):(state.scope.detail||'—');}
+  ['android','ios','web','backend','server'].forEach(x=>{if(t.includes(x))p.push(x);});return p.length?p.join(', '):(state.scope.detail||'not set');}
 function designLink(){if(state.design.na)return '(no UI)';return firstUrl(state.design.detail)||(state.design.detail.trim()||'⚠ add link');}
 function normAnswers(){const t=title().trim().toLowerCase().replace(/\s+/g,' ');const lines=['title:'+t];
   CRITERIA.forEach(c=>{const s=state[c.id]; const hasD=s.detail.trim().length>=3;
@@ -377,7 +377,7 @@ function gateCode(){const h=djb2(normAnswers()).toString(36).toUpperCase().padSt
 
 function handText(){
   const waivers=CRITERIA.filter(c=>{const s=state[c.id];return c.req&&!s.na&&!(s.detail.trim().length>=3)&&s.waived&&s.reason.trim().length>=3;});
-  let t=`✅ READY CHECK PASSED${waivers.length?` — ${waivers.length} waiver(s), dev to accept`:''}\n`;
+  let t=`✅ READY CHECK PASSED${waivers.length?` (${waivers.length} waiver(s), dev to accept)`:''}\n`;
   t+=`Ready-Check: ${gateCode()}\n`;
   t+=`Feature: ${title()}\n`;
   t+=`Platforms: ${platforms()}\n`;
@@ -388,12 +388,33 @@ function handText(){
     const s=state[c.id]; const hasD=s.detail.trim().length>=3;
     if(!hasD&&s.waived&&!s.na)return;
     const val=s.na?'N/A':s.detail.trim(); t+=`• [${c.id}] ${c.name} | ${val}\n`;});
-  if(waivers.length){t+=`\nWaivers — PM asks to proceed without these (dev to accept or push back):\n`;
+  if(waivers.length){t+=`\nWaivers (dev to accept or push back):\n`;
     waivers.forEach(c=>{t+=`• [${c.id}] ${c.name} | reason: ${state[c.id].reason.trim()}\n`;});}
   t+=`\nGrooming can start. (Dev: verify this code before pickup.)`;
   return t;
 }
-function copyHand(){navigator.clipboard.writeText(handText()).then(()=>flash('Copied — paste into JIRA / Slack.'),()=>flash('Copy failed.'));}
+function copyHand(){
+  const text=handText();
+  const done=()=>flash('Copied. Paste into JIRA / Slack.');
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done,()=>execCopy(text,done));
+  } else { execCopy(text,done); }
+}
+function execCopy(text,done){
+  try{
+    const ta=document.createElement('textarea'); ta.value=text;
+    ta.style.position='fixed'; ta.style.top='0'; ta.style.left='0'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    const ok=document.execCommand&&document.execCommand('copy'); document.body.removeChild(ta);
+    if(ok){ done(); return; }
+  }catch(e){}
+  selectHandoff();
+  flash('Select-copy blocked here. The hand-off is highlighted; press ⌘/Ctrl+C.');
+}
+function selectHandoff(){ const el=document.getElementById('hoBody'); if(!el)return;
+  try{ const r=document.createRange(); r.selectNodeContents(el);
+    const s=window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    el.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){} }
 function flash(m){const c=document.getElementById('copied');c.textContent=m;setTimeout(()=>{if(c.textContent===m)c.textContent='';},2600);}
 
 function scan(){const t=document.getElementById('prd').value; if(!t.trim()){flash('Paste a PRD first, or just answer below.');return;}
@@ -403,7 +424,7 @@ function scan(){const t=document.getElementById('prd').value; if(!t.trim()){flas
     if(hit){s.checked=true; if(!s.detail)s.detail=hit.replace(/^[#*\->\s]+/,'').trim().slice(0,95);}});
   const low=t.toLowerCase();
   if(!(low.includes('loading')&&low.includes('error'))&&!state.states.na)state.states.checked=false;
-  _code=null; render(); flash('Auto-filled — review each answer.');}
+  _code=null; render(); flash('Auto-filled. Review each answer.');}
 function clearAll(){document.getElementById('prd').value=''; CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false,waived:false,reason:''}); _code=null; render();}
 
 const SAMPLES={
@@ -418,14 +439,14 @@ Design: https://figma.com/file/pf-saved-cards (final, approved).
 Current behavior: today the payment screen always shows a blank card form; nothing is stored.
 Impacted flows: checkout flow, payment screen, order-confirmation surface.
 Edge cases / errors: expired saved card, tokenization fails, no network, user deletes card mid-checkout.
-States — empty: "No saved cards yet"; loading spinner on tokenize; success toast; error: "Couldn't save card, try again".
+States, empty: "No saved cards yet"; loading spinner on tokenize; success toast; error: "Couldn't save card, try again".
 Localized copy: all strings final and localised EN/HI.
-Writer / creator impact: none — listener-side payment change, content team not affected.
+Writer / creator impact: none, listener-side payment change, content team not affected.
 Tracking: fire card_saved, saved_card_used, tokenize_failed events (Mixpanel).
 Dependencies: payments backend team exposes a tokenization API.
 Rollout: feature flag saved_cards, ramp 1% → 10% → 50% → 100%.`
 };
-function loadSample(k){document.getElementById('prd').value=SAMPLES[k]; CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false,waived:false,reason:''}); _code=null; render(); flash('Loaded — click Auto-fill.');}
+function loadSample(k){document.getElementById('prd').value=SAMPLES[k]; CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false,waived:false,reason:''}); _code=null; render(); flash('Loaded. Click Auto-fill.');}
 
 // ── Theme (separate from the engine) ──
 function setTheme(t){document.documentElement.setAttribute('data-theme',t);

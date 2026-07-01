@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Ready Check — live (Cowork)</title>
+<meta name="ready-check-build" content="17" />
+<title>Ready Check (live) · Cowork</title>
 <style>
   :root{ color-scheme: light;
     --bg:#f4f5f7; --panel:#ffffff; --panel2:#f7f8fa; --line:#e4e7ec;
@@ -94,12 +95,22 @@
   .smart{margin-top:18px}
   .smart .sc-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .sc-note{font-size:13px;color:var(--muted);padding:6px 0} .sc-note.ok{color:var(--pass)}
-  .sc-f{border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:7px;padding:9px 12px;margin:8px 0;background:var(--panel2)}
+  .sc-f{border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:7px;padding:9px 12px;margin:8px 0;background:var(--panel2);cursor:pointer;transition:border-color .12s,box-shadow .12s}
+  .sc-f:hover{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand-weak)}
+  .sc-f .jump{font-size:11px;color:var(--brand);margin-top:4px}
   .sc-f.blk{border-left-color:var(--fail);background:var(--fail-weak)}
   .sc-f .sc-h{display:flex;justify-content:space-between;gap:8px;font-size:13px}
   .sc-f .sc-h span{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);font-weight:700}
   .sc-f .sc-i{font-size:12.5px;color:var(--muted);margin-top:3px}
   .sc-f .sc-x{font-size:12.5px;color:var(--ink);margin-top:3px}
+  .sc-next{margin-top:12px;border-top:1px solid var(--line);padding-top:10px;font-size:13px;color:var(--ink)}
+  .sc-next b{color:var(--ink)} .sc-next.ready{color:var(--pass)}
+  .sc-next ol{margin:6px 0 0;padding-left:18px} .sc-next li{margin:3px 0;color:var(--muted)}
+  .sc-fill{font-size:12px;color:var(--pass);margin:2px 0 8px}
+  .prdbox{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-top:10px;font:12px/1.55 ui-monospace,Menlo,monospace;color:var(--code-ink);white-space:pre-wrap;max-height:300px;overflow:auto}
+  .pubrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+  .pubrow input{background:var(--panel);border:1px solid var(--line);border-radius:6px;color:var(--ink);padding:7px 9px;font-size:12.5px}
+  .pubrow input.small{width:150px}
   .foot{margin-top:20px;color:var(--faint);font-size:12px;line-height:1.6}
 </style>
 </head>
@@ -108,29 +119,39 @@
   <header class="top">
     <div class="logo">RC</div>
     <div><h1>Ready Check <span style="font-weight:400;color:var(--muted);font-size:14px">· live</span></h1>
-      <div class="tag">Pocket FM · Claude reviews edge cases in-page — no backend</div></div>
+      <div class="tag">Pocket FM · Claude reviews edge cases in-page, no backend</div></div>
     <div class="hdright"><span class="pill live" id="livePill">Smart check: checking…</span></div>
   </header>
 
   <p class="lead">
     Fill the questions. The deterministic checks and the gate code run in-page; the
-    <b>smart edge-case review is done by Claude live</b> (via Cowork) — so you catch the gaps a
+    <b>smart edge-case review is done by Claude live</b> (via Cowork), so you catch the gaps a
     checklist can't, before dev ever sees the PRD. When Ready, copy the hand-off for dev.
   </p>
 
   <div class="grid">
     <div>
       <div class="card">
-        <div class="hd"><h2>Start from your PRD (optional)</h2></div>
+        <div class="hd"><h2>Paste your PRD</h2></div>
         <div class="bd">
           <div class="scanrow">
-            <button class="btn primary" onclick="scan()">Auto-fill from PRD</button>
+            <button class="btn primary" id="smartBtn" onclick="smartCheck()">Check my PRD →</button>
             <button class="btn bad" onclick="loadSample('thin')">Load rough example</button>
             <button class="btn good" onclick="loadSample('ready')">Load complete example</button>
             <button class="btn ghost" onclick="clearAll()">Reset</button>
           </div>
-          <textarea id="prd" class="prd" placeholder="Paste your PRD / ticket / doc here and click Auto-fill — or fill the questions below directly."></textarea>
-          <p class="hint">Deterministic checks run locally. The smart check sends your answers to Claude inside Cowork.</p>
+          <textarea id="prd" class="prd" placeholder="Paste your PRD text, or a JIRA link (I'll fetch it), then click Check my PRD. Claude fills what it covers, lists what's missing, and tells you what to do next."></textarea>
+          <p class="hint">One click does it all. Or fill the questions below directly. Nothing leaves Cowork.</p>
+        </div>
+      </div>
+
+      <div class="card smart" style="margin-top:16px">
+        <div class="hd"><h2>Smart review by Claude</h2></div>
+        <div class="bd">
+          <div class="sc-head">
+            <span class="hint" style="margin:0">Reads the PRD, fills what it covers, flags missing edge cases, and tells you what to do next.</span>
+          </div>
+          <div id="smartOut"><div class="sc-note">Paste a PRD above and click <b>Check my PRD →</b>.</div></div>
         </div>
       </div>
 
@@ -140,14 +161,17 @@
         <div class="bd" id="criteria"></div>
       </div>
 
-      <div class="card smart">
-        <div class="hd"><h2>Smart review — by Claude</h2></div>
+      <div class="card" style="margin-top:16px">
+        <div class="hd"><h2>PRD &amp; publish</h2></div>
         <div class="bd">
-          <div class="sc-head">
-            <button class="btn primary" id="smartBtn" onclick="smartCheck()">Run smart check (Claude)</button>
-            <span class="hint" style="margin:0">Finds missing edge cases &amp; vague answers you can fix now.</span>
+          <div class="scanrow">
+            <button class="btn primary" onclick="genPrd()">Generate PRD</button>
+            <button class="btn" onclick="copyPrd()">Copy PRD</button>
           </div>
-          <div id="smartOut"><div class="sc-note">Fill the feature, then run the smart check.</div></div>
+          <p class="hint">Builds a clean 11-section PRD from your answers, ready to publish to JIRA.</p>
+          <div id="prdOut" class="prdbox" style="display:none"></div>
+          <div id="pubRow" class="pubrow" style="display:none"></div>
+          <p class="hint" id="pubMsg" style="min-height:14px"></p>
         </div>
       </div>
     </div>
@@ -182,8 +206,17 @@
 </div>
 
 <script>
+/* ================= CONFIG (edit this one line per workspace) =================
+   JIRA-link fetching: set ATLASSIAN_MCP to YOUR Atlassian connector's tool-id
+   prefix, i.e. "mcp__<connector-id>__". Leave it '' to disable fetching (JIRA
+   links then just prompt the PM to paste the ticket text or use /ready-check in
+   chat). When you set an id, also declare the two Atlassian tool names in the
+   artifact's mcp_tools when it's registered. Everything else needs no config. */
+const ATLASSIAN_MCP = 'mcp__275a1dde-9ae7-4923-a3e9-3b254b6a2d98__';
+/* =========================================================================== */
+
 const CRITERIA = [
-  {id:'goal',  req:true,  name:'What problem are we solving?', why:'One line — the user pain and why now.',
+  {id:'goal',  req:true,  name:'What problem are we solving?', why:'One line: the user pain and why now.',
     eg:'e.g. Returning users re-enter card details every time and drop at payment.',
     kw:/\b(goal|problem|objective|why|purpose|pain)\b/i},
   {id:'metric',req:true,  name:'How will we know it worked?', why:'A number we can check later.',
@@ -191,13 +224,13 @@ const CRITERIA = [
     kw:/\b(success metric|kpi|measur|conversion|retention|dau|mau|ctr|% ?(lift|increase)|target|uplift)\b/i},
   {id:'design',req:true,  name:'Where is the design?', why:'Paste the Figma / mock link. Skip only if there is no UI.',
     eg:'e.g. https://figma.com/file/pf-saved-cards (final, approved)',
-    kw:/(figma\.com|zeplin|design (link|attached)|mockup|wireframe|https?:\/\/)/i, na:'No screen changes (backend only)'},
-  {id:'scope', req:true,  name:'Which platforms — and what’s NOT included?', why:'Where it ships, and what you are deliberately leaving out.',
+    kw:/(figma\.com|figma\.io|zeplin|sketch\.com|design ?(link|attached|:)|mockup|wireframe|prototype)/i, na:'No screen changes (backend only)'},
+  {id:'scope', req:true,  name:'Which platforms, and what’s NOT included?', why:'Where it ships, and what you are deliberately leaving out.',
     eg:'e.g. Android + iOS. Not: web, UPI autopay.',
     kw:/\b(out[- ]of[- ]scope|not in scope|platforms?:|android|ios|web|backend)\b/i},
   {id:'oldbeh',req:true,  name:'What happens today?', why:'How the feature behaves right now, before this change.',
     eg:'e.g. The payment screen always shows a blank card form; nothing is saved.',
-    kw:/\b(current behavior|currently|today the|existing behavior|old version|as[- ]is|right now)\b/i, na:'Brand-new — nothing exists yet'},
+    kw:/\b(current behavior|currently|today the|existing behavior|old version|as[- ]is|right now)\b/i, na:'Brand-new, nothing exists yet'},
   {id:'flows', req:true,  name:'Which screens or flows does it touch?', why:'So dev knows what else might be affected.',
     eg:'e.g. Checkout flow, payment screen, order-confirmation.',
     kw:/\b(impacted|affects|touches|flow|screen|surface|entry point)\b/i},
@@ -211,11 +244,11 @@ const CRITERIA = [
     eg:'e.g. All strings final, localised EN/HI.',
     kw:/\b(localiz|localis|locale|translation|copy final|strings? (final|locked))\b/i},
   {id:'writer',req:true,  name:'Does this affect writers or creators?', why:'If content/creator side is touched, say how. If not, tick skip.',
-    eg:'e.g. No — listener-side payment change only.',
+    eg:'e.g. No, listener-side payment change only.',
     kw:/\b(writer|creator|author|content (team|ops)|studio)\b/i, na:'No writer/creator impact'},
   {id:'events',req:true,  name:'What should we track?', why:'The events/analytics to fire.',
     eg:'e.g. card_saved, saved_card_used, tokenize_failed.',
-    kw:/\b(event|analytics|instrument|track(ing)?|mixpanel|amplitude|clevertap)\b/i},
+    kw:/\b(event|analytics|instrument|tracking|mixpanel|amplitude|clevertap|segment)\b/i},
   {id:'deps',  req:false, name:'Does it depend on another team or API?', why:'Nice to flag early.',
     eg:'e.g. Needs payments backend to expose a tokenization API.',
     kw:/\b(depend|api|other team|backend team|blocked by|prerequisite)\b/i},
@@ -247,7 +280,7 @@ function render(){
             oninput="setDetail('${c.id}',this.value)" ${(s.na||s.waived)?'disabled':''}/>
           ${c.na?`<label class="na"><input type="checkbox" ${s.na?'checked':''} onchange="setNa('${c.id}',this.checked)"> ${c.na}</label>`:''}
           ${c.req&&!s.na?`<div class="waive">
-            <label class="wl"><input type="checkbox" ${s.waived?'checked':''} onchange="setWaived('${c.id}',this.checked)"> Can't provide — waive with a reason for dev</label>
+            <label class="wl"><input type="checkbox" ${s.waived?'checked':''} onchange="setWaived('${c.id}',this.checked)"> Can't provide? Waive with a reason for dev</label>
             ${s.waived?`<input class="detail reason" placeholder="Reason dev should accept (e.g. metric owned by growth, decision pending this week)" value="${s.reason.replace(/"/g,'&quot;')}" oninput="setReason('${c.id}',this.value)"/>`:''}
           </div>`:''}
         </div>
@@ -288,11 +321,11 @@ function compute(){
   st.className='stamp '+(cleared?'cleared':'');
   document.getElementById('stampbig').textContent=cleared?'READY':'NOT READY YET';
   document.getElementById('stampsub').textContent=cleared
-    ?(waivers.length?`Ready with ${waivers.length} waiver(s) — dev to accept.`:'Complete brief. Hand it to dev with confidence.')
+    ?(waivers.length?`Ready with ${waivers.length} waiver(s), dev to accept.`:'Complete brief. Hand it to dev with confidence.')
     :`Add the ${miss.length} item${miss.length>1?'s':''} below, then hand off.`;
 
   const tl=document.getElementById('todolist'); tl.innerHTML='';
-  if(miss.length===0&&optMiss.length===0){tl.innerHTML='<div class="t none">Nothing left — even the optional bits.</div>';}
+  if(miss.length===0&&optMiss.length===0){tl.innerHTML='<div class="t none">Nothing left, even the optional bits.</div>';}
   else{
     miss.forEach(c=>tl.insertAdjacentHTML('beforeend',
       `<div class="t" onclick="focusCrit('${c.id}')"><span class="dot"></span><span><b>${c.name}</b></span></div>`));
@@ -304,7 +337,8 @@ function compute(){
   if(cleared){document.getElementById('hoCode').textContent=gateCode();
     document.getElementById('hoBody').textContent=handText();}
 }
-function focusCrit(id){const el=document.getElementById('crit-'+id);
+function focusCrit(id){const el=document.getElementById('crit-'+id); if(!el)return;
+  el.classList.add('flagged');
   el.scrollIntoView({behavior:'smooth',block:'center'}); const i=el.querySelector('input.detail'); if(i&&!i.disabled)setTimeout(()=>i.focus(),300);}
 
 // ── Deterministic engine — byte-identical to scripts/ready-check.mjs ──
@@ -313,7 +347,7 @@ function firstUrl(s){const m=(s||'').match(/https?:\/\/\S+/);return m?m[0]:null;
 function title(){const t=document.getElementById('prd').value.split('\n').find(l=>l.trim().length>3);
   return (t||state.goal.detail||'Untitled feature').replace(/^#+\s*/,'').replace(/^(title|goal)[:\s]*/i,'').trim().slice(0,46);}
 function platforms(){const t=(document.getElementById('prd').value+' '+state.scope.detail).toLowerCase();const p=[];
-  ['android','ios','web','backend','server'].forEach(x=>{if(t.includes(x))p.push(x);});return p.length?p.join(', '):(state.scope.detail||'—');}
+  ['android','ios','web','backend','server'].forEach(x=>{if(t.includes(x))p.push(x);});return p.length?p.join(', '):(state.scope.detail||'not set');}
 function designLink(){if(state.design.na)return '(no UI)';return firstUrl(state.design.detail)||(state.design.detail.trim()||'⚠ add link');}
 function normAnswers(){const t=title().trim().toLowerCase().replace(/\s+/g,' ');const lines=['title:'+t];
   CRITERIA.forEach(c=>{const s=state[c.id]; const hasD=s.detail.trim().length>=3;
@@ -328,7 +362,7 @@ function gateCode(){const h=djb2(normAnswers()).toString(36).toUpperCase().padSt
 
 function handText(){
   const waivers=CRITERIA.filter(c=>{const s=state[c.id];return c.req&&!s.na&&!(s.detail.trim().length>=3)&&s.waived&&s.reason.trim().length>=3;});
-  let t=`✅ READY CHECK PASSED${waivers.length?` — ${waivers.length} waiver(s), dev to accept`:''}\n`;
+  let t=`✅ READY CHECK PASSED${waivers.length?` (${waivers.length} waiver(s), dev to accept)`:''}\n`;
   t+=`Ready-Check: ${gateCode()}\n`;
   t+=`Feature: ${title()}\n`;
   t+=`Platforms: ${platforms()}\n`;
@@ -339,12 +373,33 @@ function handText(){
     const s=state[c.id]; const hasD=s.detail.trim().length>=3;
     if(!hasD&&s.waived&&!s.na)return;
     const val=s.na?'N/A':s.detail.trim(); t+=`• [${c.id}] ${c.name} | ${val}\n`;});
-  if(waivers.length){t+=`\nWaivers — PM asks to proceed without these (dev to accept or push back):\n`;
+  if(waivers.length){t+=`\nWaivers (dev to accept or push back):\n`;
     waivers.forEach(c=>{t+=`• [${c.id}] ${c.name} | reason: ${state[c.id].reason.trim()}\n`;});}
   t+=`\nGrooming can start. (Dev: verify this code before pickup.)`;
   return t;
 }
-function copyHand(){navigator.clipboard.writeText(handText()).then(()=>flash('Copied — paste into JIRA / Slack.'),()=>flash('Copy failed.'));}
+function copyHand(){
+  const text=handText();
+  const done=()=>flash('Copied. Paste into JIRA / Slack.');
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done,()=>execCopy(text,done));
+  } else { execCopy(text,done); }
+}
+function execCopy(text,done){
+  try{
+    const ta=document.createElement('textarea'); ta.value=text;
+    ta.style.position='fixed'; ta.style.top='0'; ta.style.left='0'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    const ok=document.execCommand&&document.execCommand('copy'); document.body.removeChild(ta);
+    if(ok){ done(); return; }
+  }catch(e){}
+  selectHandoff();
+  flash('Select-copy blocked here. The hand-off is highlighted; press ⌘/Ctrl+C.');
+}
+function selectHandoff(){ const el=document.getElementById('hoBody'); if(!el)return;
+  try{ const r=document.createRange(); r.selectNodeContents(el);
+    const s=window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    el.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){} }
 function flash(m){const c=document.getElementById('copied');c.textContent=m;setTimeout(()=>{if(c.textContent===m)c.textContent='';},2600);}
 
 function scan(){const t=document.getElementById('prd').value; if(!t.trim()){flash('Paste a PRD first, or just answer below.');return;}
@@ -354,8 +409,9 @@ function scan(){const t=document.getElementById('prd').value; if(!t.trim()){flas
     if(hit){s.checked=true; if(!s.detail)s.detail=hit.replace(/^[#*\->\s]+/,'').trim().slice(0,95);}});
   const low=t.toLowerCase();
   if(!(low.includes('loading')&&low.includes('error'))&&!state.states.na)state.states.checked=false;
-  render(); flash('Auto-filled — review each answer.');}
-function clearAll(){document.getElementById('prd').value=''; CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false,waived:false,reason:''}); document.getElementById('smartOut').innerHTML='<div class="sc-note">Fill the feature, then run the smart check.</div>'; render();}
+  render(); flash('Auto-filled. Review each answer.');}
+function resetPrd(){ _srcJira=null; _prdText=''; ['prdOut','pubRow'].forEach(id=>{const e=document.getElementById(id); if(e)e.style.display='none';}); const m=document.getElementById('pubMsg'); if(m)m.textContent=''; }
+function clearAll(){document.getElementById('prd').value=''; CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false,waived:false,reason:''}); document.getElementById('smartOut').innerHTML='<div class="sc-note">Fill the feature, then run the smart check.</div>'; resetPrd(); render();}
 
 const SAMPLES={
 thin:`Saved payment cards at checkout
@@ -369,14 +425,14 @@ Design: https://figma.com/file/pf-saved-cards (final, approved).
 Current behavior: today the payment screen always shows a blank card form; nothing is stored.
 Impacted flows: checkout flow, payment screen, order-confirmation surface.
 Edge cases / errors: expired saved card, tokenization fails, no network, user deletes card mid-checkout.
-States — empty: "No saved cards yet"; loading spinner on tokenize; success toast; error: "Couldn't save card, try again".
+States, empty: "No saved cards yet"; loading spinner on tokenize; success toast; error: "Couldn't save card, try again".
 Localized copy: all strings final and localised EN/HI.
-Writer / creator impact: none — listener-side payment change, content team not affected.
+Writer / creator impact: none, listener-side payment change, content team not affected.
 Tracking: fire card_saved, saved_card_used, tokenize_failed events (Mixpanel).
 Dependencies: payments backend team exposes a tokenization API.
 Rollout: feature flag saved_cards, ramp 1% → 10% → 50% → 100%.`
 };
-function loadSample(k){document.getElementById('prd').value=SAMPLES[k]; CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false,waived:false,reason:''}); render(); flash('Loaded — click Auto-fill.');}
+function loadSample(k){document.getElementById('prd').value=SAMPLES[k]; CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false,waived:false,reason:''}); resetPrd(); render(); flash('Loaded. Click Check my PRD.');}
 
 // ── Smart check — Claude via Cowork bridge (no backend) ──
 function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
@@ -384,36 +440,210 @@ function hasBridge(){return !!(window.cowork&&typeof window.cowork.askClaude==='
 function currentAnswers(){const a={}; CRITERIA.forEach(c=>{const s=state[c.id];
   a[c.id]= s.na?'(N/A)' : (s.waived&&s.reason.trim()?'(waived: '+s.reason.trim()+')' : s.detail.trim()); }); return a;}
 
+function askText(res){ let t = typeof res==='string' ? res : (res && (res.text||res.output||res.completion||(res.content&&res.content[0]&&res.content[0].text)))||''; if(!t && res && typeof res==='object') t=''; return String(t||''); }
+function badReply(t){ return !t || !t.trim() || /inference did not complete|did not complete|\bincomplete\b|^error/i.test(t.trim()); }
+function withTimeout(p,ms){ return Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]); }
+async function askClaudeRetry(prompt){
+  for(let i=0;i<2;i++){
+    let t=''; try{ t=askText(await withTimeout(window.cowork.askClaude(prompt,[]),30000)); }catch(e){ t=''; }
+    if(!badReply(t)) return t;
+  }
+  return '';
+}
+let _loadTimer=null;
+function startLoading(out){
+  const msgs=['Reading your PRD…','Filling what it already covers…','Hunting for missing edge cases…','Checking answers are specific and measurable…','Almost there…'];
+  let i=0; out.innerHTML='<div class="sc-note" id="scLoad">'+msgs[0]+'</div>';
+  _loadTimer=setInterval(()=>{ i=(i+1)%msgs.length; const el=document.getElementById('scLoad'); if(el)el.textContent=msgs[i]; },1300);
+}
+function stopLoading(){ if(_loadTimer){clearInterval(_loadTimer);_loadTimer=null;} }
+
+// ── JIRA fetch via the Atlassian connector (Cowork callMcpTool bridge) ──
+// Connector id comes from ATLASSIAN_MCP in the CONFIG block at the top.
+const JIRA_GET=ATLASSIAN_MCP+'getJiraIssue';
+const JIRA_RES=ATLASSIAN_MCP+'getAccessibleAtlassianResources';
+const JIRA_UPDATE=ATLASSIAN_MCP+'editJiraIssue';
+const JIRA_CREATE=ATLASSIAN_MCP+'createJiraIssue';
+let _srcJira=null;   // {key, cloudId} of a fetched ticket, so publish can update it
+function hasMcp(){ return !!(window.cowork && typeof window.cowork.callMcpTool==='function'); }
+function jiraEnabled(){ return !!ATLASSIAN_MCP && hasMcp(); }
+function isJiraUrl(u){ return /atlassian\.net/i.test(u); }
+function unwrap(r){ if(!r) return null; try{ return r.structuredContent ?? (r.content&&r.content[0]&&JSON.parse(r.content[0].text)); }catch(e){ return r.structuredContent||null; } }
+async function jiraIssue(cloudId,key){
+  const r=await window.cowork.callMcpTool(JIRA_GET,{cloudId,issueIdOrKey:key,fields:['summary','description'],responseContentFormat:'markdown'});
+  const d=unwrap(r); const node=d&&d.issues&&d.issues.nodes&&d.issues.nodes[0]; return node||null;
+}
+async function fetchJira(url){
+  const key=(url.match(/([A-Z][A-Z0-9]+-\d+)/)||[])[1]; if(!key) throw new Error('No issue key in that URL.');
+  const host=url.replace(/^https?:\/\//,'').split('/')[0];
+  let node=null, usedCloud=host; try{ node=await jiraIssue(host,key); }catch(e){}
+  if(!node){ let res=null; try{ res=unwrap(await window.cowork.callMcpTool(JIRA_RES,{})); }catch(e){}
+    const cid=Array.isArray(res)&&res[0]&&res[0].id; if(cid){ node=await jiraIssue(cid,key); usedCloud=cid; } }
+  if(!node) throw new Error('Ticket not found or no access.');
+  _srcJira={key, cloudId:usedCloud};                 // remember the source so publish can update it
+  const f=node.fields||{}; const desc=typeof f.description==='string'?f.description:(f.description?JSON.stringify(f.description):'');
+  return `${node.key}: ${f.summary||''}\n\n${desc}`;
+}
+
+// ── PRD generation (mirrors scripts/ready-check.mjs renderPrd) + publish ──
+let _prdText='';
+const PRD_SECTIONS=[['goal','1. Problem & goal'],['metric','2. Success metric'],['design','3. Design'],['scope','4. Scope & platforms'],['oldbeh','5. What happens today'],['flows','6. Impacted flows & surfaces'],['edge','7. Edge cases & error states'],['states','8. UI states (empty / loading / done / error)'],['l10n','9. Localized values / copy'],['writer','10. Writer / creator impact'],['events','11. Instrumentation / events']];
+const PRD_NA={design:'No UI (backend only).',oldbeh:'Brand-new feature; nothing exists today.',states:'Not user-facing.',writer:'No writer/creator impact.'};
+function prdVal(id){const c=CRITERIA.find(x=>x.id===id); const s=state[id]||{};
+  if(c&&c.na&&s.na) return PRD_NA[id]||'N/A';
+  const hasD=s.detail&&s.detail.trim().length>=3;
+  if(!hasD&&s.waived&&s.reason&&s.reason.trim().length>=3) return '_Waived (dev to accept): '+s.reason.trim()+'_';
+  const d=(s.detail||'').trim(); return d||'_(not provided)_';}
+function renderPrdJS(){const out=[]; out.push('# PRD — '+title()); out.push('');
+  const code=CRITERIA.filter(c=>c.req).every(sat)?gateCode():null;
+  out.push('> Ready Check: **'+(code||'not yet ready')+'** · '+new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}));
+  out.push('');
+  PRD_SECTIONS.forEach(([id,h])=>{out.push('## '+h); out.push(prdVal(id)); out.push('');});
+  const deps=prdVal('deps'),rollout=prdVal('rollout');
+  out.push('## Dependencies'); out.push(deps==='_(not provided)_'?'None noted.':deps); out.push('');
+  out.push('## Rollout'); out.push(rollout==='_(not provided)_'?'Standard release.':rollout); out.push('');
+  const w=CRITERIA.filter(c=>{const s=state[c.id];return c.req&&!s.na&&!(s.detail.trim().length>=3)&&s.waived&&s.reason.trim().length>=3;});
+  if(w.length){out.push('## Waivers (dev to accept)'); w.forEach(c=>out.push('- **'+c.name+'**: '+state[c.id].reason.trim())); out.push('');}
+  return out.join('\n').trim()+'\n';}
+function genPrd(){ _prdText=renderPrdJS();
+  const box=document.getElementById('prdOut'); box.style.display='block'; box.textContent=_prdText;
+  const pr=document.getElementById('pubRow'); pr.style.display='flex';
+  if(_srcJira&&_srcJira.key){ pr.innerHTML='<button class="btn primary" onclick="publishJira()">Update '+_srcJira.key+' in JIRA</button><span class="hint" style="margin:0">Writes this PRD into the ticket description.</span>'; }
+  else if(jiraEnabled()){ pr.innerHTML='<input class="small" id="projKey" placeholder="Project key (e.g. PF)"><input class="small" id="issType" value="Story"><button class="btn primary" onclick="publishJira()">Create JIRA ticket</button>'; }
+  else { pr.innerHTML='<span class="hint" style="margin:0">JIRA publishing is off (set ATLASSIAN_MCP). Use Copy PRD.</span>'; }
+  document.getElementById('pubMsg').textContent='';
+  box.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+function copyPrd(){ if(!_prdText) genPrd(); const t=_prdText; const done=()=>flashPub('PRD copied. Paste into JIRA / doc.');
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done,()=>execCopyText(t,done)); } else execCopyText(t,done); }
+function execCopyText(text,done){ try{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();const ok=document.execCommand&&document.execCommand('copy');document.body.removeChild(ta);if(ok){done();return;}}catch(e){} flashPub('Copy blocked — select the PRD box and press ⌘/Ctrl+C.'); }
+function flashPub(m){ document.getElementById('pubMsg').textContent=m; }
+async function jiraCloudId(){ try{ const res=unwrap(await window.cowork.callMcpTool(JIRA_RES,{})); return Array.isArray(res)&&res[0]&&res[0].id; }catch(e){ return null; } }
+async function publishJira(){
+  if(!_prdText) genPrd();
+  if(!jiraEnabled()){ flashPub('JIRA publishing is off. Use Copy PRD.'); return; }
+  const btn=document.querySelector('#pubRow .btn'); if(btn) btn.disabled=true; flashPub('Publishing to JIRA…');
+  try{
+    if(_srcJira&&_srcJira.key){
+      // Append the PRD rather than overwrite — don't destroy existing ticket content.
+      let existing='';
+      try{ const g=unwrap(await window.cowork.callMcpTool(JIRA_GET,{cloudId:_srcJira.cloudId,issueIdOrKey:_srcJira.key,fields:['description'],responseContentFormat:'markdown'}));
+        const n=g&&g.issues&&g.issues.nodes&&g.issues.nodes[0]; const f=n&&n.fields; existing=(f&&typeof f.description==='string')?f.description:''; }catch(e){}
+      let body;
+      if(existing && existing.includes('# PRD —')){ body=existing.slice(0,existing.indexOf('# PRD —')).trim(); body=(body?body+'\n\n':'')+_prdText; } // re-publish: replace the old PRD block
+      else if(existing.trim()){ body=existing.trim()+'\n\n---\n\n'+_prdText; }                                                         // append below existing content
+      else { body=_prdText; }
+      const r=await window.cowork.callMcpTool(JIRA_UPDATE,{cloudId:_srcJira.cloudId,issueIdOrKey:_srcJira.key,fields:{description:body},contentFormat:'markdown'});
+      const d=unwrap(r); if(d&&d.error) throw new Error(d.message||'update failed');
+      flashPub('✓ Updated '+_srcJira.key+' — PRD added to the ticket description.');
+    } else {
+      const proj=(document.getElementById('projKey').value||'').trim().toUpperCase();
+      const typ=(document.getElementById('issType').value||'Story').trim();
+      if(!proj){ flashPub('Enter a project key first (e.g. PF).'); if(btn) btn.disabled=false; return; }
+      const cloudId=await jiraCloudId(); if(!cloudId) throw new Error('No Atlassian site access.');
+      const r=await window.cowork.callMcpTool(JIRA_CREATE,{cloudId,projectKey:proj,issueTypeName:typ,summary:title(),description:_prdText,contentFormat:'markdown'});
+      const d=unwrap(r); if(d&&d.error) throw new Error(d.message||'create failed');
+      const node=(d&&d.issues&&d.issues.nodes&&d.issues.nodes[0])||d; const key=node&&(node.key||node.issueKey);
+      flashPub('✓ Created '+(key||'ticket')+' in JIRA.'); if(key){ _srcJira={key, cloudId}; }
+    }
+  }catch(e){ flashPub('Publish failed: '+String(e&&e.message||e)+'. Use Copy PRD instead.'); }
+  const b=document.querySelector('#pubRow .btn'); if(b) b.disabled=false;
+}
+
 async function smartCheck(){
   const btn=document.getElementById('smartBtn'); const out=document.getElementById('smartOut');
-  document.querySelectorAll('.crit.flagged').forEach(e=>e.classList.remove('flagged'));
-  if(!hasBridge()){out.innerHTML='<div class="sc-note">The live smart check runs inside Cowork. Opened in a plain browser? Use the deterministic checks here, then run <code>/ready-check</code> in Claude for the smart pass.</div>';return;}
-  const answers=currentAnswers();
-  btn.disabled=true; btn.textContent='Claude is reviewing…'; out.innerHTML='<div class="sc-note">Reviewing the PRD for missing edge cases and vague answers…</div>';
-  const prompt=`You are a senior product + engineering reviewer doing a pre-grooming Ready Check on a PRD. `
-    +`Review the answers and find: (1) important edge cases or error states the PRD does NOT cover, and (2) answers that are vague or not measurable. `
-    +`Only raise things a PM can fix from the product side — do NOT propose schema, security design, or implementation. `
-    +`Map each finding to one of these ids: ${CRITERIA.map(c=>c.id).join(', ')}. `
-    +`Return ONLY a JSON array (max 8), each item {"id":"<rubric id>","severity":"blocker|warning","issue":"<one plain line>","fix":"<one concrete line>"}. `
-    +`If everything is solid, return []. Feature: ${title()}. Answers: ${JSON.stringify(answers)}`;
+  if(btn.dataset.busy==='1') return;                 // ignore double-clicks while a run is in flight
+  btn.dataset.busy='1'; btn.disabled=true;
   try{
-    const res=await window.cowork.askClaude(prompt,[answers]);
-    let text = typeof res==='string' ? res : (res && (res.text || res.output || (res.content&&res.content[0]&&res.content[0].text))) || '';
-    if(!text && res) text=JSON.stringify(res);
-    let findings=null; try{ findings=JSON.parse(String(text).replace(/```json|```/g,'').trim()); }catch(e){ const m=String(text).match(/\[[\s\S]*\]/); if(m){try{findings=JSON.parse(m[0]);}catch(e2){}} }
-    if(Array.isArray(findings)&&findings.length){
-      out.innerHTML=findings.map(f=>`<div class="sc-f ${f.severity==='blocker'?'blk':'wn'}">
+    document.querySelectorAll('.crit.flagged').forEach(e=>e.classList.remove('flagged'));
+    if(!hasBridge()){out.innerHTML='<div class="sc-note">The live smart check runs inside Cowork. Opened in a plain browser? Use the deterministic checks here, then run <code>/ready-check</code> in Claude for the smart pass.</div>';return;}
+    let prdRaw=document.getElementById('prd').value.trim();
+    if(/^https?:\/\/\S+$/i.test(prdRaw)){                                        // a bare link
+      if(isJiraUrl(prdRaw) && jiraEnabled()){                                    // fetch the ticket via the connector
+        btn.textContent='Fetching…'; out.innerHTML='<div class="sc-note">Fetching the JIRA ticket…</div>';
+        try{ const fetched=await fetchJira(prdRaw);
+          if(!fetched || fetched.replace(/^[A-Z0-9-]+:\s*/,'').trim().length<10) throw new Error('The ticket has little text to check.');
+          document.getElementById('prd').value=fetched; prdRaw=fetched.trim(); flash('Fetched the ticket.');
+        }catch(e){ out.innerHTML='<div class="sc-note">Couldn\'t fetch that ticket ('+escapeHtml(String(e&&e.message||e))+'). Make sure the Atlassian connector is authorized and you can access that project, or paste the ticket <b>text</b> instead.</div>'; flash('Couldn\'t fetch; paste text.'); return; }
+      } else {
+        out.innerHTML='<div class="sc-note">That looks like a link. Paste the PRD <b>text</b> here, or run <code>/ready-check &lt;link&gt;</code> in a Cowork chat to fetch it.</div>';
+        flash('Paste the ticket text, not the link.'); return;
+      }
+    }
+    if(!prdRaw && CRITERIA.filter(c=>sat(c)).length===0){                         // nothing to check; skip the model call
+      out.innerHTML='<div class="sc-note">Paste your PRD in the box above (or fill the questions on the left), then click <b>Check my PRD →</b>.</div>';
+      flash('Add your PRD first.'); return;
+    }
+    // 1) Deterministic baseline fill from the PRD (instant; a floor even if the model call fails).
+    let filled=0;
+    if(prdRaw){ const before=CRITERIA.filter(c=>c.req&&sat(c)).length; scan(); filled=Math.max(0,CRITERIA.filter(c=>c.req&&sat(c)).length-before); }
+    // 2) Claude reads the PRD, extracts the fields it covers, and lists the gaps.
+    btn.textContent='Reviewing…'; startLoading(out);
+    const prd=prdRaw.slice(0,4000);
+    const answers=currentAnswers();
+    const ids=CRITERIA.map(c=>c.id).join(',');
+    const prompt=`A PM is running a Ready Check. Return ONE JSON object only, no markdown, no commentary.\n\n`
+      +`PRD TEXT:\n${prd||'(none)'}\n\n`
+      +`CURRENT ANSWERS the PM has entered (id: value; these may improve on the PRD):\n${JSON.stringify(answers)}\n\n`
+      +`Judge readiness from the CURRENT ANSWERS, not just the PRD. If an answer already covers a gap, do NOT report it as a finding.\n`
+      +`Return exactly: {"fills":{"<id>":"<answer <=16 words, ONLY for ids the PRD covers that are still blank>"},`
+      +`"findings":[{"id":"<id>","severity":"blocker|warning","issue":"<=12 words","fix":"<=12 words"}]}\n`
+      +`ids: ${ids}. findings = up to 5 missing edge cases / error states or vague, unmeasurable answers; product-level only (no schema, security, or implementation). Start with { and end with }.`;
+    let text=''; try{ text=await askClaudeRetry(prompt); }catch(e){ text=''; }
+    stopLoading();
+    const parsed=extractJson(text);
+    // apply the model's fills to fields the PM hasn't already answered
+    let llmFilled=0;
+    const fills=parsed && !Array.isArray(parsed) && parsed.fills;
+    if(fills && typeof fills==='object'){ CRITERIA.forEach(c=>{const v=fills[c.id]; const s=state[c.id];
+      if(typeof v==='string' && v.trim() && v.trim().toLowerCase()!=='null' && !(s.detail.trim().length>=3) && !s.na && !s.waived){ s.detail=v.trim(); s.checked=true; llmFilled++; }}); }
+    render();
+    const totalFilled=filled+llmFilled;
+    const findings=(parsed && Array.isArray(parsed.findings)) ? parsed.findings : (Array.isArray(parsed)?parsed:[]);
+    let html='';
+    if(totalFilled) html+=`<div class="sc-fill">✓ Filled ${totalFilled} field${totalFilled>1?'s':''} the PRD covers. Missing ones are marked “needed” below.</div>`;
+    if(findings.length){
+      html+=findings.slice(0,6).map(f=>`<div class="sc-f ${f.severity==='blocker'?'blk':'wn'}" onclick="focusCrit('${(f.id||'').replace(/[^a-z0-9]/gi,'')}')" title="Click to jump to this field">
         <div class="sc-h"><b>${escapeHtml(nameFor(f.id)||f.id||'')}</b><span>${escapeHtml(f.severity||'')}</span></div>
         <div class="sc-i">${escapeHtml(f.issue||'')}</div>
-        <div class="sc-x">Fix: ${escapeHtml(f.fix||'')}</div></div>`).join('');
-      findings.forEach(f=>{const el=document.getElementById('crit-'+f.id); if(el){el.classList.add('flagged');}});
-    } else if(Array.isArray(findings)){
-      out.innerHTML='<div class="sc-note ok">Claude found no missing edge cases or vague answers. This reads as solid.</div>';
+        <div class="sc-x">Fix: ${escapeHtml(f.fix||'')}</div>
+        <div class="jump">→ Click to edit this answer</div></div>`).join('');
+      findings.forEach(f=>{const el=document.getElementById('crit-'+f.id); if(el)el.classList.add('flagged');});
+    } else if(parsed){
+      html+='<div class="sc-note ok">No missing edge cases or vague answers. This reads as solid.</div>';
+    } else if(text){
+      html+='<div class="sc-note"><b>Claude\'s notes</b> (returned as text, not cards):<br>'+escapeHtml(text).slice(0,1200)+'</div>';
     } else {
-      out.innerHTML='<div class="sc-note">'+escapeHtml(String(text)).slice(0,1400)+'</div>';
+      html+='<div class="sc-note">Couldn\'t reach Claude for the review just now. Your fields and the gate are done regardless; click <b>Check my PRD →</b> to retry.</div>';
     }
-  }catch(e){ out.innerHTML='<div class="sc-note">Smart check couldn\'t run: '+escapeHtml(String(e&&e.message||e))+'</div>'; }
-  btn.disabled=false; btn.textContent='Run smart check (Claude)';
+    html+=nextStepHtml(findings);
+    out.innerHTML=html;
+    out.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }catch(e){
+    out.innerHTML='<div class="sc-note">Something hiccuped during the review ('+escapeHtml(String(e&&e.message||e))+'). Your fields and the gate on the left are still accurate; click <b>Check my PRD →</b> to try again.</div>';
+  }finally{
+    stopLoading();
+    btn.dataset.busy='0'; btn.disabled=false; btn.textContent='Check my PRD →';
+  }
+}
+function extractJson(text){
+  if(!text) return null;
+  const t=String(text).replace(/```json/gi,'').replace(/```/g,'').trim();
+  const tryP=s=>{ try{ return JSON.parse(s); }catch(e){ return undefined; } };
+  let v=tryP(t); if(v!==undefined) return v;
+  const oi=t.indexOf('{'), oj=t.lastIndexOf('}'); if(oi>=0&&oj>oi){ v=tryP(t.slice(oi,oj+1)); if(v!==undefined) return v; }
+  const ai=t.indexOf('['), aj=t.lastIndexOf(']'); if(ai>=0&&aj>ai){ v=tryP(t.slice(ai,aj+1)); if(v!==undefined) return v; }
+  return null; }
+function nextStepHtml(findings){
+  const reqs=CRITERIA.filter(c=>c.req); const missing=reqs.filter(c=>!sat(c));
+  const blockers=(findings||[]).filter(f=>f.severity==='blocker').length;
+  if(missing.length===0 && blockers===0){
+    return `<div class="sc-next ready"><b>You're ready.</b> Click <b>Copy hand-off</b> (in Status, top-right) and paste it into the JIRA ticket or your dev Slack thread.</div>`;
+  }
+  const steps=[];
+  if(missing.length) steps.push(`Fill the <b>${missing.length}</b> item${missing.length>1?'s':''} still marked “needed” on the left (${missing.slice(0,4).map(c=>escapeHtml(c.name)).join('; ')}${missing.length>4?'; …':''}). Can't answer one? Use <b>“Can't provide? Waive with a reason.”</b>`);
+  if(blockers) steps.push(`Address the <b>${blockers}</b> blocker${blockers>1?'s':''} above.`);
+  steps.push(`Run <b>smart check</b> again, then <b>Copy hand-off</b>.`);
+  return `<div class="sc-next"><b>What to do next</b><ol>${steps.map(s=>`<li>${s}</li>`).join('')}</ol></div>`;
 }
 function nameFor(id){const c=CRITERIA.find(x=>x.id===id); return c?c.name:id;}
 

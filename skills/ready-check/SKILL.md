@@ -36,22 +36,43 @@ itself (plugins bundle skills/commands, not artifacts), so create it on demand:
 When the user invokes `/ready-check panel`, says "open the Ready Check panel",
 or on their first Cowork use of this skill (offer it once):
 
-1. **Check for an existing one.** Call `mcp__cowork__list_artifacts`; if an
-   artifact with id `ready-check` is present, tell the user it's already in
-   their sidebar — do NOT create a duplicate.
-2. **Create it if absent.** Call `mcp__cowork__create_artifact` with:
+1. **Check for an existing one.** Call `mcp__cowork__list_artifacts`; look for
+   an artifact with id `ready-check`.
+2. **If absent — create it.** Call `mcp__cowork__create_artifact` with:
    - `id`: `ready-check`
    - `html_path`: the absolute path to `gate/ready-check-cowork.html` inside
      this plugin's installed directory
    - `description`: "Ready Check (live) — PM-side PRD readiness gate; smart
      edge-case review via Claude, no backend."
-3. **Tell the user** the panel is now in their Cowork sidebar and persists
-   across sessions.
+3. **If present — refresh it only when the plugin ships a newer build.** Both
+   the installed artifact and the plugin's `gate/ready-check-cowork.html` carry
+   `<meta name="ready-check-build" content="<N>">`. Read the build number from
+   the existing artifact's `path` (from `list_artifacts`) and from the plugin's
+   bundled file. If the bundled `N` is **greater**, call
+   `mcp__cowork__update_artifact` (id `ready-check`, `html_path` = the bundled
+   file, a one-line `update_summary`) so the user gets the latest. If the
+   numbers match, do nothing — just tell them it's already in their sidebar and
+   current. Never create a duplicate.
+4. **Tell the user** the panel is in their Cowork sidebar (created / refreshed /
+   already current) and persists across sessions.
+
+Bump the `ready-check-build` number in `gate/ready-check-cowork.html` whenever
+you change that file, so this auto-refresh can tell "newer" from "same."
 
 Only works in Cowork (the artifact bridge is Cowork-only). In Claude Code there
 is no sidebar panel — the `/ready-check` chat flow is the way. If the bundled
 HTML can't be found, fall back to telling the user to open
 `gate/ready-check-cowork.html` from the plugin folder directly.
+
+**Optional — JIRA-link fetching in the panel.** The panel can fetch a pasted
+JIRA link through the user's Atlassian connector. It's off by default and
+workspace-specific: set `ATLASSIAN_MCP` (the CONFIG line at the top of
+`gate/ready-check-cowork.html`) to that install's Atlassian tool-id prefix
+(`mcp__<connector-id>__`), and pass the two Atlassian tool names
+(`…getJiraIssue`, `…getAccessibleAtlassianResources`) in `mcp_tools` when you
+create/update the artifact. Leave `ATLASSIAN_MCP` empty to disable — JIRA links
+then just prompt the PM to paste the ticket text or use `/ready-check <link>` in
+chat (which fetches via the connector regardless).
 
 ## The engine vs the judgement
 
@@ -105,6 +126,20 @@ Only `skippable` items (design, oldbeh, states, writer) may take `{ "na": true }
 and only with a real reason the PM confirms — never to dodge a question. For
 everything you can't find, ask the PM in plain words, one short batch. Do not
 invent answers.
+
+**Waivers — when the PM genuinely can't answer a required item.** Any required
+item may be *waived with a written reason* (e.g. the metric is owned by another
+team, a decision is pending). Record it as `{ "waived": true, "reason": "..." }`:
+
+```json
+"metric": { "waived": true, "reason": "owned by growth; target decided this week" }
+```
+
+A waiver clears the item so the PRD can move, but the engine hashes the reason
+into the code and surfaces it in the hand-off under a "Waivers (dev to accept or
+push back)" block. An empty/absent reason does **not** clear. Offer a waiver
+only when the PM truly can't answer — not as a shortcut past a question they
+could answer.
 
 ### Phase 3 — Judge (make it smart — actually find the edge cases)
 
@@ -181,6 +216,32 @@ thread. If a Slack/JIRA MCP is connected and the PM asks, post it for them in
 their voice. The block carries the **design link** and the **gate code** so the
 feature and its design travel together.
 
+## Generate the PRD + publish to JIRA (the "right format")
+
+Ready Check holds the structured answers, so it can also *author* a clean,
+publish-ready PRD — the same 11-section format as `gate/examples/PRD-good-*.md`:
+
+```
+node scripts/ready-check.mjs --prd answers.json    # prints the 11-section PRD (markdown)
+```
+
+The PRD carries the gate code and lists any waivers under "Waivers (dev to
+accept)". Offer it once the PM has the basics in — even Not-Ready renders (it
+marks missing sections), but it's most useful at Ready.
+
+**Publish (ask the PM which):**
+
+- **Update the linked ticket** — if the PRD came from a JIRA link, write the PRD
+  into that ticket's description via the Atlassian MCP `editJiraIssue`
+  (`fields.description`, `contentFormat: "markdown"`). Safest — no new tickets.
+- **Create a new ticket** — `createJiraIssue` with `projectKey`, `issueTypeName`
+  (ask; default Story/Task), `summary` = the feature title, `description` = the
+  PRD. Confirm the project key with the PM first; never guess it.
+- **Copy only** — hand the PM the PRD markdown to paste in themselves.
+
+Always show the PM the PRD and confirm before writing to JIRA. (The Cowork panel
+exposes the same three via a **Generate PRD / Copy / Publish** row.)
+
 ## Enforcement — "no code, no grooming" (automatic)
 
 The gate code is content-bound (a djb2 hash of the answers), so it's checkable,
@@ -212,6 +273,9 @@ wants to check by hand, but the normal flow needs no command.
   old hand-off correctly goes `STALE`.
 - **No code-context cache** — the check runs on text alone; skip the cache
   notes without erroring.
+- **Can't answer an item** — waive it with a reason (`{ "waived": true,
+  "reason": "..." }`). It clears but shows in the hand-off's Waivers block for
+  dev to accept or push back. Empty reason doesn't clear.
 - **Not a PM** — a dev pre-checking their own pickup can run it too; same gate.
 
 ## Anti-patterns

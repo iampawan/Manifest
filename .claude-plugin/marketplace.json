@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
   "name": "manifest",
-  "version": "0.20.0",
+  "version": "0.21.0",
   "description": "Manifest \u2014 PRD-to-production pipeline with quality gates",
   "owner": {
     "name": "Pawan"
@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "manifest",
-      "version": "0.20.0",
+      "version": "0.21.0",
       "description": "Author contracts, run critics, implement via agent, verify deploys, produce post-launch reports \u2014 all from markdown in your repo.",
       "source": {
         "source": "github",

@@ -18,6 +18,7 @@ import {
   renderHandoff,
   parseHandoff,
   cacheChecks,
+  renderPrd,
   djb2,
   CODE_RE,
 } from "../scripts/ready-check.mjs";
@@ -171,7 +172,7 @@ test("waivers surface in the hand-off and round-trip through verify", () => {
   w.items.metric = { waived: true, reason: "owned by growth, decision pending" };
   const block = renderHandoff(w, { date: "01 Jul 2026" });
   assert.match(block, /1 waiver\(s\), dev to accept/);
-  assert.match(block, /Waivers — PM asks to proceed/);
+  assert.match(block, /Waivers \(dev to accept or push back\)/);
   assert.match(block, /\[metric\].*reason: owned by growth/);
 
   const parsed = parseHandoff(block);
@@ -183,6 +184,24 @@ test("changing a waiver reason changes the code (tamper-evident)", () => {
   const a = structuredClone(ready); a.items.metric = { waived: true, reason: "reason one" };
   const b = structuredClone(ready); b.items.metric = { waived: true, reason: "reason two" };
   assert.notEqual(gateCode(a), gateCode(b));
+});
+
+test("renderPrd produces an 11-section PRD with the gate code", () => {
+  const prd = renderPrd(ready, { date: "01 Jul 2026" });
+  assert.match(prd, /^# PRD — Saved payment cards at checkout/);
+  assert.match(prd, /Ready Check: \*\*RC-SAV-/);
+  for (const h of ["1. Problem & goal", "3. Design", "7. Edge cases", "11. Instrumentation"]) assert.ok(prd.includes(h), `missing ${h}`);
+  assert.match(prd, /## Rollout/);
+});
+
+test("renderPrd shows N/A defaults and waivers", () => {
+  const backend = structuredClone(ready);
+  backend.items.design = { na: true };
+  backend.items.metric = { waived: true, reason: "growth owns it" };
+  const prd = renderPrd(backend);
+  assert.match(prd, /No UI \(backend only\)\./);
+  assert.match(prd, /## Waivers \(dev to accept\)/);
+  assert.match(prd, /growth owns it/);
 });
 
 test("djb2 is stable (pins the cross-port algorithm)", () => {

@@ -12,7 +12,7 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
-## [0.20.0] — Ready Check: a PM-side readiness gate before dev grooming
+## [0.21.0] — Ready Check: a PM-side readiness gate before dev grooming
 
 "Airport security for PRDs." A first, cheap gate the PM clears *before*
 engineering estimates — so dev stops chasing PMs for basics and stops
@@ -54,6 +54,17 @@ eating the delay when a half-baked PRD moves mid-sprint.
   itself — the dev runs nothing extra; the PM is the only one who handles it.
 - **Practical extras.** Dark mode, a Do's & Don'ts panel, a flat professional
   UI, and two annotated example PRDs (`gate/examples/PRD-good-*`, `PRD-bad-*`).
+- **Cowork panel maturity.** One-click "Check my PRD" (Claude extracts fields +
+  finds edge-case gaps in one pass), rotating progress messages, clickable
+  findings that jump to the field, waivers with justification, an empty-input
+  guard, robust clipboard copy, and a self-refresh build stamp. The connector
+  for optional JIRA-link fetching is a single `ATLASSIAN_MCP` config line;
+  set it per workspace, or leave empty to disable.
+- **Generate the PRD + publish to JIRA.** `renderPrd` / `ready-check.mjs --prd`
+  composes a clean 11-section PRD (with gate code + waivers) from the answers.
+  The panel adds Generate PRD / Copy / Publish — publish updates a linked ticket
+  (appends the PRD) or creates a new one from a project key. Same generation is
+  available in Claude Code via the skill.
 - Rubric: `reference/READY-CHECK-RUBRIC.md`. Level 2 (deep, code-grounded) is
   still `/contract pickup`, dev-side, after the gate is green.
 
