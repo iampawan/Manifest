@@ -11,6 +11,7 @@ no more dev chasing you for basics.
 ```
 /ready-check <a JIRA / Notion / Doc / Slack / Figma URL, or "a description">
 /ready-check                # no args → I'll ask you the questions directly
+/ready-check panel          # (Cowork) open the live sidebar panel
 /ready       <source>       # alias
 ```
 
@@ -42,6 +43,14 @@ on `STALE` (the PRD changed after it cleared — ask for a fresh Ready Check) or
 missing/`INVALID` code. The gate enforces itself; the PM is the only one who
 touches the code. (`node scripts/ready-check.mjs --verify <handoff>` is there as
 a manual fallback if you ever want to check by hand.)
+
+## The live panel (Cowork)
+
+Installing the plugin gives you this `/ready-check` command. To pin the
+always-open sidebar panel — where the smart edge-case review runs live in-page
+via Claude, no backend — run `/ready-check panel` in Cowork (or say "open the
+Ready Check panel"). It creates the artifact in your Cowork the first time and
+reuses it after. Cowork only; in Claude Code the chat flow is the way.
 
 ## Where the depth is
 

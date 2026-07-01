@@ -24,6 +24,35 @@ identically in **Claude Code** and **Cowork**. The offline web page
 open; it mints the same gate-code format, so a code from any surface verifies
 in all of them.
 
+## Opening the live panel in Cowork (the artifact)
+
+The chat flow below is the primary experience and needs nothing extra. In
+**Cowork**, you can also give the user a persistent sidebar panel — the live
+artifact `gate/ready-check-cowork.html`, where the deterministic gate runs
+in-page and the edge-case review is done by Claude via
+`window.cowork.askClaude` (no backend). The plugin can't ship the artifact
+itself (plugins bundle skills/commands, not artifacts), so create it on demand:
+
+When the user invokes `/ready-check panel`, says "open the Ready Check panel",
+or on their first Cowork use of this skill (offer it once):
+
+1. **Check for an existing one.** Call `mcp__cowork__list_artifacts`; if an
+   artifact with id `ready-check` is present, tell the user it's already in
+   their sidebar — do NOT create a duplicate.
+2. **Create it if absent.** Call `mcp__cowork__create_artifact` with:
+   - `id`: `ready-check`
+   - `html_path`: the absolute path to `gate/ready-check-cowork.html` inside
+     this plugin's installed directory
+   - `description`: "Ready Check (live) — PM-side PRD readiness gate; smart
+     edge-case review via Claude, no backend."
+3. **Tell the user** the panel is now in their Cowork sidebar and persists
+   across sessions.
+
+Only works in Cowork (the artifact bridge is Cowork-only). In Claude Code there
+is no sidebar panel — the `/ready-check` chat flow is the way. If the bundled
+HTML can't be found, fall back to telling the user to open
+`gate/ready-check-cowork.html` from the plugin folder directly.
+
 ## The engine vs the judgement
 
 Two layers, mirroring how contracts work (`validate.mjs` + critics):

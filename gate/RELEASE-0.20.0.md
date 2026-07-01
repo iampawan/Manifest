@@ -26,8 +26,35 @@ Highlights:
   into the code and surfaced for the dev to accept or push back.
 - **Practical extras:** dark mode, Do's & Don'ts, professional flat UI, and two
   annotated example PRDs (good + bad).
+- **Self-serve panel:** `/ready-check panel` in Cowork creates/opens the live
+  artifact on demand (plugins can't ship artifacts, so it's created per user).
+- **Docs:** README pipeline table + QUICKSTART now include Ready Check;
+  version badge, CHANGELOG, and manifests all at 0.20.0.
 
 Tests: 147 unit + 42 cross-surface parity checks, all green.
+
+## Post-deploy smoke test (the one untested piece: live askClaude)
+
+Everything deterministic is tested. The only thing that can only be verified in
+the real Cowork runtime is the live smart check's response handling. Do this
+once after deploy:
+
+1. In Cowork, open the **Ready Check** panel (sidebar), or run `/ready-check panel`.
+2. Confirm the header pill reads **"Smart check: live"** (not "open in Cowork").
+   If it says the latter, the `window.cowork.askClaude` bridge isn't detected —
+   tell me.
+3. Click **Load complete example → Auto-fill from PRD → Run smart check (Claude)**.
+   Expect within a few seconds either a green "no missing edge cases" note, or a
+   short list of finding cards (each: title, a `blocker`/`warning` tag, an issue
+   line, a `Fix:` line), with the related questions faintly highlighted.
+4. Repeat with **Load rough example** → expect several findings.
+5. **If the box instead shows raw JSON, `[object Object]`, or "Smart check
+   couldn't run…"** — copy whatever text appears in the "Smart review — by
+   Claude" box and send it over. That's the raw `askClaude` payload; I'll tune
+   the parser in one pass to match its exact shape.
+
+Nothing else needs manual testing — gate scoring, codes, hand-off, verify, and
+cross-surface parity are all covered by the automated suites.
 
 ## Ship it
 

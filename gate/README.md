@@ -9,9 +9,13 @@ that dev can pick up without chasing anyone.
 - **In Claude Code or Cowork:** `/ready-check <a JIRA / Notion / Doc / Slack / Figma URL,
   or "a description">` (alias `/ready`). Reads the source, asks only what's missing, mints
   the gate code + hand-off. Skill: `skills/ready-check/`.
+- **Cowork live panel:** run `/ready-check panel` in Cowork to pin the sidebar artifact
+  (`ready-check-cowork.html`). The deterministic gate runs in-page and the edge-case review is
+  done by Claude live via `window.cowork.askClaude` — no backend. The command creates it the
+  first time and reuses it after (plugins don't ship artifacts, so it's created on demand).
 - **Offline web page:** `prd-readiness-gate.html` in this folder — for PMs with no Claude
   open. Same 11-item rubric, same deterministic gate-code algorithm, so a code minted in the
-  browser verifies dev-side.
+  browser verifies dev-side. (No live LLM here — the smart step is a paste into `/ready-check`.)
 
 Under both sits one deterministic engine, `scripts/ready-check.mjs` (verdict, gate code,
 hand-off). Dev enforces with `node scripts/ready-check.mjs --verify <handoff>` →

@@ -116,3 +116,11 @@ The check runs at the deepest mode available, each a superset of the last:
 
 The precise, exhaustive live scanning (cross-repo regression, security) still
 runs dev-side at Level 2.
+
+**Granting it (once, per team — prefer the cache).** List the repos in
+`.manifest/repos.yml` as `github: your-org/repo` (run `/setup`). For most teams,
+turning on `code-context-build.yml` (mode 2) is enough — a sanitized digest is
+committed to the specs repo and PMs need *no* credentials. For live grounding
+(mode 3), connect the GitHub connector **read-only, scoped to only those repos**
+(GitHub App → selected repositories → Contents: Read; never write). `/ready-check`
+then uses the deepest access present and states which mode it used.
