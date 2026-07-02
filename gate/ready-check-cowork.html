@@ -3,208 +3,316 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="ready-check-build" content="21" />
+<meta name="ready-check-build" content="61" />
+<meta name="ready-check-version" content="0.23.0" /><!-- keep in sync with .claude-plugin/plugin.json version -->
 <title>Ready Check (live) · Cowork</title>
 <style>
   :root{ color-scheme: light;
-    --bg:#f4f5f7; --panel:#ffffff; --panel2:#f7f8fa; --line:#e4e7ec;
-    --ink:#1a2230; --muted:#59626f; --faint:#98a1b0;
-    --brand:#6366f1; --brand-weak:#eef0fe; --brand-line:#c7cbfb; --brand-strong:#4f46e5;
-    --pass:#2e8b57; --pass-weak:#e9f5ee;
-    --fail:#c23b4b; --fail-weak:#fdecee; --warn:#b7791f; --warn-weak:#fbf1e0;
-    --box-border:#c2c8d2; --btn-hover:#c7ccd6; --code-ink:#2b3440;
-    --radius:10px; --shadow:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.07);
+    --bg:#f6f7fb; --panel:#ffffff; --panel2:#f7f8fb; --line:#e6e8ef;
+    --ink:#1b2130; --muted:#5b6472; --faint:#98a1b2;
+    --brand:#6366f1; --brand-weak:#eef0fe; --brand-line:#c9ccfb; --brand-strong:#4f46e5;
+    --pass:#2e8b57; --pass-weak:#e9f6ef; --warn:#b7791f; --warn-weak:#fbf1e0; --fail:#c23b4b; --fail-weak:#fdecee;
+    --box-border:#c2c8d2; --code-ink:#2b3440;
+    --radius:14px; --shadow:0 1px 2px rgba(16,24,40,.04),0 6px 24px rgba(16,24,40,.06);
+  }
+  :root[data-theme="dark"]{ color-scheme: dark;
+    --bg:#0f1117; --panel:#171923; --panel2:#1c1f2b; --line:#2a2f3d;
+    --ink:#e7e9f0; --muted:#a3abbd; --faint:#6d7488;
+    --brand:#818cf8; --brand-weak:#20233f; --brand-line:#3a3f78; --brand-strong:#6366f1;
+    --pass:#3ecf8e; --pass-weak:#12271f; --warn:#e0a341; --warn-weak:#2b2413; --fail:#f2637a; --fail-weak:#2c1720;
+    --box-border:#3a4152; --code-ink:#c9d1e0;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 24px rgba(0,0,0,.35);
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);
-    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;-webkit-font-smoothing:antialiased}
   a{color:var(--brand)}
-  .wrap{max-width:1120px;margin:0 auto;padding:26px 22px 70px}
-  header.top{display:flex;align-items:center;gap:13px;flex-wrap:wrap;padding-bottom:18px;border-bottom:1px solid var(--line);margin-bottom:20px}
-  .logo{width:38px;height:38px;border-radius:9px;display:grid;place-items:center;background:var(--brand);color:#fff;font-weight:700;font-size:14px;letter-spacing:.5px}
-  h1{font-size:20px;margin:0;font-weight:650}
-  .tag{color:var(--muted);font-size:13px;margin-top:2px}
-  .hdright{margin-left:auto;display:flex;gap:8px;align-items:center}
-  .pill{font-size:12px;color:var(--muted);border:1px solid var(--line);padding:6px 12px;border-radius:6px;background:var(--panel)}
+  .wrap{max-width:720px;margin:0 auto;padding:24px 20px 90px}
+  header.top{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  .logo{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;background:var(--brand);color:#fff;font-weight:700;font-size:13px;letter-spacing:.5px}
+  h1{font-size:19px;margin:0;font-weight:650}
+  .tag{color:var(--muted);font-size:12.5px;margin-top:1px}
+  .hdright{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .ver{font-size:11px;font-weight:600;color:var(--brand);background:var(--brand-weak);border:1px solid var(--brand-line);padding:1px 7px;border-radius:999px;vertical-align:middle;margin-left:2px}
+  .pill{font-size:11.5px;color:var(--muted);border:1px solid var(--line);padding:5px 11px;border-radius:999px;background:var(--panel)}
   .pill.live{color:#fff;background:var(--brand);border-color:var(--brand)}
-  .lead{color:var(--muted);max-width:760px;margin:0 0 22px;font-size:14.5px}
-  .lead b{color:var(--ink);font-weight:600}
-  .grid{display:grid;grid-template-columns:1.4fr .9fr;gap:20px;align-items:start}
-  @media(max-width:900px){.grid{grid-template-columns:1fr}}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
-  .card .hd{padding:13px 17px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
-  .card .hd h2{font-size:12px;margin:0;letter-spacing:.6px;text-transform:uppercase;color:var(--faint);font-weight:700}
-  .card .bd{padding:15px 17px}
-  .scanrow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px 13px;border-radius:7px;font-size:13px;cursor:pointer;transition:background .12s,border-color .12s;font-weight:550}
-  .btn:hover{border-color:var(--btn-hover);background:var(--panel2)}
-  .btn:disabled{opacity:.6;cursor:default}
+  .statusdot{width:12px;height:12px;border-radius:50%;flex:0 0 auto;cursor:default;position:relative}
+  .statusdot::after{content:"";position:absolute;inset:0;border-radius:50%;opacity:.45}
+  .statusdot.ok{background:var(--pass)} .statusdot.ok::after{background:var(--pass);animation:dotpulse 2s ease-out infinite}
+  .statusdot.warn{background:var(--warn)} .statusdot.err{background:var(--fail)}
+  @keyframes dotpulse{0%{transform:scale(1);opacity:.5}70%{transform:scale(2.2);opacity:0}100%{opacity:0}}
+  .iconbtn{border:1px solid var(--line);background:var(--panel);color:var(--muted);width:32px;height:30px;border-radius:8px;cursor:pointer;font-size:14px;line-height:1;transition:.12s;margin-left:8px}
+  .iconbtn:hover{border-color:var(--brand-line);color:var(--ink)}
+
+  .stepper{display:flex;align-items:center;margin:0 0 18px}
+  .stp{display:flex;align-items:center;gap:8px;flex:1}
+  .stp:last-child{flex:0 0 auto}
+  .stp .num{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;background:var(--panel);border:1.5px solid var(--line);color:var(--faint);flex:0 0 auto}
+  .stp .lbl{font-size:12.5px;color:var(--faint);font-weight:600;white-space:nowrap}
+  .stp .bar{flex:1;height:2px;background:var(--line);margin:0 10px;border-radius:2px}
+  .stp.active .num{background:var(--brand);border-color:var(--brand);color:#fff}
+  .stp.active .lbl{color:var(--ink)}
+  .stp.done .num{background:var(--brand-weak);border-color:var(--brand);color:var(--brand)}
+  .stp.done .lbl{color:var(--muted)}
+
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px}
+  .step h2{font-size:17px;margin:0 0 4px;font-weight:650}
+  .step .sub{color:var(--muted);font-size:13.5px;margin:0 0 16px}
+  .divider{border-top:1px solid var(--line);margin:20px 0 16px}
+  .section-h{font-size:14px;font-weight:650;margin:0 0 4px}
+
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:10px 15px;border-radius:9px;font-size:14px;cursor:pointer;transition:.12s;font-weight:600}
+  .btn:hover{border-color:var(--brand-line);background:var(--panel2)}
+  .btn:disabled{opacity:.55;cursor:default}
   .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
   .btn.primary:hover{background:var(--brand-strong);border-color:var(--brand-strong)}
   .btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
   .btn.ghost:hover{background:var(--panel2)}
-  .btn.bad,.btn.good{color:var(--muted)}
-  textarea.prd{width:100%;min-height:104px;resize:vertical;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:11px 12px;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
-  textarea.prd:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-weak)}
-  .hint{color:var(--faint);font-size:12px;margin:8px 2px 0}
+  .btn.bad,.btn.good{font-weight:550}
+  .rowbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .nav{display:flex;gap:10px;align-items:center;margin-top:20px}
+  .nav .spacer{flex:1}
 
-  .crit{border:1px solid var(--line);border-left:3px solid var(--line);border-radius:8px;padding:11px 13px;margin:9px 0;background:var(--panel);transition:.12s}
-  .crit.ok{border-left-color:var(--pass);background:var(--pass-weak)}
-  .crit.miss{border-left-color:var(--warn)}
+  textarea.prd{width:100%;min-height:160px;resize:vertical;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:12px 13px;font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}
+  textarea.prd:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-weak)}
+  .hint{color:var(--faint);font-size:12.5px;margin:10px 2px 0}
+
+  .stamp{border-radius:10px;padding:14px 16px;border:1px solid var(--line);border-left:4px solid var(--warn);background:var(--warn-weak);display:flex;align-items:center;gap:14px}
+  .ring{position:relative;width:54px;height:54px;flex:0 0 auto}
+  .ring svg{width:54px;height:54px;transform:rotate(-90deg)}
+  .ring .rbg{stroke:var(--line)} .ring .rfg{stroke:var(--warn);transition:stroke-dashoffset .5s ease,stroke .3s}
+  .stamp.cleared .ring .rfg{stroke:var(--pass)}
+  .ring span{position:absolute;inset:0;display:grid;place-items:center;font-size:13px;font-weight:800;color:var(--ink);letter-spacing:-.3px}
+  .stamp.cleared{border-left-color:var(--pass);background:var(--pass-weak)}
+  .stamp .big{font-size:15px;font-weight:700;letter-spacing:.2px;color:var(--warn)}
+  .stamp.cleared .big{color:var(--pass)}
+  .stamp .sub{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .prog-line{display:none}
+  .reqpill{float:right;font-size:11.5px;color:var(--muted);font-weight:600;margin-top:3px}
+
+  .crit{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0;background:var(--panel);transition:.12s}
+  .crit.ok{border-color:var(--pass);background:var(--pass-weak)}
+  .crit.miss{border-color:var(--brand-line)}
+  .crit.waived{border-color:var(--warn);background:var(--warn-weak)}
+  .crit.flagged{box-shadow:0 0 0 3px var(--warn-weak)}
   .crit.skip{opacity:.6}
-  .crit.waived{border-left-color:var(--warn);background:var(--warn-weak)}
-  .crit .row{display:flex;align-items:flex-start;gap:11px}
-  .crit .box{width:20px;height:20px;border-radius:5px;border:1.5px solid var(--box-border);flex:0 0 auto;margin-top:1px;display:grid;place-items:center;cursor:pointer;font-size:12px;font-weight:800;transition:.12s;background:var(--panel)}
+  .crit .row{display:flex;align-items:flex-start;gap:12px}
+  .crit .box{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--box-border);flex:0 0 auto;margin-top:0;display:grid;place-items:center;cursor:pointer;font-size:12px;font-weight:800;background:var(--panel);color:transparent}
   .crit.ok .box{background:var(--pass);border-color:var(--pass);color:#fff}
   .crit.waived .box{background:var(--warn);border-color:var(--warn);color:#fff}
-  .crit .meta{flex:1}
-  .crit .name{font-weight:600;font-size:14px}
-  .crit .req{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);margin-left:7px;border:1px solid var(--line);padding:1px 6px;border-radius:5px;font-weight:700}
-  .crit .req.r{color:var(--brand);border-color:var(--brand-line);background:var(--brand-weak)}
+  .crit .meta{flex:1;min-width:0}
+  .crit .name{font-weight:600;font-size:14.5px}
+  .crit .req{font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);margin-left:7px;font-weight:700}
+  .crit .req.r{color:var(--brand)}
   .crit .wtag{font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--warn);border:1px solid var(--warn);border-radius:5px;padding:1px 5px;margin-left:6px;font-weight:700}
   .crit .why{color:var(--muted);font-size:12.5px;margin-top:2px}
-  .crit input.detail{width:100%;margin-top:9px;background:var(--panel);border:1px solid var(--line);border-radius:6px;color:var(--ink);padding:7px 10px;font-size:12.5px}
+  .crit input.detail{width:100%;margin-top:9px;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:9px 11px;font-size:13px}
   .crit input.detail:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-weak)}
   .crit input.detail::placeholder{color:var(--faint)}
-  .crit input.reason{border-color:var(--warn)}
+  .crit input.reason{border-color:var(--warn);margin-top:7px}
   .crit .na,.crit .wl{margin-top:8px;font-size:11.5px;color:var(--faint);display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
   .crit .na input{accent-color:var(--brand)} .crit .wl input{accent-color:var(--warn)}
   .crit .waive{margin-top:9px;border-top:1px dashed var(--line);padding-top:8px}
-  .crit.flagged{box-shadow:0 0 0 2px var(--warn-weak)}
 
-  .verdict{position:sticky;top:14px}
-  .prog-line{font-size:13px;color:var(--muted);margin-bottom:12px}
-  .prog-line b{color:var(--ink)}
-  .stamp{border-radius:8px;padding:14px 16px;border:1px solid var(--line);border-left:4px solid var(--warn);background:var(--warn-weak)}
-  .stamp.cleared{border-left-color:var(--pass);background:var(--pass-weak)}
-  .stamp .big{font-size:16px;font-weight:700;letter-spacing:.3px;color:var(--warn)}
-  .stamp.cleared .big{color:var(--pass)}
-  .stamp .sub{color:var(--muted);font-size:12.5px;margin-top:3px}
-  .todo{margin-top:14px}
-  .todo h3{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);margin:0 0 7px;font-weight:700}
-  .t{display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:7px 0;border-bottom:1px solid var(--line);cursor:pointer}
-  .t:hover{color:var(--brand)} .t .dot{width:6px;height:6px;border-radius:50%;margin-top:6px;flex:0 0 auto;background:var(--warn)} .t.none{color:var(--faint);cursor:default}
-
-  .handoff{margin-top:14px;border:1px solid var(--line);border-radius:8px;overflow:hidden;display:none}
-  .handoff.show{display:block}
-  .handoff .hh{background:var(--brand);color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center}
-  .handoff .hh b{font-size:13px;font-weight:600} .handoff .hh span{font-size:11px;opacity:.9;font-family:ui-monospace,Menlo,monospace}
-  .handoff .hb{background:var(--panel2);padding:12px 14px;font:12px/1.55 ui-monospace,Menlo,monospace;color:var(--code-ink);white-space:pre-wrap;max-height:220px;overflow:auto;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-  .handoff .ha{padding:11px 14px;background:var(--panel);display:flex;gap:8px}
-
-  .smart{margin-top:18px}
-  .smart .sc-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-  .sc-note{font-size:13px;color:var(--muted);padding:6px 0} .sc-note.ok{color:var(--pass)}
-  .sc-f{border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:7px;padding:9px 12px;margin:8px 0;background:var(--panel2);cursor:pointer;transition:border-color .12s,box-shadow .12s}
+  .sc-note{font-size:13px;color:var(--muted);padding:4px 0} .sc-note.ok{color:var(--pass)}
+  .sc-load{display:flex;align-items:center;gap:11px;padding:12px 14px;border:1px solid var(--brand-line);background:var(--brand-weak);border-radius:10px}
+  .sc-spin{width:16px;height:16px;flex:0 0 auto;border-radius:50%;border:2px solid var(--brand-line);border-top-color:var(--brand);animation:scspin .7s linear infinite}
+  @keyframes scspin{to{transform:rotate(360deg)}}
+  .sc-load-t{font-size:13px;color:var(--ink);font-weight:600;animation:scfade .4s ease}
+  @keyframes scfade{from{opacity:.35}to{opacity:1}}
+  .sc-dots{display:flex;gap:5px;margin-left:auto;flex:0 0 auto}
+  .sc-dots i{width:6px;height:6px;border-radius:50%;background:var(--brand-line);transition:.3s}
+  .sc-dots i.on{background:var(--brand)}
+  .egbtn{background:none;border:none;color:var(--brand);font-size:11.5px;font-weight:600;cursor:pointer;padding:6px 0 0;display:inline-flex;align-items:center;gap:4px}
+  .egbtn:hover{text-decoration:underline}
+  .egbox{margin-top:8px;border:1px solid var(--line);border-radius:8px;overflow:hidden;display:none}
+  .egbox.on{display:block}
+  .egrow{display:flex;gap:9px;padding:8px 10px;font-size:12px;line-height:1.45}
+  .egrow+.egrow{border-top:1px solid var(--line)}
+  .egrow .tag{flex:0 0 auto;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:2px 7px;border-radius:5px;height:fit-content}
+  .egrow.g{background:var(--pass-weak)} .egrow.g .tag{background:var(--pass);color:#fff}
+  .egrow.w{background:var(--fail-weak)} .egrow.w .tag{background:var(--fail);color:#fff}
+  .egrow .txt{color:var(--ink)}
+  .modal{position:fixed;inset:0;background:rgba(10,12,20,.55);display:none;align-items:flex-start;justify-content:center;padding:32px 16px;overflow:auto;z-index:50}
+  .modal.on{display:flex}
+  .modal-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:640px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+  .modal-h{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);border-radius:14px 14px 0 0}
+  .modal-h b{font-size:15px} .modal-h .sub{font-size:12px;color:var(--faint);margin-top:2px}
+  .modal-b{padding:14px 18px}
+  .pb-item{padding:11px 0;border-bottom:1px solid var(--line)} .pb-item:last-child{border-bottom:none}
+  .pb-name{font-size:13px;font-weight:700;color:var(--ink)} .pb-why{font-size:12px;color:var(--muted);margin:2px 0 7px}
+  .vf-lbl{font-size:12px;font-weight:600;color:var(--muted);margin:12px 0 5px}
+  .vf-ta{width:100%;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical}
+  .vf-row{display:flex;flex-direction:column;gap:2px;padding:9px 12px;border-radius:8px;margin:8px 0;border:1px solid var(--line)}
+  .vf-row b{font-size:12.5px} .vf-row span{font-size:12px;color:var(--muted)}
+  .vf-row.ok{background:var(--pass-weak);border-color:var(--pass)} .vf-row.ok b{color:var(--pass)}
+  .vf-row.bad{background:var(--fail-weak);border-color:var(--fail)} .vf-row.bad b{color:var(--fail)}
+  .vf-row.warn{background:var(--warn-weak);border-color:var(--warn)} .vf-row.warn b{color:var(--warn)}
+  .vf-row.info{background:var(--brand-weak);border-color:var(--brand-line)} .vf-row.info b{color:var(--brand)}
+  .onramp{margin:12px 0} .ideabox{margin-top:9px;padding:12px;border:1px dashed var(--brand-line);border-radius:9px;background:var(--brand-weak)}
+  .sugg{margin-top:8px;padding:9px 11px;border:1px dashed var(--brand-line);border-radius:8px;background:var(--brand-weak);display:flex;flex-direction:column;gap:7px}
+  .sugg .stext{font-size:12.5px;color:var(--ink);line-height:1.45}
+  .sugg .sact{display:flex;gap:7px}
+  .susebtn{background:var(--brand);border:none;color:#fff;font-size:12px;font-weight:600;padding:5px 12px;border-radius:7px;cursor:pointer}
+  .susebtn:hover{background:var(--brand-strong)}
+  .sxbtn{background:none;border:1px solid var(--line);color:var(--muted);font-size:12px;padding:5px 11px;border-radius:7px;cursor:pointer}
+  .afilter{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .afbtn{background:var(--panel);border:none;color:var(--muted);font-size:11.5px;font-weight:600;padding:5px 10px;cursor:pointer}
+  .afbtn.on{background:var(--brand);color:#fff}
+  .readlimit{font-size:12px;color:var(--muted);background:var(--warn-weak);border:1px solid var(--warn);border-radius:8px;padding:8px 11px;margin:0 0 12px}
+  .hiddenrow{font-size:12.5px;color:var(--muted);padding:10px 2px;text-align:center}
+  .recheck-row{display:flex;align-items:center;gap:11px;margin-top:12px;flex-wrap:wrap}
+  .sc-f{border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:9px;padding:10px 13px;margin:9px 0;background:var(--panel2);cursor:pointer;transition:.12s}
   .sc-f:hover{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand-weak)}
-  .sc-f .jump{font-size:11px;color:var(--brand);margin-top:4px}
   .sc-f.blk{border-left-color:var(--fail);background:var(--fail-weak)}
-  .sc-f .sc-h{display:flex;justify-content:space-between;gap:8px;font-size:13px}
+  .sc-f .sc-h{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;font-weight:600}
   .sc-f .sc-h span{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);font-weight:700}
   .sc-f .sc-i{font-size:12.5px;color:var(--muted);margin-top:3px}
   .sc-f .sc-x{font-size:12.5px;color:var(--ink);margin-top:3px}
-  .sc-next{margin-top:12px;border-top:1px solid var(--line);padding-top:10px;font-size:13px;color:var(--ink)}
-  .sc-next b{color:var(--ink)} .sc-next.ready{color:var(--pass)}
-  .sc-next ol{margin:6px 0 0;padding-left:18px} .sc-next li{margin:3px 0;color:var(--muted)}
-  .sc-fill{font-size:12px;color:var(--pass);margin:2px 0 8px}
-  .prdbox{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-top:10px;font:12px/1.55 ui-monospace,Menlo,monospace;color:var(--code-ink);white-space:pre-wrap;max-height:300px;overflow:auto}
+  .sc-f .jump{font-size:11px;color:var(--brand);margin-top:5px}
+  .sc-next{margin-top:12px;border-top:1px solid var(--line);padding-top:11px;font-size:13px;color:var(--ink)}
+  .sc-next.ready{color:var(--pass)} .sc-next ol{margin:6px 0 0;padding-left:18px} .sc-next li{margin:3px 0;color:var(--muted)}
+  .sc-fill{font-size:12.5px;color:var(--pass);margin:2px 0 10px}
+
+  .handoff{margin-top:4px;border:1px solid var(--line);border-radius:10px;overflow:hidden;display:none}
+  .handoff.show{display:block}
+  .handoff.show + .nr{display:none}
+  .handoff .hh{background:var(--brand);color:#fff;padding:11px 14px;display:flex;justify-content:space-between;align-items:center}
+  .handoff .hh b{font-size:13.5px;font-weight:600} .handoff .hh span{font-size:11px;opacity:.9;font-family:ui-monospace,Menlo,monospace}
+  .handoff .hb{background:var(--panel2);padding:12px 14px;font:12px/1.55 ui-monospace,Menlo,monospace;color:var(--code-ink);white-space:pre-wrap;max-height:240px;overflow:auto;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .handoff .ha{padding:12px 14px;background:var(--panel);display:flex;gap:8px}
+
+  .prdbox{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-top:12px;font:12px/1.55 ui-monospace,Menlo,monospace;color:var(--code-ink);white-space:pre-wrap;max-height:320px;overflow:auto}
   .pubrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
-  .pubrow input{background:var(--panel);border:1px solid var(--line);border-radius:6px;color:var(--ink);padding:7px 9px;font-size:12.5px}
-  .pubrow input.small{width:130px}
-  .pubbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+  .pubrow input{background:var(--panel);border:1px solid var(--line);border-radius:7px;color:var(--ink);padding:8px 10px;font-size:13px}
+  .pubrow input.small{width:140px}
+  .pubbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
   .publabel{font-size:12px;color:var(--muted);font-weight:600}
-  .foot{margin-top:20px;color:var(--faint);font-size:12px;line-height:1.6}
+
+  .todo{margin-top:16px}
+  .todo h3{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);margin:0 0 7px;font-weight:700}
+  .t{display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:7px 0;border-bottom:1px solid var(--line);cursor:pointer}
+  .t:hover{color:var(--brand)} .t .dot{width:6px;height:6px;border-radius:50%;margin-top:6px;flex:0 0 auto;background:var(--warn)} .t.none{color:var(--faint);cursor:default}
+  .foot{margin-top:16px;color:var(--faint);font-size:12px;line-height:1.5}
+
+  #copied{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:10px 15px;border-radius:9px;font-size:12.5px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60;max-width:88%;box-shadow:var(--shadow)}
+  #copied.show{opacity:1}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
     <div class="logo">RC</div>
-    <div><h1>Ready Check <span style="font-weight:400;color:var(--muted);font-size:14px">· live</span></h1>
-      <div class="tag">Pocket FM · Claude reviews edge cases in-page, no backend</div></div>
-    <div class="hdright"><span class="pill live" id="livePill">Smart check: checking…</span></div>
+    <div><h1>Ready Check <span class="ver" id="rcVer"></span></h1><div class="tag">The 2-minute PRD gate</div></div>
+    <div class="hdright"><span class="statusdot warn" id="livePill" title="Checking connection…"></span><button class="iconbtn" onclick="openPlaybook()" title="Playbook — what good looks like" style="width:auto;padding:0 11px;font-size:12.5px;font-weight:600">Playbook</button><button class="iconbtn" onclick="openVerify()" title="Dev: verify a pass" style="width:auto;padding:0 11px;font-size:12.5px;font-weight:600">Verify</button><button class="iconbtn" id="themeToggle" onclick="toggleTheme()" title="Toggle dark mode">☾</button></div>
   </header>
 
-  <p class="lead">
-    Fill the questions. The deterministic checks and the gate code run in-page; the
-    <b>smart edge-case review is done by Claude live</b> (via Cowork), so you catch the gaps a
-    checklist can't, before dev ever sees the PRD. When Ready, copy the hand-off for dev.
-  </p>
+  <div class="stepper">
+    <div class="stp active" id="dot1"><span class="num">1</span><span class="lbl">Your PRD</span><span class="bar"></span></div>
+    <div class="stp" id="dot2"><span class="num">2</span><span class="lbl">Review &amp; fix</span><span class="bar"></span></div>
+    <div class="stp" id="dot3"><span class="num">3</span><span class="lbl">Ship it</span></div>
+  </div>
 
-  <div class="grid">
-    <div>
-      <div class="card">
-        <div class="hd"><h2>1 · Your PRD</h2></div>
-        <div class="bd">
-          <div class="scanrow">
-            <button class="btn primary" id="smartBtn" onclick="smartCheck()">Check my PRD →</button>
-            <button class="btn bad" onclick="loadSample('thin')">Load rough example</button>
-            <button class="btn good" onclick="loadSample('ready')">Load complete example</button>
-            <button class="btn ghost" onclick="clearAll()">Reset</button>
-          </div>
-          <textarea id="prd" class="prd" placeholder="Paste your PRD text, or a JIRA / Confluence link (I'll fetch it), then click Check my PRD. Claude fills what it covers, lists what's missing, and tells you what to do next."></textarea>
-          <p class="hint">One click does it all. Or fill the questions below directly. Nothing leaves Cowork.</p>
-        </div>
-      </div>
-
-      <div class="card smart" style="margin-top:16px">
-        <div class="hd"><h2>2 · Readiness check</h2></div>
-        <div class="bd">
-          <div class="sc-head">
-            <span class="hint" style="margin:0">Reads the PRD, fills what it covers, flags missing edge cases, and tells you what to do next.</span>
-          </div>
-          <div id="smartOut"><div class="sc-note">Paste a PRD above and click <b>Check my PRD →</b>.</div></div>
-        </div>
-      </div>
-
-      <div class="card" style="margin-top:16px">
-        <div class="hd"><h2>Your feature, in plain terms</h2>
-          <span class="pill" id="reqcount" style="margin-left:auto">0 / 0 done</span></div>
-        <div class="bd" id="criteria"></div>
-      </div>
-
-      <div class="card" style="margin-top:16px">
-        <div class="hd"><h2>3 · PRD &amp; publish</h2></div>
-        <div class="bd">
-          <p class="hint" style="margin-top:0;margin-bottom:11px">Turn your answers into a clean 11-section PRD, then copy it or publish to JIRA.</p>
-          <button class="btn primary" onclick="genPrd()">Generate PRD →</button>
-          <div id="prdStage" style="display:none;margin-top:12px">
-            <div id="prdOut" class="prdbox"></div>
-            <div class="pubbar">
-              <button class="btn" onclick="copyPrd()">Copy PRD</button>
-              <div id="pubRow" class="pubrow"></div>
-            </div>
-            <p class="hint" id="pubMsg" style="min-height:14px;margin-top:8px"></p>
-          </div>
-        </div>
+  <!-- STEP 1 -->
+  <div class="step" id="step1">
+    <h2>Paste your PRD</h2>
+    <p class="sub">Plain text, or a JIRA / Confluence link — I'll fetch it. Then one click checks it.</p>
+    <textarea id="prd" class="prd" placeholder="Paste your PRD text, or a JIRA / Confluence link…"></textarea>
+    <p class="hint">Nothing leaves Cowork. No PRD yet? Load an example, or fill the questions by hand in step 2.</p>
+    <div class="onramp">
+      <button class="egbtn" id="ideaToggle" onclick="toggleIdea(event)">✨ Only have an idea? Draft a starter PRD</button>
+      <div id="ideaBox" class="ideabox" style="display:none">
+        <textarea id="ideaInput" class="vf-ta" rows="2" placeholder="Describe it in a sentence or two — e.g. let returning users save a card and check out in one tap."></textarea>
+        <button class="btn primary" id="draftBtn" style="margin-top:8px" onclick="draftFromIdea()">Draft it →</button>
+        <p class="hint" id="draftMsg" style="min-height:14px;margin-top:8px"></p>
       </div>
     </div>
+    <div class="rowbtns">
+      <button class="btn bad" onclick="loadSample('thin')" title="Vague, no metrics/states — gets sent back">Weak PRD</button>
+      <button class="btn good" onclick="loadSample('ready')" title="Specific, every state and edge case named — clears">Strong PRD</button>
+      <button class="btn ghost" onclick="clearAll()">Reset</button>
+    </div>
+    <p class="hint" style="margin-top:6px">Load either and run Check my PRD — watch the readiness score. One clears; one gets sent back.</p>
+    <div class="nav">
+      <button class="btn ghost" onclick="goStep(2)">Fill by hand →</button>
+      <span class="spacer"></span>
+      <button class="btn primary" id="smartBtn" onclick="smartCheck()">Check my PRD →</button>
+    </div>
+  </div>
 
-    <div class="verdict">
-      <div class="card">
-        <div class="hd"><h2>Status</h2></div>
-        <div class="bd">
-          <div class="prog-line" id="progline">Answer the questions to see if you're ready.</div>
-          <div class="stamp" id="stamp">
-            <div class="big" id="stampbig">NOT READY YET</div>
-            <div class="sub" id="stampsub">A few things still to add.</div>
-          </div>
-          <div class="todo">
-            <h3>Still to add</h3>
-            <div id="todolist"><div class="t none">Nothing checked yet.</div></div>
-          </div>
-          <div class="handoff" id="handoff">
-            <div class="hh"><b>Hand-off to dev</b><span id="hoCode">RC-…</span></div>
-            <div class="hb" id="hoBody">…</div>
-            <div class="ha">
-              <button class="btn primary" style="flex:1" onclick="copyHand()">Copy hand-off</button>
-              <button class="btn ghost" onclick="flash('Paste this into the JIRA ticket or your dev Slack thread.')">Where does this go?</button>
-            </div>
-          </div>
-          <p class="hint" id="copied" style="text-align:center;height:14px"></p>
-        </div>
+  <!-- STEP 2 -->
+  <div class="step" id="step2" style="display:none">
+    <h2>Review &amp; fix <span class="reqpill" id="reqcount">0 / 0 done</span></h2>
+    <p class="sub">Fix what's flagged. Click a finding to jump straight to its field.</p>
+    <div class="stamp" id="stamp">
+      <div class="ring" id="scoreRing"><svg viewBox="0 0 54 54"><circle class="rbg" cx="27" cy="27" r="23" fill="none" stroke-width="6"/><circle class="rfg" id="ringFg" cx="27" cy="27" r="23" fill="none" stroke-width="6" stroke-linecap="round" stroke-dasharray="144.5" stroke-dashoffset="144.5"/></svg><span id="scorePct">0%</span></div>
+      <div><div class="big" id="stampbig">NOT READY YET</div><div class="sub" id="stampsub">A few things still to add.</div></div>
+    </div>
+    <div class="prog-line" id="progline"></div>
+    <div class="recheck-row"><button class="btn primary" id="recheckBtn" onclick="smartCheck()">↻ Re-check my PRD</button><span class="hint" style="margin:0">Optional — re-run the smart review for fresh suggestions and advice. The gate opens on your confirmed basics.</span></div>
+    <div id="smartOut" style="margin-top:12px"><div class="sc-note">Run the review to check your answers — click <b>Re-check my PRD</b> above, or fill the questions below first.</div></div>
+    <div id="answersBlock">
+      <div class="divider"></div>
+      <div class="section-h" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <span>What needs your attention</span>
+        <span class="afilter"><button id="afAtt" class="afbtn on" onclick="setAnswersFilter('attention')">Needs attention</button><button id="afAll" class="afbtn" onclick="setAnswersFilter('all')">All</button></span>
       </div>
-      <div class="foot">Deterministic gate + code run locally; the smart review uses Claude via Cowork. The same gate code verifies dev-side in Claude Code (<code>/contract pickup</code>).</div>
+      <p class="readlimit">The review reads <b>text only</b> — it can’t see images/diagrams or open links to other pages. Confirm anything that lives only in a picture or behind a link.</p>
+      <div id="criteria"></div>
+      <div class="todo"><h3>Still to add</h3><div id="todolist"><div class="t none">Nothing checked yet.</div></div></div>
+    </div>
+    <div class="nav">
+      <button class="btn ghost" onclick="goStep(1)">← Back</button>
+      <span class="spacer"></span>
+      <button class="btn primary" id="shipBtn" onclick="goStep(3)">Ship it →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="step" id="step3" style="display:none">
+    <h2>Ship it</h2>
+    <p class="sub">When it's Ready, copy the hand-off for dev — or generate a full PRD and publish.</p>
+    <div class="handoff" id="handoff">
+      <div class="hh"><b>Hand-off to dev</b><span id="hoCode">RC-…</span></div>
+      <div class="hb" id="hoBody">…</div>
+      <div class="ha"><button class="btn primary" style="flex:1" onclick="copyHand()">Copy hand-off</button>
+        <button class="btn ghost" onclick="flash('Paste this into the JIRA ticket or your dev Slack thread.')">Where does this go?</button></div>
+    </div>
+    <div class="sc-note nr" id="notReadyNote">Not ready yet — go back to step 2 and clear the remaining items. The hand-off appears here once it's Ready.</div>
+    <div class="divider"></div>
+    <div class="section-h">Optional — turn your answers into a full PRD</div>
+    <p class="hint" style="margin:4px 0 12px">Mainly for when you <b>didn’t start with a written PRD</b> (you used “Only have an idea?” or just answered the questions): this assembles your confirmed answers into a clean 11-section PRD you can copy or publish to JIRA. If you already pasted a complete PRD, you can skip this — the hand-off above is all dev needs.</p>
+    <button class="btn primary" onclick="genPrd()">Generate PRD →</button>
+    <div id="prdStage" style="display:none;margin-top:12px">
+      <div id="prdOut" class="prdbox"></div>
+      <div class="pubbar"><button class="btn" onclick="copyPrd()">Copy PRD</button><div id="pubRow" class="pubrow"></div></div>
+      <p class="hint" id="pubMsg" style="min-height:14px;margin-top:8px"></p>
+    </div>
+    <div class="nav"><button class="btn ghost" onclick="goStep(2)">← Back</button></div>
+  </div>
+
+  <p class="foot">Deterministic gate + code run locally; the smart review uses Claude via Cowork. The same gate code verifies dev-side in Claude Code (<code>/contract pickup</code>).</p>
+</div>
+<div id="copied"></div>
+
+<div class="modal" id="playbook" onclick="if(event.target===this)closePlaybook()">
+  <div class="modal-card">
+    <div class="modal-h"><div><b>Playbook</b><div class="sub">What a dev-ready answer looks like — good vs weak, per field.</div></div>
+      <button class="iconbtn" onclick="closePlaybook()" title="Close">✕</button></div>
+    <div class="modal-b" id="pbBody"></div>
+  </div>
+</div>
+
+<div class="modal" id="verify" onclick="if(event.target===this)closeVerify()">
+  <div class="modal-card">
+    <div class="modal-h"><div><b>Verify a pass</b><div class="sub">Dev: confirm a hand-off is authentic and unchanged before you groom it.</div></div>
+      <button class="iconbtn" onclick="closeVerify()" title="Close">✕</button></div>
+    <div class="modal-b">
+      <div class="vf-lbl">Hand-off block the PM gave you</div>
+      <textarea class="vf-ta" id="vfHand" rows="7" placeholder="Paste the whole block starting “✅ READY CHECK PASSED …”"></textarea>
+      <div class="vf-lbl">PRD you received <span style="font-weight:400;color:var(--faint)">(optional — paste text, or a JIRA / Confluence link to check the live version)</span></div>
+      <textarea class="vf-ta" id="vfPrd" rows="3" placeholder="Paste the PRD text, or a JIRA / Confluence link — I’ll fetch it and compare the live version + content."></textarea>
+      <button class="btn primary" id="vfBtn" style="margin-top:11px" onclick="runVerify()">Verify pass</button>
+      <div id="vfOut" style="margin-top:6px"></div>
     </div>
   </div>
 </div>
@@ -217,9 +325,17 @@
    chat). When you set an id, also declare the two Atlassian tool names in the
    artifact's mcp_tools when it's registered. Everything else needs no config. */
 const ATLASSIAN_MCP = 'mcp__275a1dde-9ae7-4923-a3e9-3b254b6a2d98__';
-// FIGMA_MCP: set to 'mcp__figma-rest__' after adding the figma-rest connector
-// (needs a read-only FIGMA_TOKEN) to enable design version-freeze. Empty = off.
-const FIGMA_MCP = '';
+// Figma design-freeze + audit via the figma-rest connector (needs a read-only
+// FIGMA_TOKEN). The connector's tool-namespace differs by install method, so we
+// try each candidate and cache whichever answers:
+//   • '.mcpb' desktop extension (display name "Figma REST (Ready Check)")
+//   • plugin-bundled mcpServers ('figma-rest')
+// Set FIGMA_ON=false to turn all Figma checks off.
+const FIGMA_ON = true;
+const FIGMA_PREFIXES = ['mcp__Figma_REST_Ready_Check__', 'mcp__Figma_REST__Ready_Check___', 'mcp__figma-rest__'];
+// Ready Check version — MUST match the Manifest plugin (.claude-plugin/plugin.json).
+// Shown in the header so you can ask a PM which version they're on.
+const RC_VERSION = '0.23.0';
 /* =========================================================================== */
 
 const CRITERIA = [
@@ -264,14 +380,47 @@ const CRITERIA = [
     kw:/\b(rollout|feature flag|canary|ramp|gradual|% ?rollout|staged)\b/i},
 ];
 
-const state={}; CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false,waived:false,reason:''});
+// Playbook — what "good" vs "weak" looks like for each field. Shown inline (see example)
+// and in the Playbook modal. Content only; does not touch the deterministic engine.
+const PLAYBOOK = {
+  goal:   {good:'Returning users re-enter card details every time; 32% drop at payment. Goal: cut to <15% in 6 weeks.', weak:'Improve the payment experience.'},
+  metric: {good:'+6% checkout conversion for returning payers within 4 weeks (measured in Mixpanel).', weak:"We'll track engagement."},
+  design: {good:'Figma link with frames for default, empty, loading, error and success states.', weak:'Design will be shared later.'},
+  scope:  {good:'Android + iOS this release. Out of scope: web, UPI autopay.', weak:'Ship it on mobile.'},
+  oldbeh: {good:'Today the payment screen shows a blank card form; nothing is stored. v6.2+ added recurring drafts.', weak:'Currently users can pay.'},
+  flows:  {good:'Affects checkout, the payment screen and order-confirmation; no change to discovery.', weak:'Just a small change to checkout.'},
+  edge:   {good:'Card taken between load and submit → conflict error + refetch. Offline → queue and retry on reconnect.', weak:'Handle errors gracefully.'},
+  states: {good:'Empty: "No saved cards yet." Loading: skeleton. Error: "Couldn’t save card, try again."', weak:'Show a spinner while loading.'},
+  l10n:   {good:'All strings final and in the l10n sheet (EN/HI/ID); dates render in the user’s locale.', weak:'Copy is placeholder for now.'},
+  writer: {good:'No writer impact — listener-side payment change; content team unaffected.', weak:'Writers will use the new flow.'},
+  events: {good:'Fire card_saved, saved_card_used, tokenize_failed with {source} (Mixpanel).', weak:'We will track engagement.'},
+  deps:   {good:'Depends on payments backend tokenization API (owned by Platform, already live).', weak:'No dependencies.'},
+  rollout:{good:'Behind flag saved_cards, ramp 1% → 10% → 50% → 100%.', weak:'Just turn it on.'}
+};
+
+const state={}; CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false,waived:false,reason:'',suggestion:'',aiDrafted:false});
+let _answersFilter='attention';   // step 2 shows only fields needing action by default
+let _flaggedIds=new Set();         // rubric ids the last review flagged (kept visible in attention mode)
+
+// ── Wizard navigation (presentation only) ──
+let curStep=1;
+function goStep(n){ curStep=Math.max(1,Math.min(3,n));
+  for(let i=1;i<=3;i++){ const el=document.getElementById('step'+i); if(el)el.style.display=(i===curStep)?'block':'none'; }
+  for(let i=1;i<=3;i++){ const d=document.getElementById('dot'+i); if(d)d.className='stp'+(i===curStep?' active':(i<curStep?' done':'')); }
+  try{ window.scrollTo({top:0,behavior:'smooth'}); }catch(e){}
+}
 
 function render(){
   const box=document.getElementById('criteria'); box.innerHTML='';
+  let hidden=0, shown=0;
   CRITERIA.forEach(c=>{const s=state[c.id];
     const hasD=s.detail.trim().length>=3;
     const waived=!s.na&&!hasD&&s.waived&&s.reason.trim().length>=3;
     const ok=s.na||hasD||waived;
+    // "Needs attention" = a blank REQUIRED item, an AI-drafted answer to verify, or a flagged one.
+    const needs = (c.req && !sat(c)) || (s.aiDrafted && hasD) || _flaggedIds.has(c.id);
+    if(_answersFilter==='attention' && !needs){ hidden++; return; }
+    shown++;
     const el=document.createElement('div');
     el.className='crit '+(ok?(waived?'ok waived':'ok'):(c.req?'miss':''))+(s.na?' skip':'');
     el.id='crit-'+c.id;
@@ -283,8 +432,13 @@ function render(){
           <span class="req ${c.req?'r':''}">${c.req?'needed':'optional'}</span>
           ${waived?'<span class="wtag">waived</span>':''}
           <div class="why">${c.why}</div>
+          ${PLAYBOOK[c.id]?`<button class="egbtn" onclick="toggleEg('${c.id}',event)">▸ see example</button>${egHtml(c.id)}`:''}
           <input class="detail" placeholder="${c.eg}" value="${s.detail.replace(/"/g,'&quot;')}"
             oninput="setDetail('${c.id}',this.value)" ${(s.na||s.waived)?'disabled':''}/>
+          ${(s.aiDrafted && hasD)?`<div class="sugg">
+            <div class="stext">✨ <b>AI drafted this from your PRD</b> — verify it’s right (edit the box above if not).</div>
+            <div class="sact"><button class="susebtn" onclick="ackAi('${c.id}')">✓ Looks right</button></div>
+          </div>`:''}
           ${c.na?`<label class="na"><input type="checkbox" ${s.na?'checked':''} onchange="setNa('${c.id}',this.checked)"> ${c.na}</label>`:''}
           ${c.req&&!s.na?`<div class="waive">
             <label class="wl"><input type="checkbox" ${s.waived?'checked':''} onchange="setWaived('${c.id}',this.checked)"> Can't provide? Waive with a reason for dev</label>
@@ -294,10 +448,19 @@ function render(){
       </div>`;
     box.appendChild(el);
   });
+  if(_answersFilter==='attention' && shown===0){
+    box.insertAdjacentHTML('beforeend','<div class="sc-note ok">All answers confirmed — nothing needs your attention here.</div>');}
+  else if(_answersFilter==='attention' && hidden>0){
+    box.insertAdjacentHTML('beforeend',`<div class="hiddenrow">✓ ${hidden} answer${hidden>1?'s':''} already confirmed and hidden. <button class="egbtn" onclick="setAnswersFilter('all')">Show all ${CRITERIA.length} →</button></div>`);}
+  const att=document.getElementById('afAtt'), all=document.getElementById('afAll');
+  if(att)att.className='afbtn'+(_answersFilter==='attention'?' on':''); if(all)all.className='afbtn'+(_answersFilter==='all'?' on':'');
   compute();
 }
+function setAnswersFilter(f){_answersFilter=f; render();}
 function toggle(id){state[id].checked=!state[id].checked; render();}
-function setDetail(id,v){state[id].detail=v; if(v.trim().length>=3)state[id].checked=true; light();}
+function setDetail(id,v){state[id].detail=v; state[id].aiDrafted=false; if(v.trim().length>=3)state[id].checked=true; light();}
+function ackAi(id){state[id].aiDrafted=false; render();}   // PM verified an AI draft as-is
+function ackAllAi(){let n=0; CRITERIA.forEach(c=>{if(state[c.id].aiDrafted){state[c.id].aiDrafted=false; n++;}}); render(); if(n)flash('Marked '+n+' AI draft'+(n>1?'s':'')+' as reviewed.');}
 function setNa(id,v){state[id].na=v; render();}
 function setWaived(id,v){state[id].waived=v; if(!v)state[id].reason=''; render();}
 function setReason(id,v){state[id].reason=v; light();}
@@ -308,6 +471,61 @@ function light(){CRITERIA.forEach(c=>{const s=state[c.id];
   const flagged=el.classList.contains('flagged');
   el.className='crit '+(ok?(waived?'ok waived':'ok'):(c.req?'miss':''))+(s.na?' skip':'')+(flagged?' flagged':'');
   el.querySelector('.box').textContent=ok?'✓':'';}); compute();}
+
+function egHtml(id){const p=PLAYBOOK[id]; if(!p)return '';
+  return `<div class="egbox" id="eg-${id}">
+    <div class="egrow g"><span class="tag">Good</span><span class="txt">${escapeHtml(p.good)}</span></div>
+    <div class="egrow w"><span class="tag">Weak</span><span class="txt">${escapeHtml(p.weak)}</span></div></div>`;}
+function toggleEg(id,e){ if(e){e.preventDefault();e.stopPropagation();}
+  const box=document.getElementById('eg-'+id); if(!box)return; const on=box.classList.toggle('on');
+  const btn=box.previousElementSibling; if(btn&&btn.classList.contains('egbtn')) btn.textContent=on?'▾ hide example':'▸ see example';}
+function openPlaybook(){ const b=document.getElementById('pbBody');
+  b.innerHTML=CRITERIA.map(c=>{const p=PLAYBOOK[c.id]; if(!p)return '';
+    return `<div class="pb-item"><div class="pb-name">${escapeHtml(c.name)}${c.req?'':' <i style="color:var(--faint);font-weight:400">(optional)</i>'}</div>`
+      +`<div class="pb-why">${escapeHtml(c.why)}</div>`
+      +`<div class="egbox on"><div class="egrow g"><span class="tag">Good</span><span class="txt">${escapeHtml(p.good)}</span></div>`
+      +`<div class="egrow w"><span class="tag">Weak</span><span class="txt">${escapeHtml(p.weak)}</span></div></div></div>`;}).join('');
+  document.getElementById('playbook').classList.add('on');}
+function closePlaybook(){document.getElementById('playbook').classList.remove('on');}
+function openVerify(){document.getElementById('verify').classList.add('on');}
+function closeVerify(){document.getElementById('verify').classList.remove('on');}
+async function runVerify(){
+  const text=document.getElementById('vfHand').value; let prd=document.getElementById('vfPrd').value.trim();
+  const out=document.getElementById('vfOut'); const btn=document.getElementById('vfBtn');
+  if(!text.trim()){ out.innerHTML='<div class="vf-row warn"><b>Paste the hand-off</b><span>Copy the block the PM handed you (starts with “✅ READY CHECK PASSED”).</span></div>'; return; }
+  const p=_parseHandoff(text);
+  if(!p.code){ out.innerHTML='<div class="vf-row bad"><b>No Ready-Check code found</b><span>Paste the whole hand-off block, including the “Ready-Check: RC-…” line.</span></div>'; return; }
+  // If the PRD field is a link, fetch the LIVE doc — gives us both fresh text (re-hash)
+  // and the current source version (drift check), same as /contract pickup does.
+  let live=null;
+  if(/^https?:\/\/\S+$/i.test(prd)){
+    if(btn){btn.disabled=true;btn.textContent='Fetching…';}
+    out.innerHTML='<div class="vf-row info"><b>Fetching the live doc…</b><span>'+escapeHtml(prd)+'</span></div>';
+    live=await verifyFetch(prd);
+    if(btn){btn.disabled=false;btn.textContent='Verify pass';}
+    if(!live.ok){ out.innerHTML='<div class="vf-row bad"><b>Couldn’t fetch that link</b><span>'+escapeHtml(live.error||'')+' — paste the PRD text instead.</span></div>'; return; }
+    prd=live.text||'';
+  }
+  const st=_verifyCode(p.code,{title:p.title,items:p.items});
+  const rows=[];
+  if(st==='valid') rows.push(['ok','Authentic — code matches','This hand-off’s answers reproduce '+p.code+'. It hasn’t been edited since it cleared.']);
+  else if(st==='stale') rows.push(['bad','Tampered or edited','The answers here don’t reproduce '+p.code+'. Something changed after it cleared — treat as not ready.']);
+  else if(st==='not-ready') rows.push(['bad','Not actually ready','This hand-off is missing required answers — it shouldn’t carry a pass. Send it back.']);
+  else rows.push(['bad','Invalid code','“'+escapeHtml(p.code)+'” isn’t a valid Ready-Check code (expected RC-AAA-XXXXXX).']);
+  // Source drift — compare the live version to the pinned one (STALE-SOURCE).
+  if(live&&live.ok&&p.source){
+    if(String(live.version)!==String(p.source.version)) rows.push(['bad','Source changed since sign-off',escapeHtml(p.source.type+' '+p.source.id)+' is now v'+escapeHtml(live.version)+', pinned at v'+escapeHtml(p.source.version)+'. The PRD was edited after it cleared — ask for a fresh Ready Check.']);
+    else rows.push(['ok','Source unchanged','Still '+escapeHtml(p.source.type+' '+p.source.id)+' v'+escapeHtml(p.source.version)+' — no edits since sign-off.']);
+  }
+  // Content freeze — re-hash the PRD (fetched or pasted).
+  if(p.prdHash){
+    if(!prd) rows.push(['warn','PRD not checked','Paste the PRD text or a JIRA/Confluence link to confirm it matches what cleared.']);
+    else rows.push(_prdHashA(prd)===p.prdHash?['ok','PRD content unchanged','Matches the content hash frozen at sign-off.']:['bad','PRD content changed','This PRD differs from the one that cleared the gate (content hash mismatch).']);
+  } else if(prd&&!live){ rows.push(['info','No content hash in hand-off','This hand-off predates content-hashing — the code + source checks above still hold.']); }
+  if(p.designVersion) rows.push(['info','Design pinned','Figma version '+escapeHtml(p.designVersion)+'. At /contract pickup, dev re-checks the live version for drift.']);
+  if(p.source&&!live) rows.push(['info','Source pinned',escapeHtml(p.source.type+' '+p.source.id+' v'+p.source.version)+' — paste the link above to check it live, or it’s re-checked at pickup.']);
+  out.innerHTML=rows.map(r=>`<div class="vf-row ${r[0]}"><b>${escapeHtml(r[1])}</b><span>${r[2]}</span></div>`).join('');
+}
 
 function sat(c){const s=state[c.id]; return s.na||(s.checked&&s.detail.trim().length>=3)||(!s.na&&s.waived&&s.reason.trim().length>=3);}
 
@@ -324,12 +542,28 @@ function compute(){
   pl.innerHTML=cleared?`<b>All set.</b> Every basic is covered.`
     :`<b>${miss.length} thing${miss.length>1?'s':''}</b> left before this is ready for dev.`;
 
+  const status=readyStatus(); const ready=status.s==='ready';
   const st=document.getElementById('stamp');
-  st.className='stamp '+(cleared?'cleared':'');
-  document.getElementById('stampbig').textContent=cleared?'READY':'NOT READY YET';
-  document.getElementById('stampsub').textContent=cleared
-    ?(waivers.length?`Ready with ${waivers.length} waiver(s), dev to accept.`:'Complete brief. Hand it to dev with confidence.')
-    :`Add the ${miss.length} item${miss.length>1?'s':''} below, then hand off.`;
+  st.className='stamp '+(ready?'cleared':'');
+  const BIG={missing:'NOT READY YET',unreviewed:'NEEDS REVIEW',stale:'RE-REVIEW NEEDED',blockers:'BLOCKERS OPEN',ready:'READY'};
+  const aiN=reqs.filter(c=>state[c.id].aiDrafted).length;   // AI-drafted answers awaiting a quick verify
+  const SUB={
+    missing:`Add the ${miss.length} item${miss.length>1?'s':''} still marked “needed” below${aiN?` (and skim the ${aiN} ✨ AI-drafted one${aiN>1?'s':''})`:''}.`,
+    unreviewed:'Basics are in — run “Check my PRD” so the smart review can verify the answers.',
+    stale:'You changed an answer. Run “Check my PRD” again to re-verify before handing off.',
+    blockers:`${status.n} blocker${status.n>1?'s':''} from the review still open — fix them above, then re-run Check my PRD.`,
+    ready:(status.open?`Ready. ${status.open} flagged item${status.open>1?'s':''} worth addressing first — advice, not required.`:(waivers.length?`Ready with ${waivers.length} waiver(s), dev to accept.`:'Complete brief. Hand it to dev with confidence.'))
+  };
+  document.getElementById('stampbig').textContent=BIG[status.s];
+  document.getElementById('stampsub').textContent=SUB[status.s];
+  const ship=document.getElementById('shipBtn');   // only clickable once the gate is actually open
+  if(ship){ ship.disabled=!ready; ship.title=ready?'':'Finish the basics and run the review — Ship it opens when it’s Ready.'; }
+  // Show a COUNT, not a percentage. "6/11 basics confirmed" maps 1:1 to the
+  // checklist below, so the number is never a mysterious %  — it's just how many
+  // of the basics you've actually confirmed. The ring still fills proportionally.
+  const pct=Math.round(done.length/reqs.length*100);
+  const ring=document.getElementById('ringFg'); if(ring)ring.setAttribute('stroke-dashoffset',(144.51*(1-pct/100)).toFixed(1));
+  const sp=document.getElementById('scorePct'); if(sp)sp.textContent=done.length+'/'+reqs.length;
 
   const tl=document.getElementById('todolist'); tl.innerHTML='';
   if(miss.length===0&&optMiss.length===0){tl.innerHTML='<div class="t none">Nothing left, even the optional bits.</div>';}
@@ -340,11 +574,31 @@ function compute(){
       `<div class="t" onclick="focusCrit('${c.id}')"><span class="dot" style="background:var(--faint)"></span><span>${c.name} <i style="color:var(--faint)">(optional)</i></span></div>`));
   }
 
-  const ho=document.getElementById('handoff'); ho.classList.toggle('show',cleared);
-  if(cleared){document.getElementById('hoCode').textContent=gateCode();
+  const ho=document.getElementById('handoff'); ho.classList.toggle('show',ready);
+  if(ready){document.getElementById('hoCode').textContent=gateCode();
     document.getElementById('hoBody').textContent=handText();}
+  const nr=document.getElementById('notReadyNote');
+  if(nr){ nr.style.display=ready?'none':'block';
+    nr.innerHTML={
+      missing:'<b>Not ready.</b> Go back to step 2 and fill the remaining “needed” items.',
+      unreviewed:'<b>Not ready.</b> Run <b>Check my PRD</b> first — the gate opens only after a smart review of your answers.',
+      stale:'<b>Re-review needed.</b> You edited an answer after the last review. Run <b>Check my PRD</b> again, then the hand-off appears here.',
+      blockers:`<b>${status.n||0} blocker(s) open.</b> Clear the blockers flagged in step 2, re-run <b>Check my PRD</b>, then the hand-off appears here.`,
+      ready:''
+    }[status.s]; }
+  saveState();
 }
-function focusCrit(id){const el=document.getElementById('crit-'+id); if(!el)return;
+// Persist answers + PRD across panel reloads, so the score doesn't reset when the
+// panel refreshes (the review itself still has to re-run — a reload can't certify it).
+function saveState(){ try{ const s={}; CRITERIA.forEach(c=>s[c.id]=state[c.id]);
+  localStorage.setItem('rc-session', JSON.stringify({prd:(document.getElementById('prd')||{}).value||'', s})); }catch(e){} }
+function loadState(){ try{ const o=JSON.parse(localStorage.getItem('rc-session')||'null'); if(!o||!o.s)return;
+  const p=document.getElementById('prd'); if(p&&typeof o.prd==='string')p.value=o.prd;
+  CRITERIA.forEach(c=>{ if(o.s[c.id]) state[c.id]=Object.assign({checked:false,detail:'',na:false,waived:false,reason:'',suggestion:'',aiDrafted:false},o.s[c.id]); }); }catch(e){} }
+function focusCrit(id){goStep(2); _flaggedIds.add(id);
+  let el=document.getElementById('crit-'+id);
+  if(!el){ _answersFilter='all'; render(); el=document.getElementById('crit-'+id); }  // reveal a hidden field
+  if(!el)return;
   el.classList.add('flagged');
   el.scrollIntoView({behavior:'smooth',block:'center'}); const i=el.querySelector('input.detail'); if(i&&!i.disabled)setTimeout(()=>i.focus(),300);}
 
@@ -367,12 +621,65 @@ function normAnswers(){const t=title().trim().toLowerCase().replace(/\s+/g,' ');
 function gateCode(){const h=djb2(normAnswers()).toString(36).toUpperCase().padStart(6,'0').slice(-6);
   const p=(title().replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase()+'XXX').slice(0,3);return 'RC-'+p+'-'+h;}
 
+// ── Review gate (panel-only; does NOT affect the deterministic code above) ──
+function ansSig(){return djb2(normAnswers());}          // same hash the code uses = current-answers fingerprint
+function reviewCurrent(){return !!(lastReview&&lastReview.sig===ansSig());}  // review ran on THESE answers
+function readyStatus(){
+  const cleared=CRITERIA.filter(c=>c.req).every(sat);
+  if(!cleared)         return {s:'missing'};
+  if(!lastReview)      return {s:'unreviewed'};
+  // Fully deterministic gate: ready once every basic is CONFIRMED. The smart review is a
+  // helper (suggestions + advice) — valuable but optional — so a slow/flaky bridge can
+  // never lock the PM out. If a current review exists, surface its advisory count.
+  const open = (lastReview && reviewCurrent()) ? (lastReview.blockers||[]).length : 0;
+  return {s:'ready', open};
+}
+function passed(){return readyStatus().s==='ready';}
+
+// ── Verify (dev-side): pure port of scripts/ready-check.mjs — reuses djb2/firstUrl
+//    above, operates on a parsed {title,items} (NOT the live state). Parity-checked. ──
+const _byId={}; CRITERIA.forEach(c=>_byId[c.id]=c);
+function _hasDetail(a){return !!(a&&typeof a.detail==='string'&&a.detail.trim().length>=3);}
+function _isSat(r,a){ if(!a)return false; if(r.na&&a.na===true)return true; if(_hasDetail(a))return true;
+  if(a.waived===true&&typeof a.reason==='string'&&a.reason.trim().length>=3)return true; return false;}
+function _isWaived(r,a){return _isSat(r,a)&&!!a&&a.waived===true&&!_hasDetail(a)&&!(r.na&&a.na===true);}
+function _norm(ans){const items=ans.items||{}; const t=String(ans.title||'').trim().toLowerCase().replace(/\s+/g,' ');
+  const lines=['title:'+t];
+  CRITERIA.forEach(r=>{const a=items[r.id]; if(!_isSat(r,a))return; let v;
+    if(r.na&&a.na===true)v='na';
+    else if(_isWaived(r,a))v='waived:'+a.reason.trim().toLowerCase().replace(/\s+/g,' ');
+    else if(r.id==='design')v=firstUrl(a.detail)||'present';
+    else v=a.detail.trim().toLowerCase().replace(/\s+/g,' ');
+    lines.push(r.id+':'+v);}); return lines.join('\n');}
+function _clearedA(ans){const items=ans.items||{}; return CRITERIA.filter(c=>c.req).every(r=>_isSat(r,items[r.id]));}
+function _prefixA(t){return ((String(t).replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase())+'XXX').slice(0,3);}
+function _gateCodeA(ans){ if(!_clearedA(ans))return null;
+  const h=djb2(_norm(ans)).toString(36).toUpperCase().padStart(6,'0').slice(-6); return 'RC-'+_prefixA(ans.title)+'-'+h;}
+const _CODE_RE=/^RC-[A-Z]{3}-[A-Z0-9]{6}$/;
+function _prdHashA(text){const n=String(text).replace(/\s+/g,' ').trim().toLowerCase(); return 'H'+djb2(n).toString(36).toUpperCase().padStart(7,'0').slice(-7);}
+function _verifyCode(code,ans){ if(typeof code!=='string'||!_CODE_RE.test(code.trim()))return 'invalid'; const e=_gateCodeA(ans); if(e===null)return 'not-ready'; return e===code.trim()?'valid':'stale';}
+function _parseHandoff(text){const items={}; let title='',code='',source=null,hash=null,designVersion=null;
+  String(text).split('\n').forEach(raw=>{const line=raw.trim(); let m;
+    if((m=line.match(/^Ready-Check:\s*(\S+)/)))code=m[1];
+    else if((m=line.match(/^Source:\s*(\S+)\s+(\S+)\s+v(\S+)/)))source={type:m[1],id:m[2],version:m[3]};
+    else if((m=line.match(/^Design-Version:\s*(\S+)/)))designVersion=m[1];
+    else if((m=line.match(/^PRD-Hash:\s*(\S+)/)))hash=m[1];
+    else if((m=line.match(/^Feature:\s*(.+)/)))title=m[1].trim();
+    else if((m=line.match(/^Platforms:\s*(.+)/)))items.scope={detail:m[1].trim()};
+    else if((m=line.match(/^Design:\s*(.+)/))){const d=m[1].trim(); items.design=(d==='(no UI)')?{na:true}:{detail:d};}
+    else if((m=line.match(/^[•*-]\s*\[(\w+)\][^|]*\|\s*(.+)/))){const id=m[1],val=m[2].trim();
+      if(_byId[id]){ if(/^reason:\s*/i.test(val))items[id]={waived:true,reason:val.replace(/^reason:\s*/i,'')};
+        else if(val==='N/A')items[id]={na:true}; else items[id]={detail:val}; }}
+  });
+  return {title,items,code,source,designVersion,prdHash:hash};}
+
 function handText(){
   const waivers=CRITERIA.filter(c=>{const s=state[c.id];return c.req&&!s.na&&!(s.detail.trim().length>=3)&&s.waived&&s.reason.trim().length>=3;});
   let t=`✅ READY CHECK PASSED${waivers.length?` (${waivers.length} waiver(s), dev to accept)`:''}\n`;
   t+=`Ready-Check: ${gateCode()}\n`;
   if(_srcRef&&_srcRef.version)t+=`Source: ${_srcRef.type} ${_srcRef.id} v${_srcRef.version}\n`;   // freeze pin — dev pickup re-checks this
   if(_designVer)t+=`Design-Version: ${_designVer}\n`;
+  {const pv=document.getElementById('prd').value.trim(); if(pv)t+=`PRD-Hash: ${_prdHashA(pv)}\n`;}  // content freeze — Verify / pickup re-hash this
   t+=`Feature: ${title()}\n`;
   t+=`Platforms: ${platforms()}\n`;
   t+=`Design: ${designLink()}\n`;
@@ -409,18 +716,38 @@ function selectHandoff(){ const el=document.getElementById('hoBody'); if(!el)ret
   try{ const r=document.createRange(); r.selectNodeContents(el);
     const s=window.getSelection(); s.removeAllRanges(); s.addRange(r);
     el.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){} }
-function flash(m){const c=document.getElementById('copied');c.textContent=m;setTimeout(()=>{if(c.textContent===m)c.textContent='';},2600);}
+function flash(m){const c=document.getElementById('copied');c.textContent=m;c.classList.add('show');clearTimeout(c._t);c._t=setTimeout(()=>{c.classList.remove('show');},2600);}
 
-function scan(){const t=document.getElementById('prd').value; if(!t.trim()){flash('Paste a PRD first, or just answer below.');return;}
-  const lines=t.split('\n');
-  CRITERIA.forEach(c=>{const s=state[c.id]; if(s.na)return;
-    const hit=lines.find(l=>c.kw.test(l));
-    if(hit){s.checked=true; if(!s.detail)s.detail=hit.replace(/^[#*\->\s]+/,'').trim().slice(0,95);}});
-  const low=t.toLowerCase();
-  if(!(low.includes('loading')&&low.includes('error'))&&!state.states.na)state.states.checked=false;
-  render(); flash('Auto-filled. Review each answer.');}
+function scan(){const t=document.getElementById('prd').value; if(!t.trim())return;
+  // Deliberately NO keyword-stuffing of the answer boxes. A PRD line that merely
+  // mentions a keyword (often just a heading like "Edge cases:") is not a real
+  // answer, and marking it "satisfied" gave a false sense of readiness. Meaningful
+  // fills come only from the smart review below — blank fields the PRD genuinely
+  // covers, in ≤16 words — so every filled answer is real, not a fragment.
+  render();}
+function toggleIdea(e){ if(e)e.preventDefault(); const box=document.getElementById('ideaBox'); const on=box.style.display==='none';
+  box.style.display=on?'block':'none'; document.getElementById('ideaToggle').textContent=on?'▾ Only have an idea? Draft a starter PRD':'✨ Only have an idea? Draft a starter PRD';
+  if(on)setTimeout(()=>{const i=document.getElementById('ideaInput'); if(i)i.focus();},50);}
+async function draftFromIdea(){
+  const btn=document.getElementById('draftBtn'); const out=document.getElementById('draftMsg');
+  const idea=document.getElementById('ideaInput').value.trim();
+  if(!idea){ flash('Describe your idea in a sentence or two first.'); return; }
+  if(!hasBridge()){ out.textContent='Drafting runs inside Cowork. In a plain browser, write the PRD yourself or use /ready-check in chat.'; return; }
+  if(btn.dataset.busy==='1')return; btn.dataset.busy='1'; btn.disabled=true; const label=btn.textContent; btn.textContent='Drafting…';
+  out.innerHTML='<span class="sc-spin" style="display:inline-block;vertical-align:-3px;margin-right:6px"></span>Drafting a starter PRD from your idea…';
+  const prompt=`You are drafting a STARTER product requirements document (PRD) for a product feature, from a rough idea. Output PLAIN TEXT with simple "## Section" headers, no preamble, no code fences, no commentary.\n`
+    +`Idea: ${idea.slice(0,1500)}\n\n`
+    +`Write each section in 1-3 concrete sentences, but clearly a FIRST DRAFT the PM must refine. Where you infer something, add "(confirm)". Do NOT invent success metrics or Figma links — for those, write a bracketed TODO the PM must fill, e.g. "[TODO: target metric]".\n`
+    +`Sections in order: Title; Problem & goal; Success metric; Design link; Platforms & out-of-scope; Current behavior; Impacted flows; Edge cases; Empty / loading / error states; Localized copy; Writer / creator impact; Analytics events; Dependencies; Rollout.`;
+  let text=''; try{ text=await askClaudeRetry(prompt); }catch(e){ text=''; }
+  btn.dataset.busy='0'; btn.disabled=false; btn.textContent=label;
+  if(!text){ out.textContent='Couldn’t draft just now — try again, or write the PRD yourself.'; return; }
+  document.getElementById('prd').value=text; resetPrd();
+  out.innerHTML='<b>Draft ready — review every line.</b> It’s a starting point, not a finished PRD. Edit it, then click <b>Check my PRD</b>.';
+  flash('Draft created. Review it, then Check my PRD.');
+}
 function resetPrd(){ _srcJira=null; _srcRef=null; _designVer=null; _prdText=''; const st=document.getElementById('prdStage'); if(st)st.style.display='none'; const m=document.getElementById('pubMsg'); if(m)m.textContent=''; }
-function clearAll(){document.getElementById('prd').value=''; CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false,waived:false,reason:''}); document.getElementById('smartOut').innerHTML='<div class="sc-note">Fill the feature, then run the smart check.</div>'; resetPrd(); render();}
+function clearAll(){document.getElementById('prd').value=''; CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false,waived:false,reason:'',suggestion:'',aiDrafted:false}); lastReview=null; try{localStorage.removeItem('rc-session');}catch(e){} document.getElementById('smartOut').innerHTML='<div class="sc-note">Run <b>Check my PRD</b> for the smart review — or fill the questions below.</div>'; resetPrd(); render();}
 
 const SAMPLES={
 thin:`Saved payment cards at checkout
@@ -441,34 +768,81 @@ Tracking: fire card_saved, saved_card_used, tokenize_failed events (Mixpanel).
 Dependencies: payments backend team exposes a tokenization API.
 Rollout: feature flag saved_cards, ramp 1% → 10% → 50% → 100%.`
 };
-function loadSample(k){document.getElementById('prd').value=SAMPLES[k]; CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false,waived:false,reason:''}); resetPrd(); render(); flash('Loaded. Click Check my PRD.');}
+function loadSample(k){document.getElementById('prd').value=SAMPLES[k]; CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false,waived:false,reason:'',suggestion:'',aiDrafted:false}); resetPrd(); render(); flash('Loaded. Click Check my PRD.');}
 
 // ── Smart check — Claude via Cowork bridge (no backend) ──
 function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+// Confluence markdown wraps links, mentions, dates etc. in <custom …>content</custom>.
+// Unwrap them so a smartlink reads as its URL and a mention as its name — otherwise
+// the review can't "see" content that's only present as a link (e.g. an events page).
+function stripCustom(t){return String(t||'').replace(/<custom[^>]*>([\s\S]*?)<\/custom>/gi,'$1');}
 function hasBridge(){return !!(window.cowork&&typeof window.cowork.askClaude==='function');}
 function currentAnswers(){const a={}; CRITERIA.forEach(c=>{const s=state[c.id];
   a[c.id]= s.na?'(N/A)' : (s.waived&&s.reason.trim()?'(waived: '+s.reason.trim()+')' : s.detail.trim()); }); return a;}
 
 function askText(res){ let t = typeof res==='string' ? res : (res && (res.text||res.output||res.completion||(res.content&&res.content[0]&&res.content[0].text)))||''; if(!t && res && typeof res==='object') t=''; return String(t||''); }
-function badReply(t){ return !t || !t.trim() || /inference did not complete|did not complete|\bincomplete\b|^error/i.test(t.trim()); }
+function badReply(t){
+  if(!t || !t.trim()) return true;
+  const s=t.trim();
+  // If the reply carries a JSON payload, it's real — let extractJson handle it.
+  // (A findings review legitimately contains words like "incomplete"/"error";
+  // matching those as failures was throwing away good answers.)
+  if(s.includes('{') || s.includes('[')) return false;
+  // Otherwise, only treat a short non-JSON sentinel as a genuine bridge failure.
+  return /^(error\b|inference (?:did not|didn'?t) complete|request failed|timed? ?out|unavailable|no response)/i.test(s) || s.length<3;
+}
 function withTimeout(p,ms){ return Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]); }
-async function askClaudeRetry(prompt){
-  for(let i=0;i<2;i++){
-    let t=''; try{ t=askText(await withTimeout(window.cowork.askClaude(prompt,[]),30000)); }catch(e){ t=''; }
+let _lastAskErr='';
+async function askClaudeRetry(prompt, attempts, timeoutMs){
+  attempts=attempts||3; timeoutMs=timeoutMs||45000; _lastAskErr='';
+  for(let i=0;i<attempts;i++){          // retries with a small backoff — the bridge can be flaky
+    let t='',err='';
+    try{ t=askText(await withTimeout(window.cowork.askClaude(prompt,[]),timeoutMs)); }
+    catch(e){ err=((e&&e.message)==='timeout')?'the review model timed out':'the review bridge errored'; }
     if(!badReply(t)) return t;
+    _lastAskErr = err || (t?'the model returned an incomplete answer':'the model returned nothing');
+    if(i<attempts-1) await new Promise(r=>setTimeout(r,600));
   }
   return '';
 }
 let _loadTimer=null;
 function startLoading(out){
-  const msgs=['Reading your PRD…','Filling what it already covers…','Hunting for missing edge cases…','Checking answers are specific and measurable…','Almost there…'];
-  let i=0; out.innerHTML='<div class="sc-note" id="scLoad">'+msgs[0]+'</div>';
-  _loadTimer=setInterval(()=>{ i=(i+1)%msgs.length; const el=document.getElementById('scLoad'); if(el)el.textContent=msgs[i]; },1300);
+  const msgs=[
+    'Reading your PRD line by line…',
+    'Auto-filling the answers it already covers…',
+    'Hunting for missing edge cases & error states…',
+    'Checking each answer is specific and measurable…',
+    'Pressure-testing against the Definition of Ready…',
+    'Finalizing the review…'
+  ];
+  out.innerHTML='<div class="sc-load"><span class="sc-spin"></span>'
+    +'<span class="sc-load-t" id="scLoad">'+msgs[0]+'</span>'
+    +'<span class="sc-dots" id="scDots">'+msgs.map((_,k)=>'<i'+(k===0?' class="on"':'')+'></i>').join('')+'</span></div>';
+  let i=0;
+  _loadTimer=setInterval(()=>{
+    i=Math.min(i+1,msgs.length-1);                       // advance forward, hold on the last
+    const el=document.getElementById('scLoad');
+    if(el){ el.textContent=msgs[i]; el.style.animation='none'; void el.offsetWidth; el.style.animation=''; }
+    const dots=document.querySelectorAll('#scDots i'); dots.forEach((d,k)=>d.classList.toggle('on',k<=i));
+  },1400);
 }
 function stopLoading(){ if(_loadTimer){clearInterval(_loadTimer);_loadTimer=null;} }
+function loadMsg(m){ if(_loadTimer){clearInterval(_loadTimer);_loadTimer=null;} const el=document.getElementById('scLoad'); if(el)el.textContent=m; }
+// Split a long PRD into chunks that each fit the askClaude bridge, preferring newline boundaries.
+function chunkText(t,size){ const s=String(t||''); if(s.length<=size)return [s]; const out=[]; let i=0;
+  while(i<s.length){ let end=Math.min(i+size,s.length);
+    if(end<s.length){ const nl=s.lastIndexOf('\n',end); if(nl>i+size*0.5) end=nl; }
+    out.push(s.slice(i,end)); i=(end>i?end:i+size); }
+  return out; }
+// Merge per-part findings: drop duplicates and cross-part false "missing" (an item that
+// actually got an answer/suggestion/N-A/waiver in another part).
+function dedupeFindings(arr){ const seen=new Set(); const out=[];
+  (arr||[]).forEach(f=>{ if(!f||!f.id)return; const s=state[f.id];
+    if(s && (s.detail.trim().length>=3 || (s.suggestion&&s.suggestion.trim()) || s.na || s.waived)) return;
+    const k=f.id+'|'+String(f.issue||'').toLowerCase().replace(/\s+/g,' ').slice(0,40); if(seen.has(k))return; seen.add(k); out.push(f); });
+  return out; }
 
-// ── JIRA fetch via the Atlassian connector (Cowork callMcpTool bridge) ──
-// Connector id comes from ATLASSIAN_MCP in the CONFIG block at the top.
+// ── JIRA / Confluence fetch via the Atlassian connector (Cowork callMcpTool bridge) ──
 const JIRA_GET=ATLASSIAN_MCP+'getJiraIssue';
 const JIRA_RES=ATLASSIAN_MCP+'getAccessibleAtlassianResources';
 const JIRA_UPDATE=ATLASSIAN_MCP+'editJiraIssue';
@@ -477,8 +851,41 @@ const CONF_GET=ATLASSIAN_MCP+'getConfluencePage';
 let _srcJira=null;   // {key, cloudId} of a fetched ticket, so publish can update it
 let _srcRef=null;    // {type, id, version} of the fetched source, for the freeze stamp
 let _designVer=null; // Figma file version, captured when FIGMA_MCP is wired
-async function figmaFileVersion(url){ if(!FIGMA_MCP||!hasMcp()||!url)return null;
-  try{ const r=await window.cowork.callMcpTool(FIGMA_MCP+'get_file_version',{file:url}); const d=unwrap(r); return d&&(d.version||null); }catch(e){ return null; } }
+let lastReview=null; // {sig, blockers[]} — the gate stays LOCKED until a smart review has run
+                     // on the CURRENT answers AND come back with zero open blockers.
+let _figmaPrefix=null;  // the namespace that answered (cached after first success)
+let _figmaErr='';       // last failure reason, surfaced so we can see WHY a call failed
+async function _figmaCall(tool,args){ if(!FIGMA_ON||!hasMcp())return null; const errs=[];
+  for(const p of (_figmaPrefix?[_figmaPrefix]:FIGMA_PREFIXES)){
+    try{ const raw=await withTimeout(window.cowork.callMcpTool(p+tool,args),30000);
+      const d=unwrap(raw);
+      if(d && typeof d==='object' && !d.error){ _figmaPrefix=p; return d; }
+      errs.push((d&&d.error)?(p+tool+': '+String(d.error)) : (p+tool+': '+(rawText(raw)||'unexpected reply').slice(0,120)));
+    }catch(e){ errs.push(p+tool+': '+String((e&&e.message)||e)); }
+  } _figmaErr=errs.join('  |  '); return null; }
+function rawText(r){ try{ return (r&&r.content&&r.content[0]&&r.content[0].text)||''; }catch(e){ return ''; } }
+async function figmaFileVersion(url){ if(!url)return null; const d=await _figmaCall('get_file_version',{file:url}); return d&&(d.version||null); }
+let _designAudit=null; // last Figma design-audit result (facts for the summary line)
+let _designAuditNote=''; // why the audit didn't run (nolink/unreachable/nobridge/off), for visible feedback
+async function figmaAudit(url){ if(!url)return null; const d=await _figmaCall('audit_design',{file:url}); return (d&&d.platforms)?d:null; }
+// Turn raw audit facts into review findings, using the PRD's scope for severity.
+function auditToFindings(a){ if(!a)return []; const out=[]; const P=a.platforms||{}, S=a.states||{};
+  const ctx=(document.getElementById('prd').value+' '+state.scope.detail).toLowerCase();
+  const wantsMobile=/\b(android|ios|iphone|ipad|mobile|app)\b/.test(ctx);
+  const wantsWeb=/\bweb\b/.test(ctx);
+  if(wantsMobile && !P.mobile && (P.desktop||P.tablet)) out.push({id:'scope',severity:'blocker',issue:'design has no mobile-width frames, but the PRD scopes mobile.',fix:'Add the mobile designs (or narrow the scope to web).'});
+  else if(P.desktop && !P.mobile && !P.tablet) out.push({id:'scope',severity:'warning',issue:'design has web frames only — no mobile-width frames found.',fix:'Confirm mobile is out of scope, or add mobile screens.'});
+  if(wantsWeb && !P.desktop && (P.mobile||P.tablet)) out.push({id:'scope',severity:'warning',issue:'PRD mentions web but no desktop-width frames were found.',fix:'Add the web designs, or adjust the scope.'});
+  if(!state.design.na){
+    if(a.placeholders&&a.placeholders.length) out.push({id:'design',severity:'blocker',issue:a.placeholders.length+' text layer(s) still have placeholder copy (e.g. "'+String((a.placeholders[0]||{}).text||'').slice(0,36)+'").',fix:'Replace placeholder/lorem copy with final strings.'});
+  }
+  if(!state.states.na){
+    if(!S.error)   out.push({id:'states',severity:'warning',issue:'no error screen found in the design.',fix:'Add the error state (failed / retry).'});
+    if(!S.empty)   out.push({id:'states',severity:'warning',issue:'no empty state found in the design.',fix:'Add the empty state ("nothing yet").'});
+    if(!S.loading) out.push({id:'states',severity:'warning',issue:'no loading state found in the design.',fix:'Add the loading / skeleton state.'});
+  }
+  return out.map(f=>({...f, issue:'From the Figma audit: '+f.issue}));
+}
 function hasMcp(){ return !!(window.cowork && typeof window.cowork.callMcpTool==='function'); }
 function jiraEnabled(){ return !!ATLASSIAN_MCP && hasMcp(); }
 function isConfluenceUrl(u){ return /atlassian\.net\/wiki\//i.test(u); }
@@ -495,9 +902,9 @@ async function fetchJira(url){
   if(!node){ let res=null; try{ res=unwrap(await window.cowork.callMcpTool(JIRA_RES,{})); }catch(e){}
     const cid=Array.isArray(res)&&res[0]&&res[0].id; if(cid){ node=await jiraIssue(cid,key); usedCloud=cid; } }
   if(!node) throw new Error('Ticket not found or no access.');
-  _srcJira={key, cloudId:usedCloud};                 // remember the source so publish can update it
+  _srcJira={key, cloudId:usedCloud};
   const f=node.fields||{};
-  _srcRef={type:'jira', id:key, version:String(f.updated||'').replace(/\s+/g,'')};   // freeze pin (updated ts)
+  _srcRef={type:'jira', id:key, version:String(f.updated||'').replace(/\s+/g,'')};
   const desc=typeof f.description==='string'?f.description:(f.description?JSON.stringify(f.description):'');
   return `${node.key}: ${f.summary||''}\n\n${desc}`;
 }
@@ -512,9 +919,30 @@ async function fetchConfluence(url){
   if(!node){ let res=null; try{ res=unwrap(await window.cowork.callMcpTool(JIRA_RES,{})); }catch(e){}
     const cid=Array.isArray(res)&&res[0]&&res[0].id; if(cid) node=await confPage(cid,pageId); }
   if(!node) throw new Error('Page not found or no access.');
-  _srcRef={type:'confluence', id:pageId, version:String(node.version&&node.version.number||node.lastModified||'').replace(/\s+/g,'')};  // freeze pin
+  _srcRef={type:'confluence', id:pageId, version:String(node.version&&node.version.number||node.lastModified||'').replace(/\s+/g,'')};
   const body=typeof node.body==='string'?node.body:'';
-  return (node.title?('# '+node.title+'\n\n'):'')+body;
+  return stripCustom((node.title?('# '+node.title+'\n\n'):'')+body);
+}
+// Fetch a source link for VERIFY — returns {ok,type,id,version,text} WITHOUT mutating panel state.
+async function verifyFetch(url){
+  if(!jiraEnabled()) return {ok:false,error:'Connect the Atlassian connector to fetch links, or paste the PRD text.'};
+  try{ const host=url.replace(/^https?:\/\//,'').split('/')[0];
+    const cloud=async()=>{ let res=null; try{ res=unwrap(await window.cowork.callMcpTool(JIRA_RES,{})); }catch(e){} return Array.isArray(res)&&res[0]&&res[0].id; };
+    if(isConfluenceUrl(url)){
+      const pageId=(url.match(/\/pages\/(\d+)/)||[])[1]; if(!pageId) return {ok:false,error:'No page id in that link.'};
+      let n=null; try{ n=await confPage(host,pageId); }catch(e){} if(!n){ const cid=await cloud(); if(cid)n=await confPage(cid,pageId); }
+      if(!n) return {ok:false,error:'Couldn’t fetch that page (no access?).'};
+      return {ok:true,type:'confluence',id:pageId,version:String(n.version&&n.version.number||n.lastModified||'').replace(/\s+/g,''),
+              text:(n.title?('# '+n.title+'\n\n'):'')+(typeof n.body==='string'?n.body:'')};
+    } else if(isJiraUrl(url)){
+      const key=(url.match(/([A-Z][A-Z0-9]+-\d+)/)||[])[1]; if(!key) return {ok:false,error:'No issue key in that link.'};
+      let node=null; try{ node=await jiraIssue(host,key); }catch(e){} if(!node){ const cid=await cloud(); if(cid)node=await jiraIssue(cid,key); }
+      if(!node) return {ok:false,error:'Ticket not found or no access.'};
+      const f=node.fields||{}; const desc=typeof f.description==='string'?f.description:(f.description?JSON.stringify(f.description):'');
+      return {ok:true,type:'jira',id:key,version:String(f.updated||'').replace(/\s+/g,''),text:`${node.key}: ${f.summary||''}\n\n${desc}`};
+    }
+    return {ok:false,error:'Paste a JIRA or Confluence link, or the PRD text.'};
+  }catch(e){ return {ok:false,error:String(e&&e.message||e)}; }
 }
 
 // ── PRD generation (mirrors scripts/ready-check.mjs renderPrd) + publish ──
@@ -537,7 +965,12 @@ function renderPrdJS(){const out=[]; out.push('# PRD — '+title()); out.push(''
   const w=CRITERIA.filter(c=>{const s=state[c.id];return c.req&&!s.na&&!(s.detail.trim().length>=3)&&s.waived&&s.reason.trim().length>=3;});
   if(w.length){out.push('## Waivers (dev to accept)'); w.forEach(c=>out.push('- **'+c.name+'**: '+state[c.id].reason.trim())); out.push('');}
   return out.join('\n').trim()+'\n';}
-function genPrd(){ _prdText=renderPrdJS();
+function genPrd(){
+  if(!passed()){ const st=readyStatus();
+    flash(st.s==='missing'?'Fill the remaining “needed” items first.'
+      :st.s==='blockers'?'Clear the open blockers, then re-run Check my PRD.'
+      :'Run Check my PRD to verify your answers first.'); goStep(2); return; }
+  _prdText=renderPrdJS();
   document.getElementById('prdOut').textContent=_prdText;
   document.getElementById('prdStage').style.display='block';
   const pr=document.getElementById('pubRow');
@@ -557,13 +990,12 @@ async function publishJira(){
   const btn=document.querySelector('#pubRow .btn'); if(btn) btn.disabled=true; flashPub('Publishing to JIRA…');
   try{
     if(_srcJira&&_srcJira.key){
-      // Append the PRD rather than overwrite — don't destroy existing ticket content.
       let existing='';
       try{ const g=unwrap(await window.cowork.callMcpTool(JIRA_GET,{cloudId:_srcJira.cloudId,issueIdOrKey:_srcJira.key,fields:['description'],responseContentFormat:'markdown'}));
         const n=g&&g.issues&&g.issues.nodes&&g.issues.nodes[0]; const f=n&&n.fields; existing=(f&&typeof f.description==='string')?f.description:''; }catch(e){}
       let body;
-      if(existing && existing.includes('# PRD —')){ body=existing.slice(0,existing.indexOf('# PRD —')).trim(); body=(body?body+'\n\n':'')+_prdText; } // re-publish: replace the old PRD block
-      else if(existing.trim()){ body=existing.trim()+'\n\n---\n\n'+_prdText; }                                                         // append below existing content
+      if(existing && existing.includes('# PRD —')){ body=existing.slice(0,existing.indexOf('# PRD —')).trim(); body=(body?body+'\n\n':'')+_prdText; }
+      else if(existing.trim()){ body=existing.trim()+'\n\n---\n\n'+_prdText; }
       else { body=_prdText; }
       const r=await window.cowork.callMcpTool(JIRA_UPDATE,{cloudId:_srcJira.cloudId,issueIdOrKey:_srcJira.key,fields:{description:body},contentFormat:'markdown'});
       const d=unwrap(r); if(d&&d.error) throw new Error(d.message||'update failed');
@@ -584,85 +1016,137 @@ async function publishJira(){
 
 async function smartCheck(){
   const btn=document.getElementById('smartBtn'); const out=document.getElementById('smartOut');
-  if(btn.dataset.busy==='1') return;                 // ignore double-clicks while a run is in flight
-  btn.dataset.busy='1'; btn.disabled=true;
+  const rbtn=document.getElementById('recheckBtn');
+  if(btn.dataset.busy==='1') return;
+  btn.dataset.busy='1'; btn.disabled=true; if(rbtn){rbtn.disabled=true; rbtn.textContent='↻ Working…';}
   try{
     document.querySelectorAll('.crit.flagged').forEach(e=>e.classList.remove('flagged'));
-    if(!hasBridge()){out.innerHTML='<div class="sc-note">The live smart check runs inside Cowork. Opened in a plain browser? Use the deterministic checks here, then run <code>/ready-check</code> in Claude for the smart pass.</div>';return;}
+    if(!hasBridge()){ goStep(2); out.innerHTML='<div class="sc-note">The live smart check runs inside Cowork. Opened in a plain browser? Fill the questions below, then run <code>/ready-check</code> in Claude for the smart pass.</div>';return;}
     let prdRaw=document.getElementById('prd').value.trim();
-    if(/^https?:\/\/\S+$/i.test(prdRaw)){                                        // a bare link
-      if(isConfluenceUrl(prdRaw) && jiraEnabled()){                              // Confluence page via the connector
-        btn.textContent='Fetching…'; out.innerHTML='<div class="sc-note">Fetching the Confluence page…</div>';
+    if(/^https?:\/\/\S+$/i.test(prdRaw)){
+      if(isConfluenceUrl(prdRaw) && jiraEnabled()){
+        btn.textContent='Fetching…'; flash('Fetching the Confluence page…');
         try{ const fetched=await fetchConfluence(prdRaw);
           if(!fetched || fetched.trim().length<20) throw new Error('The page has little text to check.');
           document.getElementById('prd').value=fetched; prdRaw=fetched.trim(); flash('Fetched the Confluence page.');
-        }catch(e){ out.innerHTML='<div class="sc-note">Couldn\'t fetch that Confluence page ('+escapeHtml(String(e&&e.message||e))+'). Check the Atlassian connector and your access, or paste the page <b>text</b> instead.</div>'; flash('Couldn\'t fetch; paste text.'); return; }
-      } else if(isJiraUrl(prdRaw) && jiraEnabled()){                            // JIRA issue via the connector
-        btn.textContent='Fetching…'; out.innerHTML='<div class="sc-note">Fetching the JIRA ticket…</div>';
+        }catch(e){ flash('Couldn\'t fetch that page ('+String(e&&e.message||e)+'). Paste the text instead.'); return; }
+      } else if(isJiraUrl(prdRaw) && jiraEnabled()){
+        btn.textContent='Fetching…'; flash('Fetching the JIRA ticket…');
         try{ const fetched=await fetchJira(prdRaw);
           if(!fetched || fetched.replace(/^[A-Z0-9-]+:\s*/,'').trim().length<10) throw new Error('The ticket has little text to check.');
           document.getElementById('prd').value=fetched; prdRaw=fetched.trim(); flash('Fetched the ticket.');
-        }catch(e){ out.innerHTML='<div class="sc-note">Couldn\'t fetch that ticket ('+escapeHtml(String(e&&e.message||e))+'). Make sure the Atlassian connector is authorized and you can access that project, or paste the ticket <b>text</b> instead.</div>'; flash('Couldn\'t fetch; paste text.'); return; }
+        }catch(e){ flash('Couldn\'t fetch that ticket ('+String(e&&e.message||e)+'). Paste the text instead.'); return; }
       } else {
-        out.innerHTML='<div class="sc-note">That looks like a link. Paste the PRD <b>text</b> here, or run <code>/ready-check &lt;link&gt;</code> in a Cowork chat to fetch it.</div>';
-        flash('Paste the ticket text, not the link.'); return;
+        flash('That looks like a link. Paste the PRD text, or use /ready-check <link> in a Cowork chat.'); return;
       }
     }
-    if(!prdRaw && CRITERIA.filter(c=>sat(c)).length===0){                         // nothing to check; skip the model call
-      out.innerHTML='<div class="sc-note">Paste your PRD in the box above (or fill the questions on the left), then click <b>Check my PRD →</b>.</div>';
-      flash('Add your PRD first.'); return;
+    if(!prdRaw && CRITERIA.filter(c=>sat(c)).length===0){
+      goStep(2); out.innerHTML='<div class="sc-note">No PRD text yet — fill the questions below, or go back and paste a PRD.</div>';
+      flash('Add your PRD, or fill the questions.'); return;
     }
-    // 1) Deterministic baseline fill from the PRD (instant; a floor even if the model call fails).
-    let filled=0;
-    if(prdRaw){ const before=CRITERIA.filter(c=>c.req&&sat(c)).length; scan(); filled=Math.max(0,CRITERIA.filter(c=>c.req&&sat(c)).length-before); }
-    // 2) Claude reads the PRD, extracts the fields it covers, and lists the gaps.
-    btn.textContent='Reviewing…'; startLoading(out);
-    const prd=prdRaw.slice(0,4000);
+    goStep(2);   // move to the review step
+    btn.textContent='Reviewing…'; startLoading(out); loadMsg('Checking the review connection…');
+    // Liveness probe — if the AI bridge is hung, fail in ~25s with the real fix, not a 3-min spinner.
+    let bridgeOk=false;
+    // Any non-empty reply means the bridge is alive (don't reuse badReply — it rejects short replies).
+    try{ const _t=askText(await withTimeout(window.cowork.askClaude('Reply with the single word: ready',[]),25000)); bridgeOk=!!(_t&&_t.trim().length); }catch(e){ bridgeOk=false; }
+    if(!bridgeOk){ stopLoading();
+      out.innerHTML='<div class="vf-row warn"><b>Smart review unavailable right now</b><span>Cowork’s in-panel AI bridge didn’t respond. It’s optional — fill/confirm the basics below and you can still hand off. For the AI review + design audit, run <code>/ready-check &lt;your PRD link&gt;</code> in a Cowork chat (Claude does it there without this panel’s bridge). Or fully close and reopen the panel to reconnect.</span><button class="btn primary" style="margin-top:9px;align-self:flex-start" onclick="smartCheck()">↻ Retry</button></div>';
+      return; }
+    { const ab=document.getElementById('answersBlock'); if(ab)ab.style.display='none'; }  // hide the field list while reviewing
+    const clean=stripCustom(prdRaw);
     const answers=currentAnswers();
     const ids=CRITERIA.map(c=>c.id).join(',');
-    const prompt=`A PM is running a Ready Check. Return ONE JSON object only, no markdown, no commentary.\n\n`
-      +`PRD TEXT:\n${prd||'(none)'}\n\n`
-      +`CURRENT ANSWERS the PM has entered (id: value; these may improve on the PRD):\n${JSON.stringify(answers)}\n\n`
-      +`Judge readiness from the CURRENT ANSWERS, not just the PRD. If an answer already covers a gap, do NOT report it as a finding.\n`
-      +`Return exactly: {"fills":{"<id>":"<answer <=16 words, ONLY for ids the PRD covers that are still blank>"},`
+    // Read the WHOLE PRD regardless of length: split into chunks small enough for the
+    // askClaude bridge, review each, and merge. (One 40k call errors the bridge.)
+    const CHUNK=11000, MAXCHUNKS=16;
+    let parts = clean.length<=CHUNK ? [clean||''] : chunkText(clean, CHUNK);
+    const prdTruncated = parts.length>MAXCHUNKS; if(prdTruncated) parts=parts.slice(0,MAXCHUNKS);
+    const guide=`Content may live in TABLES, lists, or behind a LINK to another page. Treat an item as COVERED if this part specifies it OR references it via a link/another doc (then fill with "documented at <link> — confirm complete"). Read tables and links, not just prose.\n`;
+    const mergedFills={}; let mergedFindings=[]; let reviewed=false;
+    if(parts.length>1) loadMsg(`Reviewing ${parts.length} sections…`);
+    const buildPrompt=(part,ci)=>`A PM is running a Ready Check. Return ONE JSON object only, no markdown, no commentary.\n\n`
+      +(parts.length>1?`This is PART ${ci+1} of ${parts.length} of a long PRD — extract what THIS part covers.\n`:``)
+      +`PRD TEXT:\n${part||'(none)'}\n\n`
+      +`CURRENT ANSWERS the PM has entered (id: value):\n${JSON.stringify(answers)}\n\n`
+      +guide
+      +`Return exactly: {"fills":{"<id>":"<answer <=16 words, ONLY for ids THIS part covers that are still blank>"},`
       +`"findings":[{"id":"<id>","severity":"blocker|warning","issue":"<=12 words","fix":"<=12 words"}]}\n`
-      +`ids: ${ids}. findings = up to 5 missing edge cases / error states or vague, unmeasurable answers; product-level only (no schema, security, or implementation). Start with { and end with }.`;
-    let text=''; try{ text=await askClaudeRetry(prompt); }catch(e){ text=''; }
+      +`ids: ${ids}. findings = up to 5 missing edge cases / vague answers; product-level only (no schema/security/impl). Start with { and end with }.`;
+    // Run every part IN PARALLEL so a long PRD is ~one call's time, not N× slower.
+    const results = await Promise.all(parts.map(async (part,ci)=>{
+      let text=''; try{ text=await askClaudeRetry(buildPrompt(part,ci),2,90000); }catch(e){ text=''; }
+      return extractJson(text);   // 2 tries × 90s in parallel — give a slow bridge time; it's optional + non-blocking
+    }));
+    results.forEach(parsed=>{ if(parsed){ reviewed=true;
+      const f=parsed.fills; if(f && typeof f==='object'){ for(const id of Object.keys(f)){ const v=f[id];
+        if(!mergedFills[id] && typeof v==='string' && v.trim() && v.trim().toLowerCase()!=='null') mergedFills[id]=v.trim(); } }
+      const fnd=Array.isArray(parsed.findings)?parsed.findings:(Array.isArray(parsed)?parsed:[]); mergedFindings=mergedFindings.concat(fnd); } });
     stopLoading();
-    const parsed=extractJson(text);
-    // apply the model's fills to fields the PM hasn't already answered
-    let llmFilled=0;
-    const fills=parsed && !Array.isArray(parsed) && parsed.fills;
-    if(fills && typeof fills==='object'){ CRITERIA.forEach(c=>{const v=fills[c.id]; const s=state[c.id];
-      if(typeof v==='string' && v.trim() && v.trim().toLowerCase()!=='null' && !(s.detail.trim().length>=3) && !s.na && !s.waived){ s.detail=v.trim(); s.checked=true; llmFilled++; }}); }
+    // Merged fills → SUGGESTIONS (don't count until the PM keeps them → deterministic score).
+    let llmSugg=0;
+    // Auto-fill from the PRD: it's the PM's own doc, so we keep it by default (counts now),
+    // marked aiDrafted so it shows for a quick verify. Only fills BLANK fields — never overwrites.
+    CRITERIA.forEach(c=>{const v=mergedFills[c.id]; const s=state[c.id];
+      if(typeof v==='string' && v.trim() && !(s.detail.trim().length>=3) && !s.na && !s.waived){ s.detail=v.trim(); s.checked=true; s.aiDrafted=true; llmSugg++; }});
     render();
-    if(FIGMA_MCP && hasMcp()){ const durl=firstUrl(state.design.detail); if(durl){ const dv=await figmaFileVersion(durl); if(dv){ _designVer=dv; render(); } } }  // design freeze pin
-    const totalFilled=filled+llmFilled;
-    const findings=(parsed && Array.isArray(parsed.findings)) ? parsed.findings : (Array.isArray(parsed)?parsed:[]);
+    const parsed=reviewed?{}:null;   // marker: did any part return a usable review?
+    let auditFindings=[]; _designAudit=null; _designAuditNote='';
+    { const figRe=/https?:\/\/(?:www\.)?figma\.com\/[^\s)]+/i;
+      // A URL is unambiguous, so pull the Figma link deterministically — from the
+      // design answer, else straight from the PRD text — instead of relying on the
+      // LLM to have filled it. Also backfills the design field so it counts as done.
+      let durl=(state.design.detail.match(figRe)||[])[0];
+      if(!durl && !state.design.na){ const m=document.getElementById('prd').value.match(figRe);
+        if(m){ durl=m[0]; if(!state.design.detail.trim()){ state.design.detail=durl; state.design.checked=true; render(); } } }
+      if(state.design.na){ _designAuditNote=''; }                    // no UI → nothing to audit
+      else if(!FIGMA_ON){ _designAuditNote='off'; }                  // connector not configured in this build
+      else if(!hasMcp()){ _designAuditNote='nobridge'; }             // opened outside Cowork
+      else if(!durl){ _designAuditNote='nolink'; }                   // design answer has no Figma URL
+      else { const dv=await figmaFileVersion(durl); if(dv){ _designVer=dv; render(); }
+        const au=await figmaAudit(durl);
+        if(au){ _designAudit=au; auditFindings=auditToFindings(au); }
+        else { _designAuditNote='unreachable'; } } }                 // figma-rest not reachable / call failed
+    let findings=dedupeFindings(mergedFindings);   // merge parts, drop cross-part false "missing" + duplicates
+    if(auditFindings.length) findings=findings.concat(auditFindings);   // design-audit gaps are advice too
+    // A completed review (any part returned JSON) is required to open the gate; findings are advice, not a lock.
+    lastReview = parsed ? { sig: ansSig(), blockers: findings.filter(f=>f&&f.severity==='blocker') } : null;
+    compute();   // refresh stamp + gate state
     let html='';
-    if(totalFilled) html+=`<div class="sc-fill">✓ Filled ${totalFilled} field${totalFilled>1?'s':''} the PRD covers. Missing ones are marked “needed” below.</div>`;
+    if(prdTruncated) html+=`<div class="vf-row warn"><b>Extremely long PRD — reviewed the first ~${Math.round(MAXCHUNKS*CHUNK/1000)}k characters</b><span>That's ${MAXCHUNKS} sections. Confirm anything past that in the fields below.</span></div>`;
+    if(llmSugg) html+=`<div class="sc-fill">✨ <b>Auto-filled ${llmSugg} answer${llmSugg>1?'s':''} from your PRD</b> — paraphrases of what your PRD already says (not invented). They <b>count now</b>; each is marked ✨ below — skim and edit anything that’s off, or:
+      <div style="margin-top:8px"><button class="susebtn" onclick="ackAllAi()">✓ Looks right on all</button></div></div>`;
+    if(_designAudit){ const a=_designAudit; const P=a.platforms||{};
+      const plats=[P.mobile?'mobile':'',P.tablet?'tablet':'',P.desktop?'web':''].filter(Boolean).join(' + ')||'—';
+      const st=a.states||{}; const has=[st.empty?'empty':'',st.loading?'loading':'',st.error?'error':'',st.success?'success':''].filter(Boolean).join('/')||'none';
+      html+=`<div class="sc-fill" style="border-left-color:var(--brand)"><b>Design audit ran</b> — ${a.screenCount||0} frame(s) · platforms ${plats} · states found: ${has}${(a.placeholders&&a.placeholders.length)?` · ${a.placeholders.length} placeholder-copy hit(s)`:''}. Any gaps are listed below.</div>`; }
+    else { const N={ nolink:'No Figma link in the <b>Where is the design?</b> answer — add the Figma URL and re-check to audit platforms, states &amp; placeholder copy.',
+        unreachable:'<b>Design audit runs in chat, not in this panel.</b> This sidebar is a sandbox — it can reach cloud connectors (JIRA/Confluence) but not the local <code>figma-rest</code> connector. To audit the design, run <code>/ready-check</code> with your Figma link in a Cowork chat (or just ask Claude to audit it). <span style="opacity:.55">'+escapeHtml((_figmaErr||'').slice(0,90))+'</span>',
+        nobridge:'Design audit runs inside Cowork — open the panel from the Cowork sidebar to enable it.',
+        off:'Design audit is turned off in this build.' }[_designAuditNote];
+      if(N) html+=`<div class="vf-row info"><b>Design audit</b><span>${N}</span></div>`; }
     if(findings.length){
       html+=findings.slice(0,6).map(f=>`<div class="sc-f ${f.severity==='blocker'?'blk':'wn'}" onclick="focusCrit('${(f.id||'').replace(/[^a-z0-9]/gi,'')}')" title="Click to jump to this field">
         <div class="sc-h"><b>${escapeHtml(nameFor(f.id)||f.id||'')}</b><span>${escapeHtml(f.severity||'')}</span></div>
         <div class="sc-i">${escapeHtml(f.issue||'')}</div>
         <div class="sc-x">Fix: ${escapeHtml(f.fix||'')}</div>
         <div class="jump">→ Click to edit this answer</div></div>`).join('');
+      _flaggedIds=new Set(findings.map(f=>f.id));
       findings.forEach(f=>{const el=document.getElementById('crit-'+f.id); if(el)el.classList.add('flagged');});
     } else if(parsed){
       html+='<div class="sc-note ok">No missing edge cases or vague answers. This reads as solid.</div>';
-    } else if(text){
-      html+='<div class="sc-note"><b>Claude\'s notes</b> (returned as text, not cards):<br>'+escapeHtml(text).slice(0,1200)+'</div>';
     } else {
-      html+='<div class="sc-note">Couldn\'t reach Claude for the review just now. Your fields and the gate are done regardless; click <b>Check my PRD →</b> to retry.</div>';
+      html+='<div class="vf-row warn"><b>Smart review didn’t complete</b><span>'+escapeHtml(_lastAskErr||'the review didn’t come back')+'. It’s optional — it just drafts suggestions and flags gaps. You can still fill/confirm the basics below and hand off once they’re all confirmed. Retry for suggestions when the bridge is responsive (green dot in the header).</span><button class="btn primary" style="margin-top:9px;align-self:flex-start" onclick="smartCheck()">↻ Retry review</button></div>';
     }
     html+=nextStepHtml(findings);
     out.innerHTML=html;
-    out.scrollIntoView({behavior:'smooth',block:'nearest'});
   }catch(e){
-    out.innerHTML='<div class="sc-note">Something hiccuped during the review ('+escapeHtml(String(e&&e.message||e))+'). Your fields and the gate on the left are still accurate; click <b>Check my PRD →</b> to try again.</div>';
+    out.innerHTML='<div class="vf-row warn"><b>The review hit a snag</b><span>'+escapeHtml(String(e&&e.message||e))+'. The review is optional — fill/confirm the basics below and you can still hand off. Retry when ready.</span><button class="btn primary" style="margin-top:9px;align-self:flex-start" onclick="smartCheck()">↻ Retry review</button></div>';
   }finally{
     stopLoading();
+    { const ab=document.getElementById('answersBlock'); if(ab)ab.style.display=''; }  // reveal fields (now with suggestions) after review
     btn.dataset.busy='0'; btn.disabled=false; btn.textContent='Check my PRD →';
+    if(rbtn){rbtn.disabled=false; rbtn.textContent='↻ Re-check my PRD';}
   }
 }
 function extractJson(text){
@@ -676,22 +1160,35 @@ function extractJson(text){
 function nextStepHtml(findings){
   const reqs=CRITERIA.filter(c=>c.req); const missing=reqs.filter(c=>!sat(c));
   const blockers=(findings||[]).filter(f=>f.severity==='blocker').length;
-  if(missing.length===0 && blockers===0){
-    return `<div class="sc-next ready"><b>You're ready.</b> Click <b>Copy hand-off</b> (in Status, top-right) and paste it into the JIRA ticket or your dev Slack thread.</div>`;
+  if(missing.length===0){
+    return `<div class="sc-next ready"><b>You're ready.</b> ${blockers?`(${blockers} flagged item${blockers>1?'s':''} worth addressing first — advice, not required.) `:''}Head to <b>Ship it →</b> to copy the hand-off or publish the PRD.</div>`;
   }
   const steps=[];
-  if(missing.length) steps.push(`Fill the <b>${missing.length}</b> item${missing.length>1?'s':''} still marked “needed” on the left (${missing.slice(0,4).map(c=>escapeHtml(c.name)).join('; ')}${missing.length>4?'; …':''}). Can't answer one? Use <b>“Can't provide? Waive with a reason.”</b>`);
-  if(blockers) steps.push(`Address the <b>${blockers}</b> blocker${blockers>1?'s':''} above.`);
-  steps.push(`Run <b>smart check</b> again, then <b>Copy hand-off</b>.`);
+  if(missing.length) steps.push(`Fill the <b>${missing.length}</b> item${missing.length>1?'s':''} still marked “needed” below (${missing.slice(0,4).map(c=>escapeHtml(c.name)).join('; ')}${missing.length>4?'; …':''}). Can't answer one? Use <b>“Can't provide? Waive with a reason.”</b>`);
+  if(blockers) steps.push(`Consider the <b>${blockers}</b> flagged item${blockers>1?'s':''} above (advice — won't block the code).`);
+  steps.push(`Run <b>Check my PRD</b> again to re-review.`);
   return `<div class="sc-next"><b>What to do next</b><ol>${steps.map(s=>`<li>${s}</li>`).join('')}</ol></div>`;
 }
 function nameFor(id){const c=CRITERIA.find(x=>x.id===id); return c?c.name:id;}
 
-function initLive(){const p=document.getElementById('livePill');
-  if(hasBridge()){p.textContent='Smart check: live'; p.classList.add('live');}
-  else{p.textContent='Smart check: open in Cowork'; p.classList.remove('live');}}
+function initLive(){
+  const v=document.getElementById('rcVer'); if(v){v.textContent='v'+RC_VERSION;
+    const bm=document.querySelector&&document.querySelector('meta[name=ready-check-build]'); const b=bm&&bm.getAttribute('content');
+    v.title='Ready Check v'+RC_VERSION+(b?' · panel build '+b:'');}
+  const p=document.getElementById('livePill'); if(!p)return;
+  const live=hasBridge();
+  p.className='statusdot '+(live?'ok':'err');
+  p.title=live?'Live — connected to Cowork; the smart review is on.'
+              :'Not connected — open this panel inside Cowork for the smart review. The checklist and gate still work.';}
 
-render(); initLive();
+// ── Theme (separate from the engine) ──
+function setTheme(t){document.documentElement.setAttribute('data-theme',t);
+  try{localStorage.setItem('rc-theme',t);}catch(e){}
+  const b=document.getElementById('themeToggle'); if(b){b.textContent=t==='dark'?'☀':'☾'; b.title=t==='dark'?'Switch to light':'Switch to dark';}}
+function toggleTheme(){setTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark');}
+(function(){let t='light'; try{t=localStorage.getItem('rc-theme')||((window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light');}catch(e){} setTheme(t);})();
+
+loadState(); render(); initLive(); goStep(1);
 </script>
 </body>
 </html>

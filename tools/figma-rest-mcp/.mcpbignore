@@ -1,0 +1,5 @@
+# Files that shouldn't ship inside the .mcpb desktop extension
+README.md
+audit.test.mjs
+.mcpbignore
+*.mcpb

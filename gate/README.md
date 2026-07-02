@@ -83,7 +83,7 @@ the PM do dev's job.
 4. **Copy hand-off.** "This goes in the ticket. No code, no code review — dev picks it up clean."
 5. Close: "PMs own the basics. Manifest owns the technical depth. Nobody chases anyone."
 
-## Rollout (Pocket-FM dev first)
+## Rollout (dev-first, then generalize)
 
 - Week 1: dev requires a gate code before grooming. Run the first few with Nishant.
 - Week 2–3: measure follow-ups per PRD, re-estimation rate, first-try pass rate.

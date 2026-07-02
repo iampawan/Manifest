@@ -19,14 +19,25 @@ two ways to use it — pick whichever you like.
 1. In **Cowork**, open the **Ready Check** panel from the sidebar.
    (Not there yet? Type `/ready-check panel` once and it appears.)
 2. **Paste your PRD** — plain text, or a **JIRA / Confluence link** (it fetches
-   the page for you).
-3. Click **Check my PRD**. Claude fills what your PRD already covers, and lists
-   what's missing or vague.
-4. **Fix the flagged items** (click a finding to jump to that field). Can't
-   answer one? Tick **"Can't provide — waive with a reason."**
+   the page for you). **No PRD yet?** Click **✨ Only have an idea?** and describe
+   the feature in a sentence — it drafts a starter PRD skeleton for you to refine.
+3. Click **Check my PRD**. Claude fills what your PRD genuinely covers (real
+   answers, not keywords), lists what's missing or vague, and the **readiness
+   score** ring shows how close you are.
+4. **Fix the flagged items** (click a finding to jump to that field). Not sure
+   what a strong answer looks like? Hit **Playbook** (top-right) or **"see
+   example"** under any field for a good-vs-weak comparison. Can't answer one?
+   Tick **"Can't provide — waive with a reason."**
 5. When it says **Ready**, either:
    - **Copy hand-off** → paste into the JIRA ticket / dev Slack thread, or
    - **Generate PRD → Publish** → writes a clean PRD to your JIRA/Confluence.
+
+   The hand-off unlocks **only** after the smart review passes with **no open
+   blockers** — and editing any answer re-locks it until you re-check. That's the
+   point: a green pass means it's genuinely ready, not just filled in.
+
+The header **status dot** shows green when the panel's live (smart review on) and
+red if it's opened outside Cowork.
 
 ### Option B — in chat
 
@@ -73,7 +84,11 @@ In **Cowork → connector settings**, authorize:
 
 - **Atlassian** — lets the panel fetch JIRA issues & Confluence pages, and
   publish PRDs back. Without it, PMs can still paste text; links just won't fetch.
-- **Figma (REST)** — for the design-freeze features (see step 4). Optional.
+- **Figma (REST)** — for the design-freeze **and the design audit** (see step 4).
+  Note: the audit (missing mobile/web frames, missing error/empty/loading screens,
+  placeholder copy) runs in **chat** (`/ready-check <figma-link>`) or dev-side
+  `/contract pickup`, not in the sidebar panel — the panel is a sandbox and can't
+  reach a local connector. Optional.
 
 ### 3. Give PMs the panel
 
@@ -106,6 +121,15 @@ Tell devs: **no gate code, no grooming.** When they run `/contract pickup
 <ticket>`, it verifies the Ready Check code automatically and refuses an unready
 PRD. Nothing extra for them to run.
 
+**Quick manual check.** A dev can also open the panel's **Verify** button
+(top-right), paste the hand-off the PM sent, and get an instant verdict:
+*authentic* (the code matches the answers), *tampered/edited* (it was changed
+after clearing), *not ready*, or *invalid*. In the PRD field, paste **the JIRA /
+Confluence link** (not just text) — Verify fetches the live doc and checks both
+the **source version** (drift → *Source changed since sign-off*) and the
+**content hash** (*PRD content unchanged / changed*). Same freeze check as
+`/contract pickup`, in one click.
+
 ---
 
 ## Troubleshooting
@@ -116,6 +140,8 @@ PRD. Nothing extra for them to run.
 | "Couldn't fetch that ticket/page" | Authorize the **Atlassian** connector; confirm you can access that project/space. Or paste the text. |
 | Pasted a link, nothing happens | Paste the **page text** if it's not a JIRA/Confluence link, or use `/ready-check <link>` in chat (chat fetches more). |
 | "Check my PRD" does nothing on re-run | Reload the panel (it self-updates to the latest build). |
+| Hand-off won't appear / stamp says NEEDS REVIEW or RE-REVIEW NEEDED | The gate needs a smart review of the **current** answers. Click **Check my PRD**; if you edited an answer after the last review, run it again. BLOCKERS OPEN means clear the flagged blockers first. |
+| Status dot is red | The panel is open outside Cowork, so the smart review is off. The checklist and gate still work; open it from the Cowork sidebar for the full experience. |
 | Figma design not validating | The **Dev Mode** Figma connector can't do it — you need the **Figma REST** connector from step 4 with a `files:read` token. |
 | Panel not in the sidebar | Run `/ready-check panel` once; it creates it. |
 
@@ -125,6 +151,9 @@ PRD. Nothing extra for them to run.
 
 - **`/ready-check`** — the PM command (chat).
 - **Ready Check panel** — the Cowork sidebar app (`gate/ready-check-cowork.html`).
-- **Offline web page** — `gate/prd-readiness-gate.html`, works in any browser.
+  Header tools: **Playbook** (good-vs-weak per field) and **Verify** (dev-side
+  pass check).
+- **Offline web page** — `gate/prd-readiness-gate.html`, works in any browser
+  (deterministic checklist only — no smart review).
 - **`reference/READY-CHECK-RUBRIC.md`** — the 11-item Definition of Ready.
 - **`/contract pickup`** — the dev-side deep pass that verifies the gate code.

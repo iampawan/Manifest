@@ -44,6 +44,15 @@ or on their first Cowork use of this skill (offer it once):
      this plugin's installed directory
    - `description`: "Ready Check (live) — PM-side PRD readiness gate; smart
      edge-case review via Claude, no backend."
+   - `mcp_tools`: the connector tools the panel calls. Include the Atlassian
+     fetch/publish tools and the figma-rest version tool, matching the CONFIG
+     lines at the top of the HTML:
+     `<ATLASSIAN_MCP>getJiraIssue`, `<ATLASSIAN_MCP>getAccessibleAtlassianResources`,
+     `<ATLASSIAN_MCP>getConfluencePage`, `<ATLASSIAN_MCP>editJiraIssue`,
+     `<ATLASSIAN_MCP>createJiraIssue`, `mcp__figma-rest__get_file_version`, and
+     `mcp__figma-rest__audit_design`.
+     Drop any whose connector the user hasn't registered (and blank the matching
+     CONFIG line) so the panel degrades gracefully instead of erroring.
 3. **If present — refresh it only when the plugin ships a newer build.** Both
    the installed artifact and the plugin's `gate/ready-check-cowork.html` carry
    `<meta name="ready-check-build" content="<N>">`. Read the build number from
@@ -54,7 +63,26 @@ or on their first Cowork use of this skill (offer it once):
    numbers match, do nothing — just tell them it's already in their sidebar and
    current. Never create a duplicate.
 4. **Tell the user** the panel is in their Cowork sidebar (created / refreshed /
-   already current) and persists across sessions.
+   already current) and persists across sessions. Worth surfacing what it does:
+   - **Deterministic gate** — the hand-off/gate code unlocks when every basic is
+     confirmed. The smart review (suggestions + gap findings) is a helper, not a
+     gate: findings are advice, and a slow review bridge can't lock the PM out.
+     (Presence of text is not readiness — only confirmed answers count; no keyword
+     auto-fill.)
+   - **Playbook** (header) — good-vs-weak examples for all 13 fields, plus an
+     inline "see example" on each field.
+   - **Verify** (header) — dev pastes a hand-off → authentic / tampered /
+     not-ready / invalid. In the PRD field paste a JIRA/Confluence **link** and
+     it fetches the live doc to check source-version drift + content hash. Same
+     freeze check as pickup, one click.
+   - **Draft-from-idea** — "✨ Only have an idea?" drafts a starter PRD skeleton.
+   - **Readiness score** ring + strong/weak sample buttons; green/red status dot.
+   - **Design audit** — the panel is a sandbox and **cannot** reach the local
+     `figma-rest` connector, so when a Figma link is present it tells the PM to
+     run the design audit in **chat** (`/ready-check <figma-link>`) or dev-side
+     pickup. The audit itself (platforms, states, placeholder copy) runs there —
+     see Phase 3 item 6. The panel still does everything cloud-reachable: the
+     checklist, score, smart review, JIRA/Confluence fetch + publish, gate.
 5. **Prompt for the connectors the panel uses**, and note which are missing so
    the user can authorize them in Cowork connector settings:
    - **Atlassian** — powers JIRA-issue & Confluence-page *fetch* and *publish*
@@ -65,9 +93,10 @@ or on their first Cowork use of this skill (offer it once):
      is NOT the one to use here — it needs the desktop app with the file open
      and exposes no file version, so it can't validate arbitrary links or pin
      versions. Design-freeze needs a Figma **REST** connector / token.
-   Set the matching connector-id config lines at the top of the panel HTML
-   (`ATLASSIAN_MCP`, and `FIGMA_MCP` when available) and declare those tools in
-   `mcp_tools` when you create/update the artifact.
+   The panel ships with `ATLASSIAN_MCP` and `FIGMA_MCP` (`mcp__figma-rest__`)
+   set. If a user hasn't registered one of those connectors, blank its CONFIG
+   line at the top of the panel HTML and drop its tools from `mcp_tools` so the
+   panel degrades gracefully instead of erroring.
 
 Bump the `ready-check-build` number in `gate/ready-check-cowork.html` whenever
 you change that file, so this auto-refresh can tell "newer" from "same."
@@ -176,6 +205,23 @@ findings the PM can fix themselves** — do not just confirm presence.
    actually let us measure the success metric? If not, name the gap.
 5. **Scope / parity** — explicit out-of-scope present? Behavior consistent
    across the stated platforms?
+6. **Design audit (when a Figma link is present).** If the `design` item is a
+   Figma URL and the `figma-rest` connector is available, call its
+   **`audit_design`** tool (tool name depends on install — e.g.
+   `mcp__figma-rest__audit_design` or `mcp__Figma_REST_Ready_Check__audit_design`;
+   discover it via the available tools). Read the file and fold the gaps in:
+   - **Platforms** — if the PRD scopes mobile but the file has no mobile-width
+     frames (only desktop/tablet), that's a **blocker** on `scope`. Web-only when
+     the PRD implies mobile → flag it.
+   - **UI states** — if no error / empty / loading screen is found by name,
+     surface each as a **warning** on `states` (frame-naming is heuristic — say
+     so, and ask the PM to confirm those states exist rather than hard-failing).
+   - **Copy** — any placeholder/lorem/TODO text layers are a **blocker** on
+     `design` ("N text layers still contain placeholder copy").
+   This is the design-side of Ready Check. It runs **here, in chat** (and at
+   dev-side `/contract pickup`) — the Cowork *panel* is a sandbox and can't reach
+   a local connector, so the panel defers the design audit to this flow. Say
+   which frames/counts you saw so the PM can trust it.
 
 Present these as a short, plain-language blocker list the PM can act on
 immediately. The point of Ready Check is that the PM sees — and fixes — the
