@@ -118,7 +118,7 @@ try {
 }
 ```
 
-**Where first observed**: Pocket-Fm/unified-editor PR (UWS-502
+**Where first observed**: example-app/editor PR (UWS-502
 voice-dictation), Cursor BugBot 2026-06-04.
 
 ---
@@ -168,7 +168,7 @@ const handleClick = useCallback(() => {
 For complex flows, use both — `useRef` for the guard, `useState` for
 the UI's disabled flag.
 
-**Where first observed**: Pocket-Fm/unified-editor PR (UWS-502
+**Where first observed**: example-app/editor PR (UWS-502
 voice-dictation), Cursor BugBot 2026-06-04.
 
 ---
@@ -219,7 +219,7 @@ try {
 Every catch must answer two questions: (a) is the user told?
 (b) is the team told? If both are "no," it's BP-003.
 
-**Where first observed**: Pocket-Fm/unified-editor PR (UWS-502
+**Where first observed**: example-app/editor PR (UWS-502
 voice-dictation), Cursor BugBot 2026-06-04.
 
 ---

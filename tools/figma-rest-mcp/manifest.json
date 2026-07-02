@@ -1,0 +1,40 @@
+{
+  "manifest_version": "0.3",
+  "name": "figma-rest",
+  "display_name": "Figma REST Ready Check",
+  "version": "0.3.1",
+  "description": "Figma REST plumbing for Ready Check: pin a design's version for freeze checks, export node snapshots, and audit a file for design-readiness gaps (missing platforms/states, placeholder copy).",
+  "author": { "name": "Pawan" },
+  "repository": { "type": "git", "url": "https://github.com/iampawan/Manifest.git" },
+  "license": "MIT",
+  "keywords": ["figma", "design", "readiness", "ready-check", "prd"],
+  "server": {
+    "type": "node",
+    "entry_point": "index.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/index.mjs"],
+      "env": { "FIGMA_TOKEN": "${user_config.figma_token}" }
+    }
+  },
+  "tools": [
+    { "name": "get_file_version", "description": "Get a Figma file's current version + lastModified — pin at Ready-Check sign-off to detect later design drift." },
+    { "name": "list_versions", "description": "List a Figma file's named version history (immutable snapshots)." },
+    { "name": "export_node", "description": "Render a Figma frame/node to an image URL — an immutable visual snapshot." },
+    { "name": "audit_design", "description": "Audit a Figma file for design-readiness gaps: platform coverage, UI states present, and placeholder copy." }
+  ],
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": { "node": ">=18.0.0" }
+  },
+  "user_config": {
+    "figma_token": {
+      "type": "string",
+      "title": "Figma personal access token",
+      "description": "Read-only token with files:read scope. Get it at Figma → Settings → Security → Personal access tokens. Stored encrypted in your OS keychain.",
+      "sensitive": true,
+      "required": true
+    }
+  }
+}

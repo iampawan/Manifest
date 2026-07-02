@@ -12,6 +12,50 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.23.0] — Ready Check panel: real gate, Playbook, Verify, draft-from-idea
+
+- **Deterministic gate.** The hand-off/gate code unlocks when every basic is
+  *confirmed* — nothing else. The smart review (suggestions + gap findings) is a
+  helper, not a gate: its findings are **advice**, and a slow/flaky review bridge
+  can never lock the PM out. Presence of text no longer counts as readiness — only
+  confirmed answers do — so the same answers always give the same result.
+- **No more keyword-stuffing.** Pasting a PRD no longer dumps raw heading
+  fragments into the answer boxes. Only the smart review fills a field the PRD
+  genuinely covers, blank-only, ≤16 words — so every filled answer is real.
+- **Playbook.** A "good vs weak" reference for all 13 fields — a header modal, and
+  an inline "see example" on every field.
+- **Verify a pass (dev).** Paste a hand-off → *authentic / tampered / not-ready /
+  invalid*. Give it the PRD as a **JIRA/Confluence link** and it fetches the live
+  doc to check **source-version drift** *and* **content hash** — the same freeze
+  check as `/contract pickup`, in the panel. The engine verifier is ported in and
+  parity-checked against `ready-check.mjs`.
+- **Hand-off carries a content hash** (`PRD-Hash:`) alongside the source-version
+  and design-version pins, so edits are caught even within the same version.
+- **Draft-from-idea on-ramp.** Describe an idea → a starter PRD skeleton drafts
+  into the box (metrics/design left as explicit TODOs) to refine, then gate.
+- **Readiness score** ring (% of basics covered) and **strong/weak** sample
+  framing; staged loading messages; connection **status dot** (green live / red
+  not connected) replacing the old "live" text.
+- **Figma design-freeze is live** — the `figma-rest` `get_file_version` tool is
+  wired into the panel, pinning `Design-Version:` at sign-off.
+- **Design audit.** New `figma-rest` `audit_design` tool reads the linked Figma
+  file and flags design-readiness gaps — missing mobile/web frames (vs the PRD
+  scope), missing error/empty/loading screens, and placeholder/unfinished copy.
+  Placeholder copy + mobile-missing-when-scoped are blockers; missing states are
+  warnings. Runs in the **`/ready-check` chat flow** and dev-side `/contract
+  pickup` (Phase 3 item 6) — the sandboxed panel can't reach a local connector,
+  so it defers the audit to chat. 15 audit unit tests.
+- **Deterministic readiness score.** The LLM's field-fills are now *suggestions*
+  ("Use this" to keep) that never count toward the score or gate code until you
+  confirm them. Same PRD + same confirmed answers ⇒ the same number every time,
+  so PMs can trust it. The Figma link is pulled from the PRD deterministically.
+  Answers persist across panel reloads. Determinism is covered by new harness
+  checks (suggestions can't change the code or clear the gate).
+- **Desktop-extension packaging.** `figma-rest` ships as an installable `.mcpb`
+  (manifest with a keychain-encrypted `FIGMA_TOKEN`); the audit response drops the
+  bulky per-screen list. The panel auto-detects the connector's tool namespace.
+- Verification: 55-check parity + verify-port harness and 23 engine tests green.
+
 ## [0.22.0] — Freeze the PRD & design after sign-off (+ Confluence, PRD generation, JIRA publish)
 
 - **Freeze the PRD.** The hand-off pins the source doc's version

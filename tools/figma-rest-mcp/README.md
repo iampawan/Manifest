@@ -5,15 +5,21 @@ The small piece Figma doesn't ship: a **REST** MCP that exposes a design's
 at sign-off and detect drift. (Figma's official MCP is Dev Mode: screenshots and
 code from an open desktop file, no file version.)
 
-**Dependency-free** — raw JSON-RPC over stdio, Node 18+ built-ins only. No
-`npm install`, no publish: it ships with the Manifest plugin (git) and runs
-straight from disk.
+**A single file, zero dependencies.** `index.mjs` is raw JSON-RPC over stdio
+using Node 18+ built-ins only (one import: `node:readline`). No `package.json`,
+no `npm install`, no publish — it ships with the Manifest plugin (git) and runs
+straight from disk via `node index.mjs`. ("Node-based" just means the runtime is
+Node, which is unavoidable for any JS MCP and needs no install/publish.)
 
-Three tools:
+Four tools:
 
 - `get_file_version(file)` → `{ version, lastModified, name }` — pin at sign-off.
 - `list_versions(file)` → named version history (immutable snapshots).
 - `export_node(file, nodeId, format)` → an image URL — the frozen visual.
+- `audit_design(file)` → `{ platforms, states, placeholders, screens, findings }`
+  — design-readiness gaps: platform coverage (mobile/tablet/desktop by frame
+  width), which UI states exist (empty/loading/error/success by frame name), and
+  placeholder copy (lorem/TODO/xxx). Powers Ready Check's design audit.
 
 `file` accepts a Figma URL or a raw file key; `nodeId` accepts `1:2` or a URL
 with `node-id`.
