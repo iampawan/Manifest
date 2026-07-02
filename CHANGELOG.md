@@ -12,6 +12,27 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.22.0] — Freeze the PRD & design after sign-off (+ Confluence, PRD generation, JIRA publish)
+
+- **Freeze the PRD.** The hand-off pins the source doc's version
+  (`Source: jira|confluence <id> v<version>`) + a content hash. `/contract
+  pickup` runs `ready-check.mjs --verify-freeze` → `VALID / STALE-SOURCE /
+  STALE-DESIGN / STALE-CONTENT`, so a PRD edited after clearing is caught.
+- **Freeze the design.** A bundled, **dependency-free** `figma-rest` connector
+  (`tools/figma-rest-mcp/`, read-only Figma token) pins the Figma file version
+  (`Design-Version:`); pickup flags a design changed after sign-off. Ships with
+  the plugin via `mcpServers` — no npm install/publish.
+- **Confluence + JIRA fetch** in the panel — paste a page/issue link and it loads.
+- **Generate PRD + publish** — a clean 11-section PRD from the answers; copy, or
+  publish to JIRA (append to the linked ticket / create a new one).
+- **UX refresh** — numbered steps, a staged PRD panel, indigo accent, clickable
+  findings that jump to the field, rotating progress messages, hardened re-run
+  and clipboard copy.
+- **Setup docs** — `gate/SETUP.md` (PM quick-start + admin), `gate/FIGMA-TOKEN.md`
+  (2-minute token guide), `gate/V0.22-FREEZE-SPEC.md`.
+- Engine: `prdHash`, `verifyFreeze`, `renderPrd`, `--prd`, `--verify-freeze`.
+  153 unit tests + cross-surface parity, all green.
+
 ## [0.21.0] — Ready Check: a PM-side readiness gate before dev grooming
 
 "Airport security for PRDs." A first, cheap gate the PM clears *before*

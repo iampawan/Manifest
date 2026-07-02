@@ -1,0 +1,12 @@
+{
+  "name": "figma-rest-mcp",
+  "version": "0.2.0",
+  "description": "Dependency-free Figma REST MCP for Ready Check design-freeze (version pin, version history, node export).",
+  "type": "module",
+  "main": "index.mjs",
+  "bin": { "figma-rest-mcp": "index.mjs" },
+  "files": ["index.mjs", "README.md"],
+  "engines": { "node": ">=18" },
+  "keywords": ["mcp", "modelcontextprotocol", "figma", "figma-rest", "design", "ready-check", "manifest"],
+  "license": "MIT"
+}

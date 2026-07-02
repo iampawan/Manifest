@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="ready-check-build" content="17" />
+<meta name="ready-check-build" content="21" />
 <title>Ready Check (live) · Cowork</title>
 <style>
   :root{ color-scheme: light;
     --bg:#f4f5f7; --panel:#ffffff; --panel2:#f7f8fa; --line:#e4e7ec;
     --ink:#1a2230; --muted:#59626f; --faint:#98a1b0;
-    --brand:#2f5fd0; --brand-weak:#eaf0fc; --brand-line:#cddcf7; --brand-strong:#264fb0;
+    --brand:#6366f1; --brand-weak:#eef0fe; --brand-line:#c7cbfb; --brand-strong:#4f46e5;
     --pass:#2e8b57; --pass-weak:#e9f5ee;
     --fail:#c23b4b; --fail-weak:#fdecee; --warn:#b7791f; --warn-weak:#fbf1e0;
     --box-border:#c2c8d2; --btn-hover:#c7ccd6; --code-ink:#2b3440;
@@ -110,7 +110,9 @@
   .prdbox{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-top:10px;font:12px/1.55 ui-monospace,Menlo,monospace;color:var(--code-ink);white-space:pre-wrap;max-height:300px;overflow:auto}
   .pubrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
   .pubrow input{background:var(--panel);border:1px solid var(--line);border-radius:6px;color:var(--ink);padding:7px 9px;font-size:12.5px}
-  .pubrow input.small{width:150px}
+  .pubrow input.small{width:130px}
+  .pubbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+  .publabel{font-size:12px;color:var(--muted);font-weight:600}
   .foot{margin-top:20px;color:var(--faint);font-size:12px;line-height:1.6}
 </style>
 </head>
@@ -132,7 +134,7 @@
   <div class="grid">
     <div>
       <div class="card">
-        <div class="hd"><h2>Paste your PRD</h2></div>
+        <div class="hd"><h2>1 · Your PRD</h2></div>
         <div class="bd">
           <div class="scanrow">
             <button class="btn primary" id="smartBtn" onclick="smartCheck()">Check my PRD →</button>
@@ -140,13 +142,13 @@
             <button class="btn good" onclick="loadSample('ready')">Load complete example</button>
             <button class="btn ghost" onclick="clearAll()">Reset</button>
           </div>
-          <textarea id="prd" class="prd" placeholder="Paste your PRD text, or a JIRA link (I'll fetch it), then click Check my PRD. Claude fills what it covers, lists what's missing, and tells you what to do next."></textarea>
+          <textarea id="prd" class="prd" placeholder="Paste your PRD text, or a JIRA / Confluence link (I'll fetch it), then click Check my PRD. Claude fills what it covers, lists what's missing, and tells you what to do next."></textarea>
           <p class="hint">One click does it all. Or fill the questions below directly. Nothing leaves Cowork.</p>
         </div>
       </div>
 
       <div class="card smart" style="margin-top:16px">
-        <div class="hd"><h2>Smart review by Claude</h2></div>
+        <div class="hd"><h2>2 · Readiness check</h2></div>
         <div class="bd">
           <div class="sc-head">
             <span class="hint" style="margin:0">Reads the PRD, fills what it covers, flags missing edge cases, and tells you what to do next.</span>
@@ -162,16 +164,18 @@
       </div>
 
       <div class="card" style="margin-top:16px">
-        <div class="hd"><h2>PRD &amp; publish</h2></div>
+        <div class="hd"><h2>3 · PRD &amp; publish</h2></div>
         <div class="bd">
-          <div class="scanrow">
-            <button class="btn primary" onclick="genPrd()">Generate PRD</button>
-            <button class="btn" onclick="copyPrd()">Copy PRD</button>
+          <p class="hint" style="margin-top:0;margin-bottom:11px">Turn your answers into a clean 11-section PRD, then copy it or publish to JIRA.</p>
+          <button class="btn primary" onclick="genPrd()">Generate PRD →</button>
+          <div id="prdStage" style="display:none;margin-top:12px">
+            <div id="prdOut" class="prdbox"></div>
+            <div class="pubbar">
+              <button class="btn" onclick="copyPrd()">Copy PRD</button>
+              <div id="pubRow" class="pubrow"></div>
+            </div>
+            <p class="hint" id="pubMsg" style="min-height:14px;margin-top:8px"></p>
           </div>
-          <p class="hint">Builds a clean 11-section PRD from your answers, ready to publish to JIRA.</p>
-          <div id="prdOut" class="prdbox" style="display:none"></div>
-          <div id="pubRow" class="pubrow" style="display:none"></div>
-          <p class="hint" id="pubMsg" style="min-height:14px"></p>
         </div>
       </div>
     </div>
@@ -213,6 +217,9 @@
    chat). When you set an id, also declare the two Atlassian tool names in the
    artifact's mcp_tools when it's registered. Everything else needs no config. */
 const ATLASSIAN_MCP = 'mcp__275a1dde-9ae7-4923-a3e9-3b254b6a2d98__';
+// FIGMA_MCP: set to 'mcp__figma-rest__' after adding the figma-rest connector
+// (needs a read-only FIGMA_TOKEN) to enable design version-freeze. Empty = off.
+const FIGMA_MCP = '';
 /* =========================================================================== */
 
 const CRITERIA = [
@@ -364,6 +371,8 @@ function handText(){
   const waivers=CRITERIA.filter(c=>{const s=state[c.id];return c.req&&!s.na&&!(s.detail.trim().length>=3)&&s.waived&&s.reason.trim().length>=3;});
   let t=`✅ READY CHECK PASSED${waivers.length?` (${waivers.length} waiver(s), dev to accept)`:''}\n`;
   t+=`Ready-Check: ${gateCode()}\n`;
+  if(_srcRef&&_srcRef.version)t+=`Source: ${_srcRef.type} ${_srcRef.id} v${_srcRef.version}\n`;   // freeze pin — dev pickup re-checks this
+  if(_designVer)t+=`Design-Version: ${_designVer}\n`;
   t+=`Feature: ${title()}\n`;
   t+=`Platforms: ${platforms()}\n`;
   t+=`Design: ${designLink()}\n`;
@@ -410,7 +419,7 @@ function scan(){const t=document.getElementById('prd').value; if(!t.trim()){flas
   const low=t.toLowerCase();
   if(!(low.includes('loading')&&low.includes('error'))&&!state.states.na)state.states.checked=false;
   render(); flash('Auto-filled. Review each answer.');}
-function resetPrd(){ _srcJira=null; _prdText=''; ['prdOut','pubRow'].forEach(id=>{const e=document.getElementById(id); if(e)e.style.display='none';}); const m=document.getElementById('pubMsg'); if(m)m.textContent=''; }
+function resetPrd(){ _srcJira=null; _srcRef=null; _designVer=null; _prdText=''; const st=document.getElementById('prdStage'); if(st)st.style.display='none'; const m=document.getElementById('pubMsg'); if(m)m.textContent=''; }
 function clearAll(){document.getElementById('prd').value=''; CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false,waived:false,reason:''}); document.getElementById('smartOut').innerHTML='<div class="sc-note">Fill the feature, then run the smart check.</div>'; resetPrd(); render();}
 
 const SAMPLES={
@@ -464,13 +473,19 @@ const JIRA_GET=ATLASSIAN_MCP+'getJiraIssue';
 const JIRA_RES=ATLASSIAN_MCP+'getAccessibleAtlassianResources';
 const JIRA_UPDATE=ATLASSIAN_MCP+'editJiraIssue';
 const JIRA_CREATE=ATLASSIAN_MCP+'createJiraIssue';
+const CONF_GET=ATLASSIAN_MCP+'getConfluencePage';
 let _srcJira=null;   // {key, cloudId} of a fetched ticket, so publish can update it
+let _srcRef=null;    // {type, id, version} of the fetched source, for the freeze stamp
+let _designVer=null; // Figma file version, captured when FIGMA_MCP is wired
+async function figmaFileVersion(url){ if(!FIGMA_MCP||!hasMcp()||!url)return null;
+  try{ const r=await window.cowork.callMcpTool(FIGMA_MCP+'get_file_version',{file:url}); const d=unwrap(r); return d&&(d.version||null); }catch(e){ return null; } }
 function hasMcp(){ return !!(window.cowork && typeof window.cowork.callMcpTool==='function'); }
 function jiraEnabled(){ return !!ATLASSIAN_MCP && hasMcp(); }
-function isJiraUrl(u){ return /atlassian\.net/i.test(u); }
+function isConfluenceUrl(u){ return /atlassian\.net\/wiki\//i.test(u); }
+function isJiraUrl(u){ return /atlassian\.net/i.test(u) && !isConfluenceUrl(u); }
 function unwrap(r){ if(!r) return null; try{ return r.structuredContent ?? (r.content&&r.content[0]&&JSON.parse(r.content[0].text)); }catch(e){ return r.structuredContent||null; } }
 async function jiraIssue(cloudId,key){
-  const r=await window.cowork.callMcpTool(JIRA_GET,{cloudId,issueIdOrKey:key,fields:['summary','description'],responseContentFormat:'markdown'});
+  const r=await window.cowork.callMcpTool(JIRA_GET,{cloudId,issueIdOrKey:key,fields:['summary','description','updated'],responseContentFormat:'markdown'});
   const d=unwrap(r); const node=d&&d.issues&&d.issues.nodes&&d.issues.nodes[0]; return node||null;
 }
 async function fetchJira(url){
@@ -481,8 +496,25 @@ async function fetchJira(url){
     const cid=Array.isArray(res)&&res[0]&&res[0].id; if(cid){ node=await jiraIssue(cid,key); usedCloud=cid; } }
   if(!node) throw new Error('Ticket not found or no access.');
   _srcJira={key, cloudId:usedCloud};                 // remember the source so publish can update it
-  const f=node.fields||{}; const desc=typeof f.description==='string'?f.description:(f.description?JSON.stringify(f.description):'');
+  const f=node.fields||{};
+  _srcRef={type:'jira', id:key, version:String(f.updated||'').replace(/\s+/g,'')};   // freeze pin (updated ts)
+  const desc=typeof f.description==='string'?f.description:(f.description?JSON.stringify(f.description):'');
   return `${node.key}: ${f.summary||''}\n\n${desc}`;
+}
+async function confPage(cloudId,pageId){
+  const r=await window.cowork.callMcpTool(CONF_GET,{cloudId,pageId,contentFormat:'markdown'});
+  const d=unwrap(r); const n=d&&d.content&&d.content.nodes&&d.content.nodes[0]; return n||null;
+}
+async function fetchConfluence(url){
+  const pageId=(url.match(/\/pages\/(\d+)/)||[])[1]; if(!pageId) throw new Error('No page id in that URL.');
+  const host=url.replace(/^https?:\/\//,'').split('/')[0];
+  let node=null; try{ node=await confPage(host,pageId); }catch(e){}
+  if(!node){ let res=null; try{ res=unwrap(await window.cowork.callMcpTool(JIRA_RES,{})); }catch(e){}
+    const cid=Array.isArray(res)&&res[0]&&res[0].id; if(cid) node=await confPage(cid,pageId); }
+  if(!node) throw new Error('Page not found or no access.');
+  _srcRef={type:'confluence', id:pageId, version:String(node.version&&node.version.number||node.lastModified||'').replace(/\s+/g,'')};  // freeze pin
+  const body=typeof node.body==='string'?node.body:'';
+  return (node.title?('# '+node.title+'\n\n'):'')+body;
 }
 
 // ── PRD generation (mirrors scripts/ready-check.mjs renderPrd) + publish ──
@@ -506,13 +538,14 @@ function renderPrdJS(){const out=[]; out.push('# PRD — '+title()); out.push(''
   if(w.length){out.push('## Waivers (dev to accept)'); w.forEach(c=>out.push('- **'+c.name+'**: '+state[c.id].reason.trim())); out.push('');}
   return out.join('\n').trim()+'\n';}
 function genPrd(){ _prdText=renderPrdJS();
-  const box=document.getElementById('prdOut'); box.style.display='block'; box.textContent=_prdText;
-  const pr=document.getElementById('pubRow'); pr.style.display='flex';
-  if(_srcJira&&_srcJira.key){ pr.innerHTML='<button class="btn primary" onclick="publishJira()">Update '+_srcJira.key+' in JIRA</button><span class="hint" style="margin:0">Writes this PRD into the ticket description.</span>'; }
-  else if(jiraEnabled()){ pr.innerHTML='<input class="small" id="projKey" placeholder="Project key (e.g. PF)"><input class="small" id="issType" value="Story"><button class="btn primary" onclick="publishJira()">Create JIRA ticket</button>'; }
-  else { pr.innerHTML='<span class="hint" style="margin:0">JIRA publishing is off (set ATLASSIAN_MCP). Use Copy PRD.</span>'; }
+  document.getElementById('prdOut').textContent=_prdText;
+  document.getElementById('prdStage').style.display='block';
+  const pr=document.getElementById('pubRow');
+  if(_srcJira&&_srcJira.key){ pr.innerHTML='<span class="publabel">Publish →</span><button class="btn primary" onclick="publishJira()">Update '+_srcJira.key+'</button><span class="hint" style="margin:0">Appends this PRD to the ticket.</span>'; }
+  else if(jiraEnabled()){ pr.innerHTML='<span class="publabel">Publish → new ticket</span><input class="small" id="projKey" placeholder="Project key"><input class="small" id="issType" value="Story"><button class="btn primary" onclick="publishJira()">Create ticket</button>'; }
+  else { pr.innerHTML='<span class="hint" style="margin:0">JIRA publishing is off. Use Copy PRD.</span>'; }
   document.getElementById('pubMsg').textContent='';
-  box.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+  document.getElementById('prdStage').scrollIntoView({behavior:'smooth',block:'nearest'}); }
 function copyPrd(){ if(!_prdText) genPrd(); const t=_prdText; const done=()=>flashPub('PRD copied. Paste into JIRA / doc.');
   if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done,()=>execCopyText(t,done)); } else execCopyText(t,done); }
 function execCopyText(text,done){ try{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();const ok=document.execCommand&&document.execCommand('copy');document.body.removeChild(ta);if(ok){done();return;}}catch(e){} flashPub('Copy blocked — select the PRD box and press ⌘/Ctrl+C.'); }
@@ -558,7 +591,13 @@ async function smartCheck(){
     if(!hasBridge()){out.innerHTML='<div class="sc-note">The live smart check runs inside Cowork. Opened in a plain browser? Use the deterministic checks here, then run <code>/ready-check</code> in Claude for the smart pass.</div>';return;}
     let prdRaw=document.getElementById('prd').value.trim();
     if(/^https?:\/\/\S+$/i.test(prdRaw)){                                        // a bare link
-      if(isJiraUrl(prdRaw) && jiraEnabled()){                                    // fetch the ticket via the connector
+      if(isConfluenceUrl(prdRaw) && jiraEnabled()){                              // Confluence page via the connector
+        btn.textContent='Fetching…'; out.innerHTML='<div class="sc-note">Fetching the Confluence page…</div>';
+        try{ const fetched=await fetchConfluence(prdRaw);
+          if(!fetched || fetched.trim().length<20) throw new Error('The page has little text to check.');
+          document.getElementById('prd').value=fetched; prdRaw=fetched.trim(); flash('Fetched the Confluence page.');
+        }catch(e){ out.innerHTML='<div class="sc-note">Couldn\'t fetch that Confluence page ('+escapeHtml(String(e&&e.message||e))+'). Check the Atlassian connector and your access, or paste the page <b>text</b> instead.</div>'; flash('Couldn\'t fetch; paste text.'); return; }
+      } else if(isJiraUrl(prdRaw) && jiraEnabled()){                            // JIRA issue via the connector
         btn.textContent='Fetching…'; out.innerHTML='<div class="sc-note">Fetching the JIRA ticket…</div>';
         try{ const fetched=await fetchJira(prdRaw);
           if(!fetched || fetched.replace(/^[A-Z0-9-]+:\s*/,'').trim().length<10) throw new Error('The ticket has little text to check.');
@@ -597,6 +636,7 @@ async function smartCheck(){
     if(fills && typeof fills==='object'){ CRITERIA.forEach(c=>{const v=fills[c.id]; const s=state[c.id];
       if(typeof v==='string' && v.trim() && v.trim().toLowerCase()!=='null' && !(s.detail.trim().length>=3) && !s.na && !s.waived){ s.detail=v.trim(); s.checked=true; llmFilled++; }}); }
     render();
+    if(FIGMA_MCP && hasMcp()){ const durl=firstUrl(state.design.detail); if(durl){ const dv=await figmaFileVersion(durl); if(dv){ _designVer=dv; render(); } } }  // design freeze pin
     const totalFilled=filled+llmFilled;
     const findings=(parsed && Array.isArray(parsed.findings)) ? parsed.findings : (Array.isArray(parsed)?parsed:[]);
     let html='';

@@ -1,5 +1,8 @@
 # Ready Check — the PM front door to Manifest
 
+> **New here? Read [SETUP.md](SETUP.md)** — a PM quick-start (no setup) plus the
+> one-time admin setup (plugin, connectors, token).
+
 A 2-minute check a PM runs before handing a feature to dev. Plain questions, no jargon.
 When it's **Ready**, one click produces a clean hand-off — with the design link attached —
 that dev can pick up without chasing anyone.

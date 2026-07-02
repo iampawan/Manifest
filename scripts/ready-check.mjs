@@ -139,6 +139,25 @@ export function gateCode(answers = {}) {
 
 export const CODE_RE = /^RC-[A-Z]{3}-[A-Z0-9]{6}$/;
 
+// ─── Freeze: detect PRD/source drift after hand-off (v0.22) ──────────
+// prdHash freezes the document body; source.version freezes the live doc
+// (Confluence version.number / JIRA updated ts). Verified at pickup.
+export function prdHash(text = "") {
+  const norm = String(text).replace(/\s+/g, " ").trim().toLowerCase();
+  return "H" + djb2(norm).toString(36).toUpperCase().padStart(7, "0").slice(-7);
+}
+
+// parsed = { source?:{version}, designVersion?, prdHash? } from the hand-off;
+// current = { version?, designVersion?, prdHash? } freshly fetched at pickup.
+export function verifyFreeze(parsed = {}, current = {}) {
+  if (parsed.source && current.version != null &&
+      String(current.version) !== String(parsed.source.version)) return "stale-source";
+  if (parsed.designVersion && current.designVersion != null &&
+      String(current.designVersion) !== String(parsed.designVersion)) return "stale-design";
+  if (parsed.prdHash && current.prdHash && parsed.prdHash !== current.prdHash) return "stale-content";
+  return "valid";
+}
+
 // Returns "valid" | "stale" | "invalid" | "not-ready".
 export function verifyGateCode(code, answers = {}) {
   if (typeof code !== "string" || !CODE_RE.test(code.trim())) return "invalid";
@@ -161,6 +180,11 @@ export function renderHandoff(answers = {}, meta = {}) {
     ? `✅ READY CHECK PASSED${nWaive ? ` (${nWaive} waiver(s), dev to accept)` : ""}`
     : `⛔ NOT READY (${v.met}/${v.total})`);
   out.push(`${HANDOFF_MARK} ${code || "(none)"}`);
+  if (meta.freeze) {                                   // v0.22 freeze stamp
+    if (meta.source) out.push(`Source: ${meta.source.type} ${meta.source.id} v${meta.source.version}`);
+    if (meta.design && meta.design.version) out.push(`Design-Version: ${meta.design.version}`);
+    out.push(`PRD-Hash: ${prdHash(renderPrd(answers))}`);
+  }
   out.push(`Feature: ${answers.title || "Untitled feature"}`);
   out.push(`Platforms: ${items.scope && items.scope.detail ? items.scope.detail.trim() : "not set"}`);
   out.push(`Design: ${design}`);
@@ -245,11 +269,14 @@ export function renderPrd(answers = {}, meta = {}) {
 // block can be re-verified. Tolerant of surrounding chatter.
 export function parseHandoff(text = "") {
   const items = {};
-  let title = "", code = "";
+  let title = "", code = "", source = null, hash = null, designVersion = null;
   for (const raw of String(text).split("\n")) {
     const line = raw.trim();
     let m;
     if ((m = line.match(/^Ready-Check:\s*(\S+)/))) code = m[1];
+    else if ((m = line.match(/^Source:\s*(\S+)\s+(\S+)\s+v(\S+)/))) source = { type: m[1], id: m[2], version: m[3] };
+    else if ((m = line.match(/^Design-Version:\s*(\S+)/))) designVersion = m[1];
+    else if ((m = line.match(/^PRD-Hash:\s*(\S+)/))) hash = m[1];
     else if ((m = line.match(/^Feature:\s*(.+)/))) title = m[1].trim();
     else if ((m = line.match(/^Platforms:\s*(.+)/))) items.scope = { detail: m[1].trim() };
     else if ((m = line.match(/^Design:\s*(.+)/))) {
@@ -264,7 +291,7 @@ export function parseHandoff(text = "") {
       }
     }
   }
-  return { title, items, code };
+  return { title, items, code, source, designVersion, prdHash: hash };
 }
 
 function firstUrl(s = "") { const m = String(s).match(/https?:\/\/\S+/); return m ? m[0] : null; }
@@ -321,6 +348,7 @@ function main() {
       "  --handoff <answers.json>        print dev hand-off block\n" +
       "  --prd <answers.json>            print the 11-section PRD (publish-ready)\n" +
       "  --verify <handoff.txt|json>     validate a code vs its content\n" +
+      "  --verify-freeze <handoff.txt> <current.json>   PRD/design drift at pickup\n" +
       "  --cache-check <answers.json> <code-context.json>\n" +
       "  --rubric                        print the Definition of Ready");
     return;
@@ -351,6 +379,12 @@ function main() {
       const verdict = verifyGateCode(code, answers);
       console.log(`${code || "(no code)"} → ${verdict.toUpperCase()}`);
       process.exit(verdict === "valid" ? 0 : 1);
+    } else if (mode === "--verify-freeze") {
+      const parsed = parseHandoff(readFileSync(a1, "utf8"));   // pinned stamp from the hand-off
+      const current = loadJson(a2);                            // {version?, designVersion?, prdHash?} fetched now
+      const v = verifyFreeze(parsed, current);
+      console.log(v.toUpperCase());
+      process.exit(v === "valid" ? 0 : 1);
     } else if (mode === "--cache-check") {
       console.log(JSON.stringify(cacheChecks(loadJson(a1), loadJson(a2)), null, 2));
     } else {

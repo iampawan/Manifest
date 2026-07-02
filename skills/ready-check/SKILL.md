@@ -55,6 +55,19 @@ or on their first Cowork use of this skill (offer it once):
    current. Never create a duplicate.
 4. **Tell the user** the panel is in their Cowork sidebar (created / refreshed /
    already current) and persists across sessions.
+5. **Prompt for the connectors the panel uses**, and note which are missing so
+   the user can authorize them in Cowork connector settings:
+   - **Atlassian** — powers JIRA-issue & Confluence-page *fetch* and *publish*
+     (update a linked ticket / create a new one). Without it the panel still
+     works on pasted text; links just can't be fetched or published.
+   - **Figma REST** — (for the v0.22 design-freeze: validate a design link,
+     capture its version, export a snapshot). Note: the Figma **Dev Mode MCP**
+     is NOT the one to use here — it needs the desktop app with the file open
+     and exposes no file version, so it can't validate arbitrary links or pin
+     versions. Design-freeze needs a Figma **REST** connector / token.
+   Set the matching connector-id config lines at the top of the panel HTML
+   (`ATLASSIAN_MCP`, and `FIGMA_MCP` when available) and declare those tools in
+   `mcp_tools` when you create/update the artifact.
 
 Bump the `ready-check-build` number in `gate/ready-check-cowork.html` whenever
 you change that file, so this auto-refresh can tell "newer" from "same."
@@ -258,6 +271,30 @@ So the only person who ever thinks about the code is the PM (they paste the
 hand-off once). Dev just picks up as usual and the gate enforces itself. The
 manual `ready-check.mjs --verify <handoff>` exists as a fallback for anyone who
 wants to check by hand, but the normal flow needs no command.
+
+## Freeze check (v0.22) — did the PRD or design change after sign-off?
+
+When the PRD was fetched from JIRA/Confluence (and, if Figma REST is wired, has a
+design), the hand-off carries a freeze stamp:
+`Source: <type> <id> v<version>`, optionally `Design-Version: <n>`, `PRD-Hash: H…`.
+At `/contract pickup`, after verifying the gate code:
+
+1. Re-fetch the **current** source version (JIRA `updated` / Confluence
+   `version.number`) and, if applicable, the Figma file version
+   (`mcp__figma-rest__get_file_version`).
+2. Write them to a temp JSON `{ "version": …, "designVersion": …, "prdHash": … }`
+   and run:
+   ```
+   node scripts/ready-check.mjs --verify-freeze <handoff.txt> current.json
+   ```
+3. It prints `VALID` / `STALE-SOURCE` / `STALE-DESIGN` / `STALE-CONTENT`.
+   - `VALID` → proceed.
+   - any `STALE-*` → stop: the PRD doc or the design changed since it cleared.
+     Ask the PM to re-run Ready Check and re-sign.
+   - No freeze lines in the hand-off → skip (older hand-off; nothing to check).
+
+This is what makes "the PRD/design can't quietly change after the gate" real —
+you detect the drift at the moment dev picks it up.
 
 ## Scenarios to handle
 
