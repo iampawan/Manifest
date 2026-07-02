@@ -19,6 +19,8 @@ import {
   parseHandoff,
   cacheChecks,
   renderPrd,
+  prdHash,
+  verifyFreeze,
   djb2,
   CODE_RE,
 } from "../scripts/ready-check.mjs";
@@ -202,6 +204,42 @@ test("renderPrd shows N/A defaults and waivers", () => {
   assert.match(prd, /No UI \(backend only\)\./);
   assert.match(prd, /## Waivers \(dev to accept\)/);
   assert.match(prd, /growth owns it/);
+});
+
+test("prdHash is stable and whitespace-insensitive", () => {
+  assert.equal(prdHash("Hello   world"), prdHash("hello world"));
+  assert.notEqual(prdHash("a"), prdHash("b"));
+  assert.match(prdHash("x"), /^H[A-Z0-9]{7}$/);
+});
+
+test("freeze stamp is emitted only with meta.freeze and round-trips", () => {
+  const plain = renderHandoff(ready, { date: "01 Jul 2026" });
+  assert.ok(!/PRD-Hash:/.test(plain));                       // off by default
+
+  const frozen = renderHandoff(ready, { date: "01 Jul 2026", freeze: true, source: { type: "confluence", id: "2434269252", version: "12" } });
+  assert.match(frozen, /Source: confluence 2434269252 v12/);
+  assert.match(frozen, /PRD-Hash: H/);
+  const p = parseHandoff(frozen);
+  assert.equal(p.source.version, "12");
+  assert.equal(p.prdHash, prdHash(renderPrd(ready)));
+  assert.equal(verifyGateCode(p.code, { title: p.title, items: p.items }), "valid");  // gate code unaffected
+});
+
+test("verifyFreeze detects source, design, and content drift", () => {
+  const p = { source: { version: "12" }, designVersion: "9981", prdHash: "HABC1234" };
+  assert.equal(verifyFreeze(p, { version: "12", designVersion: "9981", prdHash: "HABC1234" }), "valid");
+  assert.equal(verifyFreeze(p, { version: "13" }), "stale-source");                       // page edited
+  assert.equal(verifyFreeze(p, { version: "12", designVersion: "9990" }), "stale-design"); // design changed
+  assert.equal(verifyFreeze(p, { version: "12", designVersion: "9981", prdHash: "HZZZ9999" }), "stale-content");
+  assert.equal(verifyFreeze({}, {}), "valid");                                            // nothing to compare
+});
+
+test("Design-Version round-trips through the hand-off + freeze stamp", () => {
+  const frozen = renderHandoff(ready, { freeze: true, source: { type: "confluence", id: "24", version: "12" }, design: { version: "9981" } });
+  assert.match(frozen, /Design-Version: 9981/);
+  const p = parseHandoff(frozen);
+  assert.equal(p.designVersion, "9981");
+  assert.equal(verifyFreeze(p, { version: "12", designVersion: "9990" }), "stale-design");
 });
 
 test("djb2 is stable (pins the cross-port algorithm)", () => {
