@@ -3,32 +3,35 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="ready-check-build" content="61" />
-<meta name="ready-check-version" content="0.23.0" /><!-- keep in sync with .claude-plugin/plugin.json version -->
+<meta name="ready-check-build" content="66" />
+<meta name="ready-check-version" content="0.24.0" /><!-- keep in sync with .claude-plugin/plugin.json version -->
 <title>Ready Check (live) · Cowork</title>
 <style>
   :root{ color-scheme: light;
-    --bg:#f6f7fb; --panel:#ffffff; --panel2:#f7f8fb; --line:#e6e8ef;
-    --ink:#1b2130; --muted:#5b6472; --faint:#98a1b2;
-    --brand:#6366f1; --brand-weak:#eef0fe; --brand-line:#c9ccfb; --brand-strong:#4f46e5;
-    --pass:#2e8b57; --pass-weak:#e9f6ef; --warn:#b7791f; --warn-weak:#fbf1e0; --fail:#c23b4b; --fail-weak:#fdecee;
-    --box-border:#c2c8d2; --code-ink:#2b3440;
-    --radius:14px; --shadow:0 1px 2px rgba(16,24,40,.04),0 6px 24px rgba(16,24,40,.06);
+    --bg:#f6f7fb; --panel:#ffffff; --panel2:#f6f7fb; --line:#e7e9f0;
+    --ink:#181d29; --muted:#5a6473; --faint:#98a1b2;
+    --brand:#5b5ef0; --brand-weak:#eef0fe; --brand-line:#cdd0fb; --brand-strong:#4a3fe0;
+    --pass:#1a9d63; --pass-weak:#e7f6ee; --warn:#b3781a; --warn-weak:#fbf1df; --fail:#d23a53; --fail-weak:#fdecee;
+    --box-border:#c6cbd6; --code-ink:#2b3440;
+    --radius:16px; --radius-sm:11px;
+    --shadow:0 1px 2px rgba(20,24,40,.04),0 6px 20px -6px rgba(20,24,40,.10);
+    --shadow-lg:0 12px 40px -8px rgba(20,24,40,.22);
   }
   :root[data-theme="dark"]{ color-scheme: dark;
-    --bg:#0f1117; --panel:#171923; --panel2:#1c1f2b; --line:#2a2f3d;
-    --ink:#e7e9f0; --muted:#a3abbd; --faint:#6d7488;
-    --brand:#818cf8; --brand-weak:#20233f; --brand-line:#3a3f78; --brand-strong:#6366f1;
-    --pass:#3ecf8e; --pass-weak:#12271f; --warn:#e0a341; --warn-weak:#2b2413; --fail:#f2637a; --fail-weak:#2c1720;
-    --box-border:#3a4152; --code-ink:#c9d1e0;
-    --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 24px rgba(0,0,0,.35);
+    --bg:#0d0f14; --panel:#161a22; --panel2:#1b202a; --line:#282f3b;
+    --ink:#e8ebf1; --muted:#9aa4b3; --faint:#6a7382;
+    --brand:#8286f6; --brand-weak:#1e2140; --brand-line:#3b3f7c; --brand-strong:#9a9dfb;
+    --pass:#3ecf8e; --pass-weak:#10261d; --warn:#e0a341; --warn-weak:#2b2413; --fail:#e5687a; --fail-weak:#2c1720;
+    --box-border:#39414e; --code-ink:#c8d0da;
+    --shadow:0 1px 2px rgba(0,0,0,.5),0 8px 28px -10px rgba(0,0,0,.6);
+    --shadow-lg:0 16px 50px -8px rgba(0,0,0,.7);
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;-webkit-font-smoothing:antialiased}
   a{color:var(--brand)}
   .wrap{max-width:720px;margin:0 auto;padding:24px 20px 90px}
   header.top{display:flex;align-items:center;gap:12px;margin-bottom:18px}
-  .logo{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;background:var(--brand);color:#fff;font-weight:700;font-size:13px;letter-spacing:.5px}
+  .logo{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;background:var(--brand);color:#fff;font-weight:800;font-size:13px;letter-spacing:.5px}
   h1{font-size:19px;margin:0;font-weight:650}
   .tag{color:var(--muted);font-size:12.5px;margin-top:1px}
   .hdright{margin-left:auto;display:flex;align-items:center;gap:8px}
@@ -40,8 +43,8 @@
   .statusdot.ok{background:var(--pass)} .statusdot.ok::after{background:var(--pass);animation:dotpulse 2s ease-out infinite}
   .statusdot.warn{background:var(--warn)} .statusdot.err{background:var(--fail)}
   @keyframes dotpulse{0%{transform:scale(1);opacity:.5}70%{transform:scale(2.2);opacity:0}100%{opacity:0}}
-  .iconbtn{border:1px solid var(--line);background:var(--panel);color:var(--muted);width:32px;height:30px;border-radius:8px;cursor:pointer;font-size:14px;line-height:1;transition:.12s;margin-left:8px}
-  .iconbtn:hover{border-color:var(--brand-line);color:var(--ink)}
+  .iconbtn{border:1px solid var(--line);background:var(--panel);color:var(--muted);min-width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:14px;line-height:1;transition:.12s;margin-left:8px}
+  .iconbtn:hover{border-color:var(--brand-line);color:var(--ink);background:var(--panel2)}
 
   .stepper{display:flex;align-items:center;margin:0 0 18px}
   .stp{display:flex;align-items:center;gap:8px;flex:1}
@@ -53,6 +56,7 @@
   .stp.active .lbl{color:var(--ink)}
   .stp.done .num{background:var(--brand-weak);border-color:var(--brand);color:var(--brand)}
   .stp.done .lbl{color:var(--muted)}
+  .stp.done .bar,.stp.active .bar{background:var(--brand);opacity:.55}
 
   .step{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px}
   .step h2{font-size:17px;margin:0 0 4px;font-weight:650}
@@ -60,14 +64,15 @@
   .divider{border-top:1px solid var(--line);margin:20px 0 16px}
   .section-h{font-size:14px;font-weight:650;margin:0 0 4px}
 
-  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:10px 15px;border-radius:9px;font-size:14px;cursor:pointer;transition:.12s;font-weight:600}
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:12px 20px;border-radius:11px;font-size:14.5px;cursor:pointer;transition:background .12s,border-color .12s;font-weight:600}
   .btn:hover{border-color:var(--brand-line);background:var(--panel2)}
-  .btn:disabled{opacity:.55;cursor:default}
+  .btn:disabled{opacity:.5;cursor:default}
   .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
   .btn.primary:hover{background:var(--brand-strong);border-color:var(--brand-strong)}
   .btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
-  .btn.ghost:hover{background:var(--panel2)}
-  .btn.bad,.btn.good{font-weight:550}
+  .btn.ghost:hover{background:var(--panel2);color:var(--ink)}
+  .btn.bad,.btn.good{font-weight:600}
+  .nav .btn.primary{padding:12px 24px;font-size:15px}
   .rowbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
   .nav{display:flex;gap:10px;align-items:center;margin-top:20px}
   .nav .spacer{flex:1}
@@ -160,6 +165,21 @@
   .afbtn.on{background:var(--brand);color:#fff}
   .readlimit{font-size:12px;color:var(--muted);background:var(--warn-weak);border:1px solid var(--warn);border-radius:8px;padding:8px 11px;margin:0 0 12px}
   .hiddenrow{font-size:12.5px;color:var(--muted);padding:10px 2px;text-align:center}
+  .flowmap{border:1px solid var(--line);border-radius:12px;background:var(--panel2);padding:12px 14px;margin-bottom:18px}
+  .flowmap .fmttl{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;color:var(--faint);margin-bottom:10px}
+  .flowmap .fmttl b{color:var(--brand)}
+  .flowmap .fmrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .flowmap .fm{display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 5px;border-radius:999px;background:var(--panel);border:1px solid var(--line);color:var(--muted);white-space:nowrap;font-size:11.5px}
+  .flowmap .fm .n{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;background:var(--panel2);color:var(--faint);font-size:10px;font-weight:700;border:1px solid var(--line)}
+  .flowmap .fm.you{background:var(--brand-weak);border-color:var(--brand-line);color:var(--brand);font-weight:600}
+  .flowmap .fm.you .n{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .flowmap .ar{color:var(--faint);font-size:11px}
+  .flowmap .fm code{font-size:10.5px}
+  .trylbl{font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;color:var(--faint);margin:16px 2px 0}
+  .whatnext{margin-top:16px;border:1px solid var(--brand-line);background:var(--brand-weak);border-radius:10px;padding:12px 14px}
+  .whatnext .wn-h{font-weight:700;font-size:13px;margin-bottom:6px}
+  .whatnext ol{margin:0;padding-left:18px} .whatnext li{font-size:12.5px;line-height:1.5;margin:5px 0;color:var(--ink)}
+  .whatnext code{background:var(--panel);padding:1px 5px;border-radius:5px;font-size:11.5px}
   .recheck-row{display:flex;align-items:center;gap:11px;margin-top:12px;flex-wrap:wrap}
   .sc-f{border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:9px;padding:10px 13px;margin:9px 0;background:var(--panel2);cursor:pointer;transition:.12s}
   .sc-f:hover{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand-weak)}
@@ -203,19 +223,29 @@
   <header class="top">
     <div class="logo">RC</div>
     <div><h1>Ready Check <span class="ver" id="rcVer"></span></h1><div class="tag">The 2-minute PRD gate</div></div>
-    <div class="hdright"><span class="statusdot warn" id="livePill" title="Checking connection…"></span><button class="iconbtn" onclick="openPlaybook()" title="Playbook — what good looks like" style="width:auto;padding:0 11px;font-size:12.5px;font-weight:600">Playbook</button><button class="iconbtn" onclick="openVerify()" title="Dev: verify a pass" style="width:auto;padding:0 11px;font-size:12.5px;font-weight:600">Verify</button><button class="iconbtn" id="themeToggle" onclick="toggleTheme()" title="Toggle dark mode">☾</button></div>
+    <div class="hdright"><span class="statusdot warn" id="livePill" title="Checking connection…"></span><button class="iconbtn" onclick="openPlaybook()" title="Playbook — what good looks like" style="width:auto;padding:0 15px;font-size:13.5px;font-weight:600">Playbook</button><button class="iconbtn" onclick="openVerify()" title="Dev: verify a pass" style="width:auto;padding:0 15px;font-size:13.5px;font-weight:600">Verify</button><button class="iconbtn" id="themeToggle" onclick="toggleTheme()" title="Toggle dark mode">☾</button></div>
   </header>
 
   <div class="stepper">
     <div class="stp active" id="dot1"><span class="num">1</span><span class="lbl">Your PRD</span><span class="bar"></span></div>
     <div class="stp" id="dot2"><span class="num">2</span><span class="lbl">Review &amp; fix</span><span class="bar"></span></div>
-    <div class="stp" id="dot3"><span class="num">3</span><span class="lbl">Ship it</span></div>
+    <div class="stp" id="dot3"><span class="num">3</span><span class="lbl">Hand off</span></div>
   </div>
 
   <!-- STEP 1 -->
   <div class="step" id="step1">
+    <div class="flowmap">
+      <span class="fmttl">The path to dev-ready — <b>you do steps 1 &amp; 3</b></span>
+      <div class="fmrow">
+        <span class="fm you"><span class="n">1</span>You · Ready Check</span><span class="ar">→</span>
+        <span class="fm"><span class="n">2</span>Dev · <code>/contract pickup</code></span><span class="ar">→</span>
+        <span class="fm you"><span class="n">3</span>You · fix the gaps</span><span class="ar">→</span>
+        <span class="fm"><span class="n">4</span>Grooming</span><span class="ar">→</span>
+        <span class="fm"><span class="n">5</span>Dev · <code>promote</code> → build</span>
+      </div>
+    </div>
     <h2>Paste your PRD</h2>
-    <p class="sub">Plain text, or a JIRA / Confluence link — I'll fetch it. Then one click checks it.</p>
+    <p class="sub">Plain text, or a JIRA / Confluence link — I'll fetch it. Then one click checks it. This panel does <b>your part (steps 1–3 below)</b>; dev does the rest.</p>
     <textarea id="prd" class="prd" placeholder="Paste your PRD text, or a JIRA / Confluence link…"></textarea>
     <p class="hint">Nothing leaves Cowork. No PRD yet? Load an example, or fill the questions by hand in step 2.</p>
     <div class="onramp">
@@ -226,12 +256,13 @@
         <p class="hint" id="draftMsg" style="min-height:14px;margin-top:8px"></p>
       </div>
     </div>
+    <div class="trylbl">No PRD handy? Try an example</div>
     <div class="rowbtns">
       <button class="btn bad" onclick="loadSample('thin')" title="Vague, no metrics/states — gets sent back">Weak PRD</button>
       <button class="btn good" onclick="loadSample('ready')" title="Specific, every state and edge case named — clears">Strong PRD</button>
       <button class="btn ghost" onclick="clearAll()">Reset</button>
+      <span class="hint" style="margin:0;align-self:center">One clears, one gets sent back — watch the score.</span>
     </div>
-    <p class="hint" style="margin-top:6px">Load either and run Check my PRD — watch the readiness score. One clears; one gets sent back.</p>
     <div class="nav">
       <button class="btn ghost" onclick="goStep(2)">Fill by hand →</button>
       <span class="spacer"></span>
@@ -263,29 +294,28 @@
     <div class="nav">
       <button class="btn ghost" onclick="goStep(1)">← Back</button>
       <span class="spacer"></span>
-      <button class="btn primary" id="shipBtn" onclick="goStep(3)">Ship it →</button>
+      <button class="btn primary" id="shipBtn" onclick="goStep(3)">Hand off →</button>
     </div>
   </div>
 
   <!-- STEP 3 -->
   <div class="step" id="step3" style="display:none">
-    <h2>Ship it</h2>
-    <p class="sub">When it's Ready, copy the hand-off for dev — or generate a full PRD and publish.</p>
+    <h2>Hand off to dev</h2>
+    <p class="sub">When it's Ready, copy the hand-off and paste it into the ticket or your dev thread. That's the gate cleared.</p>
     <div class="handoff" id="handoff">
       <div class="hh"><b>Hand-off to dev</b><span id="hoCode">RC-…</span></div>
       <div class="hb" id="hoBody">…</div>
       <div class="ha"><button class="btn primary" style="flex:1" onclick="copyHand()">Copy hand-off</button>
-        <button class="btn ghost" onclick="flash('Paste this into the JIRA ticket or your dev Slack thread.')">Where does this go?</button></div>
+        <button class="btn ghost" onclick="flash('Paste it into the JIRA ticket or your dev Slack thread — dev verifies the code before grooming.')">Where does this go?</button></div>
     </div>
     <div class="sc-note nr" id="notReadyNote">Not ready yet — go back to step 2 and clear the remaining items. The hand-off appears here once it's Ready.</div>
-    <div class="divider"></div>
-    <div class="section-h">Optional — turn your answers into a full PRD</div>
-    <p class="hint" style="margin:4px 0 12px">Mainly for when you <b>didn’t start with a written PRD</b> (you used “Only have an idea?” or just answered the questions): this assembles your confirmed answers into a clean 11-section PRD you can copy or publish to JIRA. If you already pasted a complete PRD, you can skip this — the hand-off above is all dev needs.</p>
-    <button class="btn primary" onclick="genPrd()">Generate PRD →</button>
-    <div id="prdStage" style="display:none;margin-top:12px">
-      <div id="prdOut" class="prdbox"></div>
-      <div class="pubbar"><button class="btn" onclick="copyPrd()">Copy PRD</button><div id="pubRow" class="pubrow"></div></div>
-      <p class="hint" id="pubMsg" style="min-height:14px;margin-top:8px"></p>
+    <div class="whatnext">
+      <div class="wn-h">What happens after you hand off</div>
+      <ol>
+        <li><b>Dev runs <code>/contract pickup</code></b> — it verifies this gate code, then reads the code for deeper findings (regressions, real edge cases, design drift) and lists anything only you can answer.</li>
+        <li><b>You answer those</b> and re-run Ready Check (a changed PRD re-mints the code).</li>
+        <li><b>Grooming</b>, then dev runs <code>/contract promote</code> to freeze it and start the build.</li>
+      </ol>
     </div>
     <div class="nav"><button class="btn ghost" onclick="goStep(2)">← Back</button></div>
   </div>
@@ -335,7 +365,7 @@ const FIGMA_ON = true;
 const FIGMA_PREFIXES = ['mcp__Figma_REST_Ready_Check__', 'mcp__Figma_REST__Ready_Check___', 'mcp__figma-rest__'];
 // Ready Check version — MUST match the Manifest plugin (.claude-plugin/plugin.json).
 // Shown in the header so you can ask a PM which version they're on.
-const RC_VERSION = '0.23.0';
+const RC_VERSION = '0.24.0';
 /* =========================================================================== */
 
 const CRITERIA = [
@@ -557,7 +587,7 @@ function compute(){
   document.getElementById('stampbig').textContent=BIG[status.s];
   document.getElementById('stampsub').textContent=SUB[status.s];
   const ship=document.getElementById('shipBtn');   // only clickable once the gate is actually open
-  if(ship){ ship.disabled=!ready; ship.title=ready?'':'Finish the basics and run the review — Ship it opens when it’s Ready.'; }
+  if(ship){ ship.disabled=!ready; ship.title=ready?'':'Finish the basics and run the review — the hand-off opens when it’s Ready.'; }
   // Show a COUNT, not a percentage. "6/11 basics confirmed" maps 1:1 to the
   // checklist below, so the number is never a mysterious %  — it's just how many
   // of the basics you've actually confirmed. The ring still fills proportionally.
@@ -1161,7 +1191,7 @@ function nextStepHtml(findings){
   const reqs=CRITERIA.filter(c=>c.req); const missing=reqs.filter(c=>!sat(c));
   const blockers=(findings||[]).filter(f=>f.severity==='blocker').length;
   if(missing.length===0){
-    return `<div class="sc-next ready"><b>You're ready.</b> ${blockers?`(${blockers} flagged item${blockers>1?'s':''} worth addressing first — advice, not required.) `:''}Head to <b>Ship it →</b> to copy the hand-off or publish the PRD.</div>`;
+    return `<div class="sc-next ready"><b>You're ready.</b> ${blockers?`(${blockers} flagged item${blockers>1?'s':''} worth addressing first — advice, not required.) `:''}Head to <b>Hand off →</b> to copy the hand-off for dev.</div>`;
   }
   const steps=[];
   if(missing.length) steps.push(`Fill the <b>${missing.length}</b> item${missing.length>1?'s':''} still marked “needed” below (${missing.slice(0,4).map(c=>escapeHtml(c.name)).join('; ')}${missing.length>4?'; …':''}). Can't answer one? Use <b>“Can't provide? Waive with a reason.”</b>`);

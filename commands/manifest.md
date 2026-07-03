@@ -119,6 +119,7 @@ observability only — it never affects a verdict.
 
 ## Deep dives
 
+- **`FLOW.md` — who runs what, when** (PM → Dev → Lead → Auto; the one-glance map)
 - `GUIDE.md` — how it all works, end to end
 - `reference/CONTRACT-FORMAT.md` — contract schema reference
 - `docs/INSTALL-FOR-TRYERS.md` — sharing with teammates

@@ -85,9 +85,22 @@ Create each child as its own contract at
 - `parent: <ID>` in frontmatter
 - `dependsOn: [<other-childIds>]` for ordering
 - `implementation: agent | human-led`
+- **`repo: <name>`** — which repo this child lands in, from
+  `.manifest/repos.yml` (the seam is usually per-repo already: a backend
+  child → the backend repo, a web child → the web repo, mobile → mobile).
+- **`owner: <dev>`** — the person on the hook for this child. Multi-person
+  features map naturally: two web children can carry two different FE owners
+  and run in parallel; the backend child carries the BE owner they both wait on.
 - Its own behaviors, instrumentation, perf, comms, ACs (a real
   Small/Medium contract — run `/contract verify` on each)
 - A slice of the parent's goal
+
+**Assign owners before finishing.** Decomposition produces the *shape* (which
+children, in what order, in which repo); the dev/lead assigns the *people*. Ask
+once, in one batch: "Who owns each child?" — e.g. *"SC-a (backend) → @be-dev;
+SC-b + SC-d (web) → @fe-dev-1; SC-c (web) → @fe-dev-2."* Default `owner` to the
+picker-upper if they don't split it. Record each on the child's frontmatter so
+the rollup (below) can show the feature by person.
 
 Write a decomposition plan to `.manifest/contracts/<ID>.decomposition.md`:
 
@@ -99,13 +112,13 @@ Epic goal: <one line>. Success metric: <metric> (measured across all children).
 ## Ship order
 
 1. AUTH-12a — Backend: add /auth/v2 endpoint behind flag (Medium, agent)
-   depends on: none
+   repo: backend · owner: @be-dev · depends on: none
 2. AUTH-12b — Data: migrate sessions table (Small, HUMAN-LED — hot table)
-   depends on: AUTH-12a
+   repo: backend · owner: @be-dev · depends on: AUTH-12a
 3. AUTH-12c — Web: new login UI on /auth/v2 (Small, agent)
-   depends on: AUTH-12a, AUTH-12b
+   repo: web · owner: @fe-dev-1 · depends on: AUTH-12a, AUTH-12b
 4. AUTH-12d — iOS + Android: mobile login on /auth/v2 (Medium, agent)
-   depends on: AUTH-12c
+   repo: mobile · owner: @fe-dev-2 · depends on: AUTH-12c
 
 ## Notes
 - 12b is human-led: migration on the sessions table (security critic
@@ -116,8 +129,12 @@ Epic goal: <one line>. Success metric: <metric> (measured across all children).
 ### 6. Report
 
 Tell the user:
-- The epic and its N children, in ship order, with size + agent/human
+- The epic and its N children, in ship order, with size + agent/human,
+  **owner + repo**
 - Which children are human-led and why
+- **The one-glance feature view:** `/status <epic-ID>` rolls the children up —
+  critical path, who's blocked on whom, and "the feature lands when all children
+  land." Point the dev/lead there for coordination.
 - "Each child is a normal contract. Verify and promote them in order:
   start with `/contract verify AUTH-12a`. The epic tracks the overall
   metric; you'll see it land when the last child does."

@@ -1,7 +1,7 @@
 # Manifest
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-![Version](https://img.shields.io/badge/version-0.23.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.24.0-blue.svg)
 ![Tests](https://img.shields.io/badge/tests-node%20--test-green.svg)
 
 A Claude Code / Cowork plugin that takes a PRD ("contract") through the full
@@ -11,6 +11,10 @@ let an under-specified spec progress.
 The contract lives as **markdown in your repo** at `.manifest/contracts/*.md`.
 Critics produce findings as adjacent files. Reports are committed alongside.
 Git is your audit trail; no external database required.
+
+> **New here? Read [FLOW.md](FLOW.md)** — the single "who runs what, when" map of
+> the whole lifecycle (PM → Dev → Lead → Auto), with a 30-second "which command
+> do I run?" guide.
 
 For the full walkthrough — mental model, day-by-day flow, recovery
 playbooks — read **[GUIDE.md](GUIDE.md)**.

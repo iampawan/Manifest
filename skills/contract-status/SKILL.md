@@ -39,6 +39,20 @@ real gate.** When `promotable` is true, say so even if readiness is
 isn't stuck. (Read open blocker/warning counts from the latest
 `<ID>.findings.json` if present.)
 
+**Who holds the ball (PM accountability).** If the contract has a
+`pickup.ballLog`, compute the ledger — `node scripts/ready-check.mjs
+--ledger <ballLog.json> <slaHrs> <promotedAt>` — and lead with it when the
+ball is with the PM. The SLA is charged **only for dev-side time**, so report
+the *effective* SLA (paused while blocked on PM), not raw elapsed:
+
+```
+🟡 blocked on PM 2d 4h (SLA paused) · dev used 6h/48h · 2 bounces
+   → nudge the PM, or proceed on the dev's assumption
+```
+
+This is the anti-blame line: a dev is never shown as overdue for time the PRD
+gap left the ball with the PM.
+
 ## All in-flight (the dashboard)
 
 1. List `.manifest/contracts/*.md` (exclude `.findings.md`, `.r*.md`,
@@ -61,6 +75,39 @@ Epics: AUTH-30 (3/4 children shipped)
 
 5. If nothing is in flight, say so and suggest `/contract new` or
    `/fix`.
+
+## Epic rollup — `/status <epic-ID>` (multi-person feature view)
+
+When the ID is an **epic** (`type: epic` with `children: [...]`), show the whole
+feature in one glance instead of per-contract. This is the coordination view for a
+feature worked by several people across repos.
+
+1. Read the child contracts listed in `children`. For each, collect
+   `{ id, owner, repo, size, status, landed, dependsOn }`.
+2. Compute the rollup deterministically:
+   `node scripts/ready-check.mjs --rollup <children.json>`. It returns per-child
+   **state** (`landed` / `blocked` / `ready` / in-flight status), each blocked
+   child's `blockedBy`, the **critical path**, `done/total`, and `landed` (true
+   only when **every** child has landed).
+3. Render — lead with the finish line and the critical path, group by owner:
+
+```
+EPIC  SC-100 · Saved cards at checkout        2/4 shipped · not landed
+critical path:  SC-a → SC-b → SC-d
+success metric: +6% checkout conversion (measured once the feature lands)
+
+  @be-dev    SC-a  backend  ✅ landed
+  @fe-dev-1  SC-b  web      ② building
+             SC-d  web      ⛔ blocked — waiting on SC-b, SC-c
+  @fe-dev-2  SC-c  web      ▶ ready to start (deps met)
+
+next: SC-c is unblocked — @fe-dev-2 can start. SC-d is the critical-path tail.
+```
+
+4. **Feature accountability** — a feature isn't "done" because one dev finished;
+   it lands only when **all** children land and the metric moves. Lead with any
+   cross-child block (who's waiting on whom) so nobody stalls silently, and pair it
+   with the PM ledger (blocked-on-PM) where relevant.
 
 ## Notes
 

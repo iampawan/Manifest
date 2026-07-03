@@ -335,12 +335,89 @@ export function cacheChecks(answers = {}, cache = null) {
   return notes.slice(0, 12);
 }
 
+// ─── PM accountability ledger — deterministic "who held the ball" + SLA pause ──
+// events: [{ by:'pm'|'dev', at:'ISO', note? }] chronological. Each entry marks who
+// TOOK the ball at that moment. The point: time the ball sits with the PM does NOT
+// count against the dev's SLA, and the trail shows who caused any delay.
+export function ballLedger(events = [], now = Date.now()) {
+  const evs = (Array.isArray(events) ? events : [])
+    .filter((e) => e && (e.by === "pm" || e.by === "dev") && e.at)
+    .sort((a, b) => new Date(a.at) - new Date(b.at));
+  let pmMs = 0, devMs = 0, bounces = 0;
+  for (let i = 0; i < evs.length; i++) {
+    const start = new Date(evs[i].at).getTime();
+    const end = i + 1 < evs.length ? new Date(evs[i + 1].at).getTime() : now;
+    const dur = Math.max(0, end - start);
+    if (evs[i].by === "pm") pmMs += dur; else devMs += dur;
+    if (i > 0 && evs[i].by === "pm" && evs[i - 1].by === "dev") bounces++;  // dev → PM = a bounce-back
+  }
+  return { holder: evs.length ? evs[evs.length - 1].by : "dev", pmMs, devMs, blockedOnPmMs: pmMs, bounces, totalMs: pmMs + devMs };
+}
+// SLA that PAUSES while the ball is with the PM — dev is charged only for time on their side.
+export function effectiveSla(slaMs, startedAt, events = [], now = Date.now()) {
+  const { blockedOnPmMs } = ballLedger(events, now);
+  const elapsed = Math.max(0, now - new Date(startedAt).getTime());
+  const devElapsed = Math.max(0, elapsed - blockedOnPmMs);
+  return { devElapsed, blockedOnPmMs, remainingMs: slaMs - devElapsed, overdue: devElapsed > slaMs };
+}
+const _hms = (ms) => `${Math.floor(ms / 3.6e6)}h ${Math.round((ms % 3.6e6) / 6e4)}m`;
+
+// ─── Epic rollup — one view over a multi-person feature's child contracts ──
+// children: [{ id, owner?, repo?, size?, status?, landed?, dependsOn?:[id] }]
+// Answers: who's blocked on whom, what's the critical path, is the FEATURE done.
+export function epicRollup(children = []) {
+  const kids = (Array.isArray(children) ? children : []).filter((c) => c && c.id);
+  const byId = {}; kids.forEach((c) => { byId[c.id] = c; });
+  const isLanded = (c) => !!(c && (c.landed === true || c.status === "landed"));
+  const depsOf = (c) => (Array.isArray(c && c.dependsOn) ? c.dependsOn.filter((d) => byId[d]) : []);
+
+  const rows = kids.map((c) => {
+    const blockedBy = depsOf(c).filter((d) => !isLanded(byId[d]));
+    let state;
+    if (isLanded(c)) state = "landed";
+    else if (blockedBy.length) state = "blocked";
+    else if (c.status && !["planned", "", undefined, null].includes(c.status)) state = c.status; // in flight
+    else state = "ready";
+    return { id: c.id, owner: c.owner || null, repo: c.repo || null, size: c.size || null, state, blockedBy };
+  });
+
+  // Critical path = longest dependency chain (node count).
+  const depth = {};
+  const calc = (id, seen = new Set()) => {
+    if (id in depth) return depth[id];
+    if (seen.has(id)) return 0;                 // cycle guard
+    seen.add(id);
+    const ds = depsOf(byId[id] || {});
+    depth[id] = ds.length ? 1 + Math.max(...ds.map((x) => calc(x, new Set(seen)))) : 1;
+    return depth[id];
+  };
+  kids.forEach((c) => calc(c.id));
+  let endId = null, maxD = 0;
+  for (const id of Object.keys(depth)) if (depth[id] > maxD) { maxD = depth[id]; endId = id; }
+  const path = [];
+  for (let cur = endId; cur; ) {
+    path.unshift(cur);
+    const ds = depsOf(byId[cur] || {});
+    cur = ds.length ? ds.reduce((a, b) => ((depth[b] || 0) > (depth[a] || 0) ? b : a)) : null;
+  }
+
+  const counts = rows.reduce((m, r) => ((m[r.state] = (m[r.state] || 0) + 1), m), {});
+  const done = rows.filter((r) => r.state === "landed").length;
+  return {
+    total: rows.length, done, pct: rows.length ? Math.round((done / rows.length) * 100) : 0,
+    landed: rows.length > 0 && done === rows.length,   // the FEATURE is done only when every child has landed
+    counts, criticalPath: path, rows,
+    blocked: rows.filter((r) => r.state === "blocked"),
+    ready: rows.filter((r) => r.state === "ready"),
+  };
+}
+
 // ─── CLI ─────────────────────────────────────────────────────────────
 function loadJson(p) { return JSON.parse(readFileSync(p, "utf8")); }
 function fail(msg) { console.error(msg); process.exit(2); }
 
 function main() {
-  const [mode, a1, a2] = process.argv.slice(2);
+  const [mode, a1, a2, a3] = process.argv.slice(2);
   if (!mode || mode === "--help" || mode === "-h") {
     console.log("ready-check · Manifest PM-side gate engine\n" +
       "  --check <answers.json>          verdict (exit 1 if not ready)\n" +
@@ -350,6 +427,8 @@ function main() {
       "  --verify <handoff.txt|json>     validate a code vs its content\n" +
       "  --verify-freeze <handoff.txt> <current.json>   PRD/design drift at pickup\n" +
       "  --cache-check <answers.json> <code-context.json>\n" +
+      "  --ledger <events.json> [slaHrs] [startedAt]   PM/dev ball ledger + SLA-paused-on-PM\n" +
+      "  --rollup <children.json>        epic rollup — states, critical path, feature-landed\n" +
       "  --rubric                        print the Definition of Ready");
     return;
   }
@@ -387,6 +466,18 @@ function main() {
       process.exit(v === "valid" ? 0 : 1);
     } else if (mode === "--cache-check") {
       console.log(JSON.stringify(cacheChecks(loadJson(a1), loadJson(a2)), null, 2));
+    } else if (mode === "--ledger") {
+      const events = loadJson(a1);
+      const led = ballLedger(events);
+      const res = { holder: led.holder, blockedOnPM: _hms(led.blockedOnPmMs), devTime: _hms(led.devMs), bounces: led.bounces };
+      if (a2 && a3) {
+        const e = effectiveSla(Number(a2) * 3.6e6, a3, events);
+        res.sla = { devElapsed: _hms(e.devElapsed), pausedForPM: _hms(e.blockedOnPmMs), remaining: _hms(Math.max(0, e.remainingMs)), overdue: e.overdue };
+      }
+      console.log(JSON.stringify(res, null, 2));
+      process.exit(res.sla && res.sla.overdue ? 1 : 0);
+    } else if (mode === "--rollup") {
+      console.log(JSON.stringify(epicRollup(loadJson(a1)), null, 2));
     } else {
       fail(`unknown mode: ${mode}`);
     }

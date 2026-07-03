@@ -1,6 +1,6 @@
 ---
 name: contract-pickup
-description: The canonical Spec entry for Manifest. Dev gives any source — JIRA / Linear / Notion / Confluence / Google Doc / Slack message / GitHub issue / Figma URL, pasted text, an image, or a free-form description — and the agent does the code archaeology, drafts the contract, runs the critics inline, and sorts every gap into three buckets (auto-fill from code, dev decides, PM must answer). PM stays in their normal tool (JIRA comment, Slack DM); they never have to touch Manifest. Use when the user says "pick up this PRD", "start on this ticket", "spec out this feature", "I got a doc from PM", or invokes `/contract pickup <source>` / `/pickup <source>`. Replaces the older `/contract new` → `/contract verify` two-step flow with a single conversational pass.
+description: The canonical Spec entry for Manifest. Dev gives any source — JIRA / Linear / Notion / Confluence / Google Doc / Slack message / GitHub issue / Figma URL, pasted text, an image, or a free-form description — and the agent does the code archaeology, drafts the contract, runs the critics + a Figma design audit inline, and sorts every gap into three buckets (auto-fill from code, dev decides, PM must answer). PM stays in their normal tool (JIRA comment, Slack DM); they never have to touch Manifest. Use when the user says "pick up this PRD", "start on this ticket", "spec out this feature", "I got a doc from PM", or invokes `/contract pickup <source>` / `/pickup <source>`. Replaces the older `/contract new` → `/contract verify` two-step flow with a single conversational pass.
 ---
 
 # Contract pickup (canonical Spec entry)
@@ -21,7 +21,7 @@ talks to them in the dev's voice through those existing channels.
 
 ```
 Phase 1: Fetch + expand     →  ~10s  Read the PRD + linked docs + history
-Phase 2: Draft + critique   →  ~20s  Draft contract, run critics in parallel
+Phase 2: Draft + critique   →  ~20s  Draft contract; critics + design audit (Figma) + freeze check, in parallel
 Phase 3: Sort gaps          →  ~5s   Three buckets — auto-fill / dev / PM
 Phase 4: Hand off to dev    →        Dev reviews; sends batched questions to PM
 ```
@@ -190,6 +190,37 @@ selection rules) — but list it as `skipped` in the findings file so
 the verdict is transparent.** That's how `contract-verify` handles it
 and pickup follows the same pattern. "Skipped because not applicable"
 is different from "didn't run because pickup forgot."
+
+**2c. Design audit + freeze check — the design-side of the deep pass.**
+The text critics can judge whether the PRD *claims* platforms/states/copy; only
+here can we check the **actual Figma file**. If the contract's design is a Figma
+URL and the `figma-rest` connector is available (tool names depend on install —
+e.g. `mcp__figma-rest__audit_design` / `…get_file_version`), run BOTH:
+
+- **Freeze / drift.** Re-read `get_file_version` and compare to the
+  `Design-Version:` pinned in the Ready-Check hand-off (plus `Source:` /
+  `PRD-Hash:` for the doc). Run
+  `node scripts/ready-check.mjs --verify-freeze <handoff.txt> current.json`.
+  If the live version advanced past the pin → **STALE-DESIGN**: the design
+  changed after the PRD cleared Ready Check; the PRD must re-clear before build.
+- **`audit_design`.** Call it on the file and fold the real design gaps into the
+  findings (write them to `.findings.json` alongside the critics):
+  - **Platform coverage** — a platform in scope with no frames (e.g. PRD scopes
+    mobile but only desktop-width frames exist). Reinforces / grounds
+    `critic-platform-parity` with actual frame data.
+  - **UI states** — no error / empty / loading screen found by name. Grounds
+    `critic-comms-completeness`. Frame-naming is heuristic, so raise it as a
+    question for the designer/PM, not a hard fail.
+  - **Copy** — placeholder / lorem / TODO text layers still in the file →
+    **blocker** (copy not final).
+  - **Missing design** — no Figma link, or a link that no longer resolves →
+    flag it; a UI change with no design is not ready.
+
+Route any design gap that only the designer/PM can resolve into the
+**PM-must-answer** bucket (Phase 3), tagged `area: design`, so it travels back
+with the other questions in one batch. If `figma-rest` isn't connected, say so
+and fall back to the text critics alone (`critic-platform-parity`,
+`critic-comms-completeness`) — **don't silently skip the design check.**
 
 ### Phase 3 — Sort gaps into three buckets
 
@@ -451,10 +482,39 @@ pickup:
       blocking: false
       status: posted | answered | follow-up-sent | stale
   resolvedQuestions: [<Q-IDs that moved to qa.md>]
+  bounces: <count of dev→PM hand-backs>          # accountability: how many round-trips this PRD cost
+  ballLog:                                       # who held the ball, when — feeds the SLA-pause ledger
+    - { by: dev, at: <ISO> }                     #   dev picked it up
+    - { by: pm,  at: <ISO> }                     #   dev handed PM-must-answer questions → PM
+    - { by: dev, at: <ISO> }                     #   PM answered → back to dev
 ```
 
 The `qa.md` sidecar file mirrors the pattern used by `findings.md` —
 human view of the full back-and-forth.
+
+## PM accountability — the ledger
+
+The original problem this whole flow solves: **a thin PRD makes the dev wait,
+and the dev gets blamed for the delay.** The ledger makes the ball-holder and the
+delay-source a timestamped record, not an argument.
+
+- **Sign-off is attributed.** The Ready-Check gate code + `promptedBy: <PM>` on the
+  contract are the PM's signature that they declared it ready. Waivers in the
+  hand-off are risks the **PM explicitly accepted** — surface them at pickup so
+  dev can push back.
+- **The SLA pauses while it's "blocked on PM."** Every time pickup posts
+  PM-must-answer questions, append `{ by: pm, at: <now> }` to `ballLog`; when the
+  answer-watcher applies a reply, append `{ by: dev, at: <now> }`. The dev's SLA
+  is charged **only for time the ball was on their side** — compute it with
+  `node scripts/ready-check.mjs --ledger <ballLog.json> <slaHrs> <startedAt>`
+  (`effectiveSla`), which returns dev-elapsed, time-paused-for-PM, and whether the
+  dev is *actually* overdue. So a slow PM reply can never make the dev look late.
+- **Bounces are counted.** Each dev→PM hand-back increments `bounces`. A PRD that
+  bounces repeatedly is a visible signal — attributed to the PRD gap, not the dev.
+
+When you show status or hand back to the dev, lead with who holds the ball and how
+long it's been blocked on the PM — e.g. *"Blocked on PM 2d 4h (SLA paused); dev has
+used 6h of the 48h budget. 2 bounces so far."*
 
 ## Speed levers (don't skip these)
 

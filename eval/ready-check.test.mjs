@@ -23,6 +23,9 @@ import {
   verifyFreeze,
   djb2,
   CODE_RE,
+  ballLedger,
+  effectiveSla,
+  epicRollup,
 } from "../scripts/ready-check.mjs";
 
 // A complete, ready PRD (the "saved cards" demo).
@@ -245,4 +248,80 @@ test("Design-Version round-trips through the hand-off + freeze stamp", () => {
 test("djb2 is stable (pins the cross-port algorithm)", () => {
   assert.equal(djb2("abc"), 193485963);
   assert.equal(djb2(""), 5381);
+});
+
+// ── PM accountability ledger ──
+const H = 3.6e6;
+const ledEvents = [
+  { by: "dev", at: "2026-07-01T00:00:00Z" }, // dev holds 2h
+  { by: "pm",  at: "2026-07-01T02:00:00Z" }, // dev→pm bounce; pm holds 3h
+  { by: "dev", at: "2026-07-01T05:00:00Z" }, // dev holds final 1h to `now`
+];
+const ledNow = new Date("2026-07-01T06:00:00Z").getTime();
+
+test("ballLedger: dev/pm time, bounces, holder", () => {
+  const l = ballLedger(ledEvents, ledNow);
+  assert.equal(l.devMs, 3 * H);          // 2h + 1h
+  assert.equal(l.blockedOnPmMs, 3 * H);  // pm held 3h
+  assert.equal(l.bounces, 1);            // one dev→pm handoff
+  assert.equal(l.holder, "dev");
+});
+
+test("ballLedger: empty → dev holds, nothing blocked", () => {
+  const l = ballLedger([], ledNow);
+  assert.equal(l.holder, "dev");
+  assert.equal(l.blockedOnPmMs, 0);
+  assert.equal(l.bounces, 0);
+});
+
+test("effectiveSla pauses while blocked on PM", () => {
+  // 8h SLA, started 00:00, now 06:00 → 6h elapsed, 3h with PM → dev charged 3h.
+  const e = effectiveSla(8 * H, "2026-07-01T00:00:00Z", ledEvents, ledNow);
+  assert.equal(e.devElapsed, 3 * H);
+  assert.equal(e.blockedOnPmMs, 3 * H);
+  assert.equal(e.remainingMs, 5 * H);
+  assert.equal(e.overdue, false);
+});
+
+test("effectiveSla: without the pause the dev would be overdue", () => {
+  // Same clock, but if PM-blocked time counted, 6h elapsed > 5h SLA = overdue.
+  const naiveElapsed = ledNow - new Date("2026-07-01T00:00:00Z").getTime();
+  assert.ok(naiveElapsed > 5 * H);                       // naive: overdue
+  const e = effectiveSla(5 * H, "2026-07-01T00:00:00Z", ledEvents, ledNow);
+  assert.equal(e.overdue, false);                        // paused: still on time (3h dev < 5h)
+});
+
+// ── Epic rollup (multi-person feature) ──
+// A (BE, landed) → B (FE, in flight) and C (FE, ready) both depend on A →
+// D (FE, blocked) depends on B + C.
+const epicKids = [
+  { id: "SC-a", owner: "be1", repo: "backend", size: "M", landed: true, dependsOn: [] },
+  { id: "SC-b", owner: "fe1", repo: "web", size: "M", status: "promoted", dependsOn: ["SC-a"] },
+  { id: "SC-c", owner: "fe2", repo: "web", size: "S", status: "planned", dependsOn: ["SC-a"] },
+  { id: "SC-d", owner: "fe1", repo: "web", size: "S", status: "planned", dependsOn: ["SC-b", "SC-c"] },
+];
+
+test("epicRollup: per-child state", () => {
+  const r = epicRollup(epicKids);
+  const s = (id) => r.rows.find((x) => x.id === id).state;
+  assert.equal(s("SC-a"), "landed");
+  assert.equal(s("SC-b"), "promoted");                   // deps met (A landed), in flight
+  assert.equal(s("SC-c"), "ready");                      // deps met, not started
+  assert.equal(s("SC-d"), "blocked");                    // B + C not landed
+  assert.deepEqual(r.rows.find((x) => x.id === "SC-d").blockedBy, ["SC-b", "SC-c"]);
+});
+
+test("epicRollup: critical path + feature-landed", () => {
+  const r = epicRollup(epicKids);
+  assert.equal(r.total, 4);
+  assert.equal(r.done, 1);
+  assert.equal(r.landed, false);                         // not all children landed
+  assert.equal(r.criticalPath.length, 3);               // A → (B|C) → D
+  assert.equal(r.criticalPath[0], "SC-a");
+  assert.equal(r.criticalPath[r.criticalPath.length - 1], "SC-d");
+});
+
+test("epicRollup: feature landed only when all children landed", () => {
+  const allDone = epicKids.map((c) => ({ ...c, landed: true }));
+  assert.equal(epicRollup(allDone).landed, true);
 });

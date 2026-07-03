@@ -9,6 +9,31 @@ so engineering never has to chase you for basics. This guide has two parts:
 
 ---
 
+## The full flow (PM → dev)
+
+Ready Check is **Level 1** (the PM gate). It hands off to **Level 2** (the dev
+deep pass). End to end:
+
+1. **PM — Ready Check** *(this panel, or `/ready-check` in chat)*. Confirm the
+   basics, clear the gate, copy the **hand-off** (a tamper-evident code +
+   summary). Paste it into the ticket / dev thread.
+2. **Dev — `/contract pickup <ticket>`**. Verifies the gate code, then reads the
+   **code** for the deeper findings a PM can't see from text alone — regression
+   risk, security, feasibility, real edge cases, design drift (via `figma-rest`) —
+   and sorts every gap into *auto-fill from code / dev decides / **PM must
+   answer***.
+3. **PM — fix the "must answer" items** and re-run Ready Check (a changed PRD
+   re-mints the code).
+4. **Grooming.**
+5. **Dev — `/contract promote`** freezes the contract and kicks off the build.
+
+So the panel is deliberately just the **gate + hand-off** — it doesn't try to be
+the whole pipeline. The two commands are complementary, not either/or:
+`/ready-check` judges the PRD *text*; `/contract pickup` judges it against the
+*code*. Don't run `/ready-check` twice — pickup is the dev-side step.
+
+---
+
 ## For PMs
 
 **You don't install anything.** Once your admin has set it up (below), you have
@@ -28,13 +53,13 @@ two ways to use it — pick whichever you like.
    what a strong answer looks like? Hit **Playbook** (top-right) or **"see
    example"** under any field for a good-vs-weak comparison. Can't answer one?
    Tick **"Can't provide — waive with a reason."**
-5. When it says **Ready**, either:
-   - **Copy hand-off** → paste into the JIRA ticket / dev Slack thread, or
-   - **Generate PRD → Publish** → writes a clean PRD to your JIRA/Confluence.
+5. When it says **Ready**, click **Copy hand-off** and paste it into the JIRA
+   ticket / dev Slack thread. That's the gate cleared. Dev takes it from there
+   (`/contract pickup` — see [The full flow](#the-full-flow-pm--dev)).
 
-   The hand-off unlocks **only** after the smart review passes with **no open
-   blockers** — and editing any answer re-locks it until you re-check. That's the
-   point: a green pass means it's genuinely ready, not just filled in.
+   The gate opens once every basic is **confirmed**; the smart review's findings
+   are advice, and its auto-filled answers are marked ✨ for you to verify. A green
+   pass means it's genuinely ready, not just filled in.
 
 The header **status dot** shows green when the panel's live (smart review on) and
 red if it's opened outside Cowork.

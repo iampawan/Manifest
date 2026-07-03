@@ -81,8 +81,10 @@ or on their first Cowork use of this skill (offer it once):
      `figma-rest` connector, so when a Figma link is present it tells the PM to
      run the design audit in **chat** (`/ready-check <figma-link>`) or dev-side
      pickup. The audit itself (platforms, states, placeholder copy) runs there —
-     see Phase 3 item 6. The panel still does everything cloud-reachable: the
-     checklist, score, smart review, JIRA/Confluence fetch + publish, gate.
+     see Phase 3 item 6. The panel is deliberately just the **gate + hand-off**
+     (checklist, score, smart review, JIRA/Confluence link *fetch*, gate code) —
+     it no longer generates or publishes a PRD; dev picks up the hand-off with
+     `/contract pickup`.
 5. **Prompt for the connectors the panel uses**, and note which are missing so
    the user can authorize them in Cowork connector settings:
    - **Atlassian** — powers JIRA-issue & Confluence-page *fetch* and *publish*
@@ -146,6 +148,26 @@ message, GitHub issue, Figma), pasted text, an image (screenshot of slides / a
 Figma frame), or a plain description. Fetch it with the matching MCP or reader.
 If it's a Figma link, treat that as the design artifact for item 3. If multiple
 sources are pasted, use them all.
+
+**Discover the connector before deciding it's missing (Cowork especially).** In
+Cowork, connector tools are *deferred* — they do **not** appear in your tool list
+until you load them with `ToolSearch`. So a Confluence/JIRA/Notion link does not
+mean "not connected" just because you don't see the tool yet. When the source is
+such a link:
+
+1. **Search for the fetch tool first.** Call `ToolSearch` with the obvious
+   keywords before concluding anything — e.g. `confluence page`, `getConfluencePage`,
+   `jira issue`, `getJiraIssue`, `notion page`. If a matching tool comes back,
+   it's connected; load it and fetch. (Atlassian typically exposes
+   `getConfluencePage`, `searchConfluenceUsingCql`, `getJiraIssue`,
+   `getAccessibleAtlassianResources` under a `mcp__<connector-id>__…` prefix; the
+   `<connector-id>` is an opaque hash, so match by the tool *name*, not a guessed
+   prefix.)
+2. **If ToolSearch returns nothing**, then the connector genuinely isn't
+   registered — *now* ask the PM to paste the text or upload the doc, and mention
+   they can connect Atlassian in Cowork connector settings to skip this next time.
+3. **Never say "X isn't connected" without having run ToolSearch for it.** That
+   was the failure mode — reporting a connector absent when it was only deferred.
 
 If nothing usable is given, ask the PM the 11 questions directly — the rubric
 doubles as an interview.

@@ -6,54 +6,74 @@
 <title>Ready Check · PRD Gate</title>
 <style>
   :root{
-    --bg:#f4f5f7; --panel:#ffffff; --panel2:#f7f8fa; --line:#e4e7ec;
-    --ink:#1a2230; --muted:#59626f; --faint:#98a1b0;
-    --brand:#2f5fd0; --brand-weak:#eaf0fc; --brand-line:#cddcf7; --brand-strong:#264fb0;
-    --pass:#2e8b57; --pass-weak:#e9f5ee;
-    --fail:#c23b4b; --warn:#b7791f; --warn-weak:#fbf1e0;
-    --box-border:#c2c8d2; --btn-hover:#c7ccd6; --code-ink:#2b3440;
-    --radius:10px; --shadow:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.07);
+    --bg:#f6f7fb; --panel:#ffffff; --panel2:#f6f7fb; --line:#e7e9f0;
+    --ink:#181d29; --muted:#5a6473; --faint:#98a1b2;
+    --brand:#5b5ef0; --brand-weak:#eef0fe; --brand-line:#cdd0fb; --brand-strong:#4a3fe0;
+    --pass:#1a9d63; --pass-weak:#e7f6ee;
+    --fail:#d23a53; --warn:#b3781a; --warn-weak:#fbf1df;
+    --box-border:#c6cbd6; --btn-hover:#cbd0dc; --code-ink:#2b3440;
+    --radius:16px; --radius-sm:11px;
+    --shadow:0 1px 2px rgba(20,24,40,.04),0 6px 20px -6px rgba(20,24,40,.10);
+    --shadow-lg:0 12px 40px -8px rgba(20,24,40,.22);
   }
   :root[data-theme="dark"]{
-    --bg:#0f1216; --panel:#161b22; --panel2:#1b212a; --line:#2a313b;
-    --ink:#e6e9ee; --muted:#9aa4b2; --faint:#69727f;
-    --brand:#5b8bf0; --brand-weak:#1a2740; --brand-line:#26467e; --brand-strong:#6f9bf5;
-    --pass:#3ec98a; --pass-weak:#122820; --fail:#e5687a; --warn:#e0a341; --warn-weak:#2b2413;
-    --box-border:#3a424e; --btn-hover:#3a424e; --code-ink:#c8d0da;
-    --shadow:0 1px 2px rgba(0,0,0,.4);
+    --bg:#0d0f14; --panel:#161a22; --panel2:#1b202a; --line:#282f3b;
+    --ink:#e8ebf1; --muted:#9aa4b3; --faint:#6a7382;
+    --brand:#8286f6; --brand-weak:#1e2140; --brand-line:#3b3f7c; --brand-strong:#9a9dfb;
+    --pass:#3ecf8e; --pass-weak:#10261d; --fail:#e5687a; --warn:#e0a341; --warn-weak:#2b2413;
+    --box-border:#39414e; --btn-hover:#3a424e; --code-ink:#c8d0da;
+    --shadow:0 1px 2px rgba(0,0,0,.5),0 8px 28px -10px rgba(0,0,0,.6);
+    --shadow-lg:0 16px 50px -8px rgba(0,0,0,.7);
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);transition:background .15s,color .15s;
     font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;-webkit-font-smoothing:antialiased}
   a{color:var(--brand)}
-  .wrap{max-width:1120px;margin:0 auto;padding:32px 24px 80px}
-  header.top{display:flex;align-items:center;gap:13px;flex-wrap:wrap;padding-bottom:20px;border-bottom:1px solid var(--line);margin-bottom:22px}
-  .logo{width:38px;height:38px;border-radius:9px;display:grid;place-items:center;background:var(--brand);color:#fff;font-weight:700;font-size:14px;letter-spacing:.5px}
-  h1{font-size:21px;margin:0;font-weight:650}
+  .wrap{max-width:1140px;margin:0 auto;padding:34px 24px 84px}
+  header.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding-bottom:20px;border-bottom:1px solid var(--line);margin-bottom:24px}
+  .logo{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;background:var(--brand);color:#fff;font-weight:800;font-size:14px;letter-spacing:.5px}
+  h1{font-size:22px;margin:0;font-weight:680;letter-spacing:-.2px}
   .tag{color:var(--muted);font-size:13px;margin-top:2px}
   .hdright{margin-left:auto;display:flex;gap:8px;align-items:center}
-  .pill{font-size:12px;color:var(--muted);border:1px solid var(--line);padding:6px 12px;border-radius:6px;background:var(--panel)}
-  .iconbtn{border:1px solid var(--line);background:var(--panel);color:var(--muted);width:34px;height:32px;border-radius:6px;cursor:pointer;font-size:15px;line-height:1;transition:.12s}
-  .iconbtn:hover{border-color:var(--btn-hover);color:var(--ink)}
-  .lead{color:var(--muted);max-width:760px;margin:0 0 24px;font-size:14.5px}
+  .pill{font-size:12px;color:var(--muted);border:1px solid var(--line);padding:6px 12px;border-radius:99px;background:var(--panel);white-space:nowrap}
+  .pill.brand{color:var(--brand);border-color:var(--brand-line);background:var(--brand-weak);font-weight:600}
+  .iconbtn{border:1px solid var(--line);background:var(--panel);color:var(--muted);height:34px;min-width:34px;padding:0 11px;border-radius:9px;cursor:pointer;font-size:13.5px;line-height:1;transition:.12s;font-weight:550;display:inline-flex;align-items:center;gap:6px}
+  .iconbtn:hover{border-color:var(--btn-hover);color:var(--ink);background:var(--panel2)}
+  .lead{color:var(--muted);max-width:820px;margin:0 0 20px;font-size:15px;line-height:1.6}
   .lead b{color:var(--ink);font-weight:600}
+
+  /* Flow map */
+  .flowmap{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:0 0 26px;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);box-shadow:var(--shadow);overflow:hidden}
+  .fstep{flex:1;min-width:150px;padding:13px 15px;border-right:1px solid var(--line);position:relative}
+  .fstep:last-child{border-right:none}
+  .fstep .fnum{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;font-size:11px;font-weight:700;background:var(--panel2);color:var(--muted);border:1px solid var(--line)}
+  .fstep.you .fnum{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .fstep .fwho{font-size:10px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;color:var(--faint);margin-left:7px}
+  .fstep.you .fwho{color:var(--brand)}
+  .fstep .ftitle{font-weight:620;font-size:13px;margin-top:7px;color:var(--ink)}
+  .fstep .fsub{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.4}
+  .fstep.you{background:var(--brand-weak)}
+  @media(max-width:760px){.fstep{border-right:none;border-bottom:1px solid var(--line)}.fstep:last-child{border-bottom:none}}
+
   .grid{display:grid;grid-template-columns:1.4fr .9fr;gap:22px;align-items:start}
   @media(max-width:900px){.grid{grid-template-columns:1fr}}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
-  .card .hd{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
-  .card .hd h2{font-size:12px;margin:0;letter-spacing:.6px;text-transform:uppercase;color:var(--faint);font-weight:700}
-  .card .bd{padding:16px 18px}
+  .card .hd{padding:15px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+  .card .hd h2{font-size:12px;margin:0;letter-spacing:.7px;text-transform:uppercase;color:var(--faint);font-weight:700}
+  .card .bd{padding:18px 20px}
   .scanrow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px 13px;border-radius:7px;font-size:13px;cursor:pointer;transition:background .12s,border-color .12s;font-weight:550}
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:10px 17px;border-radius:11px;font-size:13.5px;cursor:pointer;transition:background .12s,border-color .12s;font-weight:560}
   .btn:hover{border-color:var(--btn-hover);background:var(--panel2)}
   .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
   .btn.primary:hover{background:var(--brand-strong);border-color:var(--brand-strong)}
   .btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
   .btn.ghost:hover{background:var(--panel2)}
   .btn.bad,.btn.good{color:var(--muted)}
-  textarea.prd{width:100%;min-height:112px;resize:vertical;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:11px 12px;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+  textarea.prd{width:100%;min-height:120px;resize:vertical;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:var(--radius-sm);padding:12px 13px;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
   textarea.prd:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-weak)}
   .hint{color:var(--faint);font-size:12px;margin:8px 2px 0}
+  .offline-note{margin-top:11px;font-size:12px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:9px 12px;line-height:1.5}
+  .offline-note b{color:var(--ink)}
 
   .crit{border:1px solid var(--line);border-left:3px solid var(--line);border-radius:8px;padding:11px 13px;margin:9px 0;background:var(--panel);transition:.12s}
   .crit.ok{border-left-color:var(--pass);background:var(--pass-weak)}
@@ -119,6 +139,38 @@
   .lvl .l{flex:1;border:1px solid var(--line);border-radius:8px;padding:11px 12px;background:var(--panel)}
   .lvl .l b{font-size:12px;color:var(--ink)} .lvl .l p{margin:4px 0 0;color:var(--muted);font-size:11.5px}
   .lvl .l.on{border-color:var(--brand);border-left:3px solid var(--brand)}
+
+  /* Inline example toggle inside each question */
+  .egrow{margin-top:7px}
+  .egbtn{background:none;border:none;color:var(--brand);font-size:11.5px;cursor:pointer;padding:0;font-weight:600}
+  .egbtn:hover{text-decoration:underline}
+  .egbox{margin-top:7px;border:1px solid var(--line);border-radius:9px;overflow:hidden;display:none}
+  .egbox.show{display:block}
+  .egbox .eg{padding:8px 11px;font-size:12px;line-height:1.5;display:flex;gap:8px;align-items:flex-start}
+  .egbox .eg+.eg{border-top:1px solid var(--line)}
+  .egbox .eg.good{background:var(--pass-weak)} .egbox .eg.weak{background:var(--warn-weak)}
+  .egbox .eg .lbl{font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;font-weight:800;padding:2px 6px;border-radius:5px;flex:0 0 auto;margin-top:1px}
+  .egbox .eg.good .lbl{color:var(--pass);border:1px solid var(--pass)} .egbox .eg.weak .lbl{color:var(--warn);border:1px solid var(--warn)}
+  .egbox .eg .txt{color:var(--ink)}
+
+  /* Playbook modal */
+  .modal{position:fixed;inset:0;background:rgba(15,18,24,.55);backdrop-filter:blur(2px);display:none;align-items:flex-start;justify-content:center;padding:40px 20px;z-index:50;overflow:auto}
+  .modal.show{display:flex}
+  .modal-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-lg);max-width:720px;width:100%;overflow:hidden}
+  .modal-card .mh{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+  .modal-card .mh h3{margin:0;font-size:15px;font-weight:680}
+  .modal-card .mh .x{margin-left:auto;border:1px solid var(--line);background:var(--panel);color:var(--muted);width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:15px}
+  .modal-card .mh .x:hover{color:var(--ink);border-color:var(--btn-hover)}
+  .modal-card .mb{padding:8px 20px 20px;max-height:70vh;overflow:auto}
+  .pbrow{padding:13px 0;border-bottom:1px solid var(--line)}
+  .pbrow:last-child{border-bottom:none}
+  .pbrow .q{font-weight:620;font-size:13.5px}
+  .pbrow .pair{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:8px}
+  @media(max-width:560px){.pbrow .pair{grid-template-columns:1fr}}
+  .pbrow .cell{border-radius:9px;padding:8px 11px;font-size:12px;line-height:1.5;border:1px solid var(--line)}
+  .pbrow .cell.g{background:var(--pass-weak)} .pbrow .cell.b{background:var(--warn-weak)}
+  .pbrow .cell .k{font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;font-weight:800;margin-bottom:3px}
+  .pbrow .cell.g .k{color:var(--pass)} .pbrow .cell.b .k{color:var(--warn)}
 </style>
 </head>
 <body>
@@ -127,16 +179,30 @@
     <div class="logo">RC</div>
     <div><h1>Ready Check</h1><div class="tag">The 2-minute check before a feature reaches dev</div></div>
     <div class="hdright">
-      <span class="pill">Ready = eligible for grooming</span>
+      <span class="pill brand">Level 1 · PM gate</span>
+      <button class="iconbtn" onclick="openPlaybook()" title="Good vs. weak answers for every question">📘 Playbook</button>
       <button class="iconbtn" id="themeToggle" onclick="toggleTheme()" title="Toggle dark mode">☾</button>
     </div>
   </header>
 
   <p class="lead">
     Answer a few plain questions about your feature. When it's <b>Ready</b>, one click produces a clean,
-    complete brief for dev, <b>with the design link attached</b>, so nobody has to chase you for basics.
-    If something's missing, you'll see exactly what to add.
+    complete brief for dev, <b>with the design link attached</b>, so nobody has to chase you for the basics.
+    If something's missing, you'll see exactly what to add — with the gate code dev needs before they'll groom it.
   </p>
+
+  <div class="flowmap" aria-label="The path from PRD to shipped">
+    <div class="fstep you"><span class="fnum">1</span><span class="fwho">You · PM</span>
+      <div class="ftitle">Ready Check</div><div class="fsub">Answer the basics → get a gate code. You're here.</div></div>
+    <div class="fstep"><span class="fnum">2</span><span class="fwho">Dev</span>
+      <div class="ftitle">Pick up &amp; deep-check</div><div class="fsub"><code>/contract pickup</code> — checks it against the code &amp; design.</div></div>
+    <div class="fstep you"><span class="fnum">3</span><span class="fwho">You · PM</span>
+      <div class="ftitle">Answer the gaps</div><div class="fsub">Reply where dev flags a real product decision.</div></div>
+    <div class="fstep"><span class="fnum">4</span><span class="fwho">Team</span>
+      <div class="ftitle">Groom &amp; freeze</div><div class="fsub"><code>/contract promote</code> starts the build.</div></div>
+    <div class="fstep"><span class="fnum">5</span><span class="fwho">Dev · Auto</span>
+      <div class="ftitle">Build → ship → watch</div><div class="fsub">Implement, verify, roll out, confirm it landed.</div></div>
+  </div>
 
   <div class="grid">
     <div>
@@ -150,12 +216,15 @@
             <button class="btn ghost" onclick="clearAll()">Reset</button>
           </div>
           <textarea id="prd" class="prd" placeholder="Paste your PRD / ticket / doc here and click Auto-fill. It pre-answers what it can find. Or just fill the questions below directly."></textarea>
-          <p class="hint">Nothing leaves your browser. Auto-fill is a head start; you confirm every answer.</p>
+          <p class="hint">Nothing leaves your browser. Auto-fill is a rough head start (keyword match) — you confirm every answer.</p>
+          <div class="offline-note">🔒 <b>This is the offline version</b> — a checklist and gate code that work in any browser, no sign-in.
+            For the smart review, auto-fill, and <b>design-file audit</b>, use the <b>Ready Check panel in Cowork</b> or run <code>/ready-check</code> in chat.</div>
         </div>
       </div>
 
       <div class="card" style="margin-top:18px">
-        <div class="hd"><h2>Your feature, in plain terms</h2>
+        <div class="hd"><h2>Your answers</h2>
+          <button class="egbtn" style="font-size:11.5px" onclick="openPlaybook()">See good vs. weak →</button>
           <span class="pill" id="reqcount" style="margin-left:auto">0 / 0 done</span></div>
         <div class="bd" id="criteria"></div>
       </div>
@@ -192,9 +261,10 @@
       <div class="foot">
         <b>What happens after you hand off</b>
         <div class="lvl">
-          <div class="l on"><b>You (2 min)</b><p>This check. Plain questions. You own that the basics are there before dev sees it.</p></div>
-          <div class="l"><b>Dev (automatic)</b><p>Manifest reads the code, fills the technical gaps itself, and only pings you back if a real product decision is needed.</p></div>
+          <div class="l on"><b>Level 1 — You (2 min)</b><p>This check. Plain questions, no code. You own that the basics are there before dev sees it.</p></div>
+          <div class="l"><b>Level 2 — Dev (~1 min)</b><p><code>/contract pickup</code> checks the PRD against the actual code &amp; design file, then pings you only for real product decisions.</p></div>
         </div>
+        <p style="margin-top:10px">The gate code is tamper-evident: dev verifies it before pickup, so a hand-off can't be quietly edited after you sign off.</p>
       </div>
     </div>
   </div>
@@ -225,6 +295,14 @@
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<div class="modal" id="playbook" onclick="if(event.target===this)closePlaybook()">
+  <div class="modal-card">
+    <div class="mh"><h3>📘 Playbook — good vs. weak answers</h3>
+      <button class="x" onclick="closePlaybook()" title="Close">×</button></div>
+    <div class="mb" id="pbBody"></div>
   </div>
 </div>
 
@@ -293,6 +371,11 @@ function render(){
           <div class="why">${c.why}</div>
           <input class="detail" placeholder="${c.eg}" value="${s.detail.replace(/"/g,'&quot;')}"
             oninput="setDetail('${c.id}',this.value)" ${(s.na||s.waived)?'disabled':''}/>
+          ${PLAYBOOK[c.id]?`<div class="egrow"><button class="egbtn" onclick="toggleEg('${c.id}')">See a strong vs. weak example</button>
+            <div class="egbox" id="eg-${c.id}">
+              <div class="eg good"><span class="lbl">Strong</span><span class="txt">${PLAYBOOK[c.id].good}</span></div>
+              <div class="eg weak"><span class="lbl">Weak</span><span class="txt">${PLAYBOOK[c.id].weak}</span></div>
+            </div></div>`:''}
           ${c.na?`<label class="na"><input type="checkbox" ${s.na?'checked':''} onchange="setNa('${c.id}',this.checked)"> ${c.na}</label>`:''}
           ${c.req&&!s.na?`<div class="waive">
             <label class="wl"><input type="checkbox" ${s.waived?'checked':''} onchange="setWaived('${c.id}',this.checked)"> Can't provide? Waive with a reason for dev</label>
@@ -353,6 +436,35 @@ function compute(){
 }
 function focusCrit(id){const el=document.getElementById('crit-'+id);
   el.scrollIntoView({behavior:'smooth',block:'center'}); const i=el.querySelector('input.detail'); if(i&&!i.disabled)setTimeout(()=>i.focus(),300);}
+
+// ── Playbook: good vs. weak per question (deterministic, offline) ──
+const PLAYBOOK={
+  goal:{good:'Returning users re-enter card details every time and drop at payment. Fixing it lifts checkout.',weak:'Make payments better.'},
+  metric:{good:'+6% checkout conversion for returning payers within 4 weeks (Mixpanel).',weak:'Improve conversion / engagement.'},
+  design:{good:'https://figma.com/file/pf-saved-cards — final, approved.',weak:'Design is obvious, no link. (This was the P0 miss.)'},
+  scope:{good:'Android + iOS. Out of scope: web, UPI autopay, netbanking.',weak:'Everywhere. / didn’t say what’s excluded.'},
+  oldbeh:{good:'Today the payment screen always shows a blank card form; nothing is saved.',weak:'Skipped — dev has to guess the current state.'},
+  flows:{good:'Checkout flow, payment screen, order-confirmation surface.',weak:'The payment area, roughly.'},
+  edge:{good:'Expired card, tokenization fails, no network, user deletes card mid-checkout.',weak:'It should just work.'},
+  states:{good:'Empty: “No saved cards yet” · loading spinner · success toast · error: “Couldn’t save card, try again”.',weak:'Standard states. (No copy written.)'},
+  l10n:{good:'All strings final and localised EN/HI.',weak:'Copy is roughly there, not finalised.'},
+  writer:{good:'No creator/writer impact — listener-side payment change only.',weak:'Not sure if it affects creators.'},
+  events:{good:'Fire card_saved, saved_card_used, tokenize_failed (Mixpanel).',weak:'We’ll add analytics later.'},
+  deps:{good:'Needs payments backend to expose a tokenization API.',weak:'No dependencies (there are).'},
+  rollout:{good:'Behind flag saved_cards, ramp 1% → 10% → 50% → 100%.',weak:'Ship to everyone at once.'},
+};
+function openPlaybook(){const b=document.getElementById('pbBody'); b.innerHTML='';
+  CRITERIA.forEach(c=>{const p=PLAYBOOK[c.id]; if(!p)return;
+    b.insertAdjacentHTML('beforeend',
+      `<div class="pbrow"><div class="q">${c.name}</div>
+       <div class="pair">
+         <div class="cell g"><div class="k">Strong</div>${p.good}</div>
+         <div class="cell b"><div class="k">Weak</div>${p.weak}</div>
+       </div></div>`);});
+  document.getElementById('playbook').classList.add('show');}
+function closePlaybook(){document.getElementById('playbook').classList.remove('show');}
+function toggleEg(id){const el=document.getElementById('eg-'+id); if(el)el.classList.toggle('show');}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closePlaybook();});
 
 let _code=null; // retained for stray resets; gateCode() is now deterministic
 // djb2 + normalize — byte-identical to scripts/ready-check.mjs so a code minted

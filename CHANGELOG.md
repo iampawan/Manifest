@@ -12,7 +12,59 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.24.0] — Offline page refreshed for 2026; Cowork connector-discovery fix
+
+- **Fix: "Atlassian isn't connected" false negative in Cowork.** Connector tools
+  are *deferred* in Cowork (not in the tool list until loaded via `ToolSearch`),
+  so `/ready-check` on a Confluence/JIRA link wrongly reported the connector
+  absent and asked the PM to paste. Ready Check's Phase 1 now **searches for the
+  fetch tool first** (`getConfluencePage` / `getJiraIssue` / …) and only asks for
+  a paste if ToolSearch genuinely returns nothing — it never claims "not
+  connected" without checking.
+- **Panel UX + UI redesign.** Cleaner, more professional Cowork panel: a
+  redesigned numbered **flow map** ("you do steps 1 & 3"), labeled example
+  buttons and tighter step-1 hierarchy so the primary action dominates, a
+  progress-filled stepper, **bigger buttons**, and a **flat** treatment — the
+  gradient logo and button glow are gone. Both surfaces share one consistent,
+  flat, indigo look; the panel's engine and logic are unchanged.
+- **Offline web page, refreshed for 2026.** `gate/prd-readiness-gate.html` (the
+  no-sign-in browser version) gets the modern UI: an indigo palette with softer
+  shadows/radius, the same top-of-page **flow map**, the **Playbook** (header
+  modal + inline "strong vs. weak" on every question), "Your feature, in plain
+  terms" renamed to **"Your answers"**, and a note pointing to the Cowork panel /
+  `/ready-check` for the smart review and design audit. The deterministic engine
+  (djb2 / `normAnswers` / `gateCode` / hand-off) stays **byte-identical** to the
+  panel and `ready-check.mjs`, so a code minted offline still verifies dev-side
+  (guarded by `verify_all.mjs`).
+
 ## [0.23.0] — Ready Check panel: real gate, Playbook, Verify, draft-from-idea
+
+- **Gate-focused panel + clear end-to-end flow.** The panel is now purely the
+  gate + hand-off (removed Generate-PRD / publish). Step 3 shows *what happens
+  next* and a top-of-panel flow map makes the whole path explicit: **PM Ready
+  Check → hand-off → Dev `/contract pickup` (deep findings) → PM fixes →
+  grooming → Dev `/contract promote` → build**. `/ready-check` (Level 1, text)
+  and `/contract pickup` (Level 2, code) are complementary, not either/or.
+- **Auto-fill from the PRD.** Since the PM wrote the PRD, AI-drafted answers fill
+  the fields and count immediately, each marked ✨ to verify — no manual "keep".
+- **`FLOW.md` — one "who runs what, when" map.** A single authoritative reference
+  for the whole lifecycle (PM → Dev → Lead → Auto): a step-by-step table (who,
+  which command, the trigger, the output), a 30-second "which command do I run?"
+  guide, the Level-1 vs Level-2 distinction, and how accountability is baked in.
+  Linked from the README and `/manifest`.
+- **Multi-person feature rollup.** `/contract decompose` now assigns each child
+  an **`owner` + `repo`** (from `repos.yml`), so "2 FE / 1 BE" maps onto real
+  children/people. New engine `epicRollup` (+ `--rollup` CLI, 4 tests) computes
+  per-child state (landed/blocked/ready/in-flight), who's `blockedBy` whom, the
+  **critical path**, and the feature is "landed" only when **every** child lands.
+  `/status <epic>` renders it — the one-glance view grouped by person, leading
+  with the finish line and any cross-child block.
+- **PM accountability ledger.** New engine helpers `ballLedger` / `effectiveSla`
+  (+ `--ledger` CLI, 6 tests): the SLA clock **pauses while "blocked on PM"**, so a
+  dev is never shown overdue for time a thin PRD left the ball with the PM. Pickup
+  records the ball log + bounce count; `/status` leads with who holds the ball and
+  the *effective* (PM-paused) SLA. The gate code + `promptedBy` are the PM's
+  attributed sign-off; waivers are risks the PM explicitly accepted.
 
 - **Deterministic gate.** The hand-off/gate code unlocks when every basic is
   *confirmed* — nothing else. The smart review (suggestions + gap findings) is a
@@ -42,9 +94,12 @@ given contract.
   file and flags design-readiness gaps — missing mobile/web frames (vs the PRD
   scope), missing error/empty/loading screens, and placeholder/unfinished copy.
   Placeholder copy + mobile-missing-when-scoped are blockers; missing states are
-  warnings. Runs in the **`/ready-check` chat flow** and dev-side `/contract
-  pickup` (Phase 3 item 6) — the sandboxed panel can't reach a local connector,
-  so it defers the audit to chat. 15 audit unit tests.
+  warnings. Runs in the **`/ready-check` chat flow** and, on the dev side, in
+  **`/contract pickup`** (Phase 2c), which pairs the audit with a **design
+  freeze/drift check** (`get_file_version` vs the pinned `Design-Version:` →
+  STALE-DESIGN) and routes designer/PM-only gaps into the "PM must answer"
+  bucket. The sandboxed panel can't reach a local connector, so it defers to
+  these flows. 15 audit unit tests.
 - **Deterministic readiness score.** The LLM's field-fills are now *suggestions*
   ("Use this" to keep) that never count toward the score or gate code until you
   confirm them. Same PRD + same confirmed answers ⇒ the same number every time,
