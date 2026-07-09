@@ -21,13 +21,20 @@ The user pastes a URL. Detect the type and route:
 
 | URL pattern | MCP to use | What to pull |
 |---|---|---|
-| `*.atlassian.net/browse/<KEY>` | Atlassian / JIRA | Summary, Description, AC field, Comments, Attachments, Linked issues, Labels |
+| Any JIRA link — `browse/<KEY>`, `…?selectedIssue=<KEY>`, `…/issues/<KEY>` (see below) | Atlassian / JIRA | Summary, Description, AC field, Comments, Attachments, Linked issues, Labels |
 | `*.atlassian.net/wiki/spaces/<...>` | Atlassian / Confluence | Page content, child pages |
 | `linear.app/<org>/issue/<KEY>` | Linear | Title, Description, Sub-issues, Labels, Project |
 | `notion.so/<...>` | Notion | Page content, sub-pages, databases |
 | `docs.google.com/document/...` | Google Drive (if connected) | Document content. If the Google Drive MCP isn't connected, tell the user to paste the doc content as text and continue in Mode B. |
 | `github.com/<org>/<repo>/issues/<N>` | GitHub | Title, Body, Comments, Labels, Linked PRs |
 | `figma.com/file/<...>` | Figma | File frames, comments, frame names |
+
+**JIRA sharable links.** Users paste board/deep/share links, not just
+`browse/<KEY>`. Extract the issue key by scanning the whole URL for the first
+`[A-Z][A-Z0-9]+-\d+` — it covers `browse/PROD-1234`,
+`…/boards/12?selectedIssue=PROD-1234`, and `…/jira/software/c/projects/PROD/issues/PROD-1234`.
+See `reference/JIRA-SYNC.md` for the full table. A board link with no key → ask
+for the specific ticket.
 
 Then **also** scan the fetched content for *additional* embedded links
 (Figma frames inside JIRA, Confluence inside Notion, etc.) and fetch
@@ -65,15 +72,15 @@ If the MCP is connected, fetch via the appropriate MCP. Examples
 for JIRA:
 
 ```
-# Get the ticket
-mcp__atlassian__get-issue({ issueKey: "PROD-1234" })
+# Get the ticket (issueKey extracted from the link — see reference/JIRA-SYNC.md)
+getJiraIssue({ issueKey: "PROD-1234" })
 
 # Get linked / sub-issues
-mcp__atlassian__search({ query: "parent = PROD-1234" })
-
-# Get attachments
-mcp__atlassian__get-attachments({ issueKey: "PROD-1234" })
+searchJiraIssuesUsingJql({ jql: "parent = PROD-1234" })
 ```
+
+(Tool names shown without the `mcp__<connector-id>__` prefix — match by name;
+load them via `ToolSearch` first in Cowork where connectors are deferred.)
 
 For Figma links found in the JIRA description:
 

@@ -103,10 +103,27 @@ the dev; the PM is the only one who handles the code.
    - `status: promoted`
    - `slaDeadline: <ISO datetime>`
 
-6. **Create JIRA epic** (if Atlassian MCP is connected). Use the contract
-   title, link to the contract markdown in the repo, set due date to
-   `slaDeadline`. For each acceptance criterion, create a sub-task.
-   Save the JIRA epic key in the contract frontmatter as `jiraEpic`.
+6. **Create the JIRA ticket(s)** — the planning tracker, before implementation.
+   This is an **explicit option the dev confirms**, not automatic. Ask:
+
+   > "Create the JIRA tickets for this now, in project `<KEY>`? (1 epic
+   > + <N> AC sub-tasks)"
+
+   Confirm the **project key** and **issue type** first (`getVisibleJiraProjects`
+   / `getJiraProjectIssueTypesMetadata`); never guess the project. On yes, follow
+   `reference/JIRA-SYNC.md` §2 — the generated epic carries the **full detail**
+   (problem/goal, the ACs as a checklist, platforms/scope, design link, success
+   metric, the `Ready-Check:` gate code, and a link to the contract markdown),
+   `duedate = slaDeadline`, labels `manifest` + size, assignee = `owner` if set.
+   Create a sub-task per acceptance criterion, linked to the epic.
+
+   - If the contract **came from a JIRA link** (`jira.issue` already set), prefer
+     **updating that ticket** (`editJiraIssue`) over making a new one — no dupes.
+   - Store keys in frontmatter: `jira: { epic: <KEY>, issue: <KEY>, project: <KEY> }`
+     (keep `jiraEpic` too for back-compat). These are what the update steps
+     (implement / verify / launch) write to later.
+   - Not connected / dev declines → skip cleanly and report it
+     ("Promoted; skipped JIRA — not connected"). Never block promote on the tracker.
 
 7. **Open a GitHub tracking issue** with the contract title, the SLA
    deadline visible at the top, a link to the revision file, and a

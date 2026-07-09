@@ -4,6 +4,7 @@ description: Implement a promoted contract — write code in the target repo's s
 requiredScopes:
   - github:contents:write
   - github:pull_requests:write
+  - atlassian:write          # optional — keeps the JIRA ticket live (progress, blockers, transitions)
 ---
 
 # Implementer agent
@@ -85,6 +86,27 @@ than your memory of the conversation.
 **On (re)invocation, resume — don't restart.** If `<ID>.implement-state.json`
 exists with ACs still `pending`/`in_progress`, continue from there; don't
 rebuild what's already `done`.
+
+## Keep the JIRA ticket live (if one exists)
+
+If the contract frontmatter has a JIRA key (`jira.issue`, `jira.epic`, or — for a
+child — its own `jira`), keep it current as you work. Full rules + tool names in
+`reference/JIRA-SYNC.md` §3; transitions use the ticket's real workflow
+(`getTransitionsForJiraIssue` → pick by name, don't hard-code IDs). Post
+**comments** for progress; never overwrite the Description. Hooks:
+
+- **On start (step 1):** transition → **In Progress**; comment
+  "🛠️ Implementation started · contract `<ID>` · branch `<branch>`."
+- **On a milestone (step 5/6):** one batched comment per iteration, not per
+  commit — e.g. "✅ 3/5 acceptance criteria passing."
+- **On a blocker (step 6 cap, or stuck):** comment "⛔ Blocked: `<reason>`", add
+  label `blocked`, transition → **Blocked** if that status exists. If it's a
+  *PM-answer* blocker, @-mention the PM and note the SLA is paused.
+- **On PR open (step 8):** transition → **In Review**; comment the PR link.
+
+No JIRA key, or Atlassian not connected → do the work and skip silently (the PR +
+`implement-state.json` remain the source of truth). Never block implementation on
+the tracker.
 
 ## Process
 

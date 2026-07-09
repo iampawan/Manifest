@@ -35,6 +35,15 @@ answer the gaps → groom → build → verify → launch → watch.
 | 11 | Did it actually work? | 🤖 + 🧑‍💼/🧑‍💻 | `/launch <ID>` (auto on cron: day 1 / 7 / 14 / 28) | After launch | **landed / partial / not-landed** verdict |
 | 12 | If rolled back | 🧑‍💻 flips flag off, then | `/postmortem <ID>` | After a rollback | Blameless postmortem + reopened follow-up |
 
+> **JIRA, kept in sync.** Any source link a PM pastes can be a JIRA *sharable*
+> link (board / `selectedIssue=` / deep link), not just `browse/KEY`. At
+> **promote** (single) and **decompose** (epic + children) the dev can opt to
+> **auto-generate the tickets** — full detail, dependency links, owners assigned —
+> so the tracker mirrors the plan *before* build. Then **implement** (and the
+> verify / launch steps) **keep those tickets live**: In Progress on start,
+> progress comments, blocker flags, In Review on PR, Done on land. See
+> `reference/JIRA-SYNC.md`.
+
 ## Side paths
 
 - **Trivial change** (one-liner, copy/CSS, config bump): 🧑‍💻 Dev → `/fix <bug>`.

@@ -166,6 +166,10 @@ such a link:
 2. **If ToolSearch returns nothing**, then the connector genuinely isn't
    registered — *now* ask the PM to paste the text or upload the doc, and mention
    they can connect Atlassian in Cowork connector settings to skip this next time.
+   - **Sharable JIRA links work too**, not just `browse/<KEY>`. Extract the issue
+     key by scanning the URL for the first `[A-Z][A-Z0-9]+-\d+` (covers
+     `selectedIssue=`, `/issues/<KEY>`, `browse/<KEY>`), then `getJiraIssue`. See
+     `reference/JIRA-SYNC.md`.
 3. **Never say "X isn't connected" without having run ToolSearch for it.** That
    was the failure mode — reporting a connector absent when it was only deferred.
 

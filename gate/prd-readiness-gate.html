@@ -529,11 +529,29 @@ function selectHandoff(){ const el=document.getElementById('hoBody'); if(!el)ret
     el.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){} }
 function flash(m){const c=document.getElementById('copied');c.textContent=m;setTimeout(()=>{if(c.textContent===m)c.textContent='';},2600);}
 
+// High-precision events extractor — pulls event names from an explicit
+// analytics/tracking section so a real events table fills 'events' with the
+// actual event names, not a bare heading line. Needs a section header + ≥2
+// verb-suffixed ids, so it won't fire on generic prose.
+function detectEvents(text){
+  const t=String(text||''); if(t.length<20) return '';
+  const secRe=/(analytics\s+events|events?\s+to\s+(?:capture|track|fire|log)|instrumentation\b|event\s+name|events?\s+to\s+capture)/i;
+  const m=secRe.exec(t); if(!m) return '';
+  const scan=t.slice(m.index, m.index+3500);
+  const evRe=/\b([a-z][a-z0-9]*(?:_[a-z0-9]+)+)\b/g; const ids=[]; let mm;
+  while((mm=evRe.exec(scan))){ const id=mm[1];
+    if(/_(opened|tapped|clicked|changed|viewed|selected|navigated|initiated|dismissed|toggled|reported|pinned|submitted|started|completed|failed|created|shown|loaded|scrolled|expanded)$/.test(id) && !ids.includes(id)) ids.push(id);
+    if(ids.length>=30) break; }
+  if(ids.length<2) return '';
+  return (ids.length>3? ids.length+' events incl. ':'')+ids.slice(0,3).join(', ');
+}
 function scan(){const t=document.getElementById('prd').value; if(!t.trim()){flash('Paste a PRD first, or just answer below.');return;}
   const lines=t.split('\n');
   CRITERIA.forEach(c=>{const s=state[c.id]; if(s.na)return;
     const hit=lines.find(l=>c.kw.test(l));
     if(hit){s.checked=true; if(!s.detail)s.detail=hit.replace(/^[#*\->\s]+/,'').trim().slice(0,95);}});
+  // Prefer extracted event names over a bare heading line for 'events'.
+  const ev=detectEvents(t); if(ev && !state.events.na){ state.events.detail=ev; state.events.checked=true; }
   const low=t.toLowerCase();
   if(!(low.includes('loading')&&low.includes('error'))&&!state.states.na)state.states.checked=false;
   _code=null; render(); flash('Auto-filled. Review each answer.');}

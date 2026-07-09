@@ -126,6 +126,33 @@ Epic goal: <one line>. Success metric: <metric> (measured across all children).
 - 12c and 12d can overlap once 12b ships.
 ```
 
+### 5b. Create the JIRA tickets (opt-in) — the planning tracker
+
+After the shape and owners are set, offer to mint the tickets so the tracker
+mirrors the plan *before* anyone starts building. **Ask once, confirm the project
+key:**
+
+> "Create JIRA tickets for this epic now, in project `<KEY>`? (1 epic
+> + <N> child issues, dependency links included.)"
+
+On yes, follow `reference/JIRA-SYNC.md` §2:
+
+- **Epic** = the parent, carrying the overall goal + success metric + gate code.
+- **One child issue per child contract**, each with its full detail (behaviors,
+  ACs as a checklist, design link), **assignee = the child's `owner`**
+  (`lookupJiraAccountId`), labels `manifest` + size, and `human-led` where flagged.
+- **Hierarchy**: link each child to the epic (Epic-Link / parent).
+- **Dependencies**: turn each `dependsOn` into an "is blocked by" `createIssueLink`
+  between the corresponding child keys — so the DAG is visible in JIRA, not just
+  in the decomposition plan.
+- **Store keys** on each child's frontmatter (`jira: <KEY>`) and on the epic
+  (`jira: { epic: <KEY>, project: <KEY> }`), plus mirror them in the parent's
+  `children` rollup block. These are what `implement` and the verify/launch steps
+  update as each child moves.
+
+If Atlassian isn't connected or the dev declines, skip cleanly and note it — the
+decomposition still stands; tickets can be created later at `/contract promote`.
+
 ### 6. Report
 
 Tell the user:

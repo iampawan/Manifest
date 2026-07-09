@@ -12,6 +12,50 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.25.0] — JIRA: sharable links in, tickets out, kept live
+
+The tracker now mirrors the whole lifecycle. New canonical reference
+`reference/JIRA-SYNC.md` defines all of it; the skills point to it.
+
+- **Accepts any JIRA sharable link.** Not just `browse/KEY` — board, deep, and
+  "Share → Copy link" URLs (`…?selectedIssue=KEY`, `…/jira/software/.../issues/KEY`)
+  all resolve. The key is pulled by scanning the URL for the first
+  `[A-Z][A-Z0-9]+-\d+`. Wired into `contract-new`, `contract-pickup`, and
+  `ready-check` (which also `ToolSearch`-discovers the deferred Atlassian tool
+  before ever saying "not connected"). The Cowork panel already parsed these.
+- **Auto-generates tickets at planning (opt-in), before implementation.** The dev
+  chooses *when*: **at `/contract pickup`** (early — update the source ticket, or
+  create one for visibility), **at `/contract promote`** (canonical — epic + AC
+  sub-tasks), **at `/contract decompose`** (epic + a child issue per child), or
+  **anytime on demand** ("create the JIRA ticket"). It's **idempotent** — the key
+  is stored in frontmatter, so a later step *updates* the same ticket instead of
+  creating a second one. Tickets carry full detail — problem/goal,
+  ACs as a checklist, design link, success metric, the gate code, `duedate` =
+  SLA, labels, **owner assigned**, and **`dependsOn` → "is blocked by" links** so
+  the DAG shows in JIRA. Confirms the project key first; prefers *updating* the
+  source ticket over creating a duplicate. Keys are stored in frontmatter.
+- **Keeps tickets live during implementation.** `implement` transitions the
+  ticket → In Progress on start, posts batched progress comments, flags blockers
+  (comment + `blocked` label + transition, @-mentioning the PM and noting the
+  paused SLA for PM-answer blockers), and moves it → In Review on PR. Verify /
+  launch steps comment their verdicts; a leaf child goes → Done on land.
+  Transitions use the ticket's real workflow (never hard-coded IDs).
+- **Degrades cleanly.** No Atlassian connector, or the dev declines → the work
+  proceeds and the skip is reported; the tracker never blocks the actual work.
+
+### Fixes
+
+- **Analytics events no longer missed on long PRDs.** On a long Confluence PRD,
+  the smart review chunks the text and reviews chunks in parallel; if the chunk
+  holding the events section timed out or the model didn't map its table onto the
+  `events` field, the events were silently dropped. Now a **deterministic
+  backstop** extracts event names from an explicit "Analytics Events / Events to
+  Capture / Instrumentation" section (high-precision — needs a section header +
+  real event ids), the review prompt calls that section out, and the panel
+  **warns when a chunk fails** instead of showing a field blank with no reason.
+  The offline page's auto-fill uses the same extractor, so both surfaces fill
+  `events` with the real event names rather than a bare heading line.
+
 ## [0.24.0] — Offline page refreshed for 2026; Cowork connector-discovery fix
 
 - **Fix: "Atlassian isn't connected" false negative in Cowork.** Connector tools

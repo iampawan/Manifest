@@ -107,6 +107,12 @@ Add Slack:
 |---|---|---|
 | `<workspace>.slack.com/archives/<channel>/p<ts>` | Slack | Message + full thread + reactions |
 
+**JIRA links may be sharable/board/deep links, not just `browse/<KEY>`.** Pull
+the issue key by scanning the URL for the first `[A-Z][A-Z0-9]+-\d+` (covers
+`selectedIssue=`, `/issues/<KEY>`, `browse/<KEY>`), then `getJiraIssue`. Full
+table + tool names in `reference/JIRA-SYNC.md`. In Cowork the Atlassian tools are
+deferred — `ToolSearch` for `getJiraIssue` before deciding it's not connected.
+
 For pasted text and images, skip to draft generation in Phase 2.
 
 If the relevant MCP isn't connected, tell the dev exactly which MCP
@@ -397,7 +403,28 @@ setting `pickup.identifyAgent: true|false`. Default true for audit.)
 **4d. Write the contract file once at end of session.** All in-memory
 edits flush to `.manifest/contracts/<ID>.md`. Single commit.
 
-**4e. Start implementation (optional).** Dev clicks "Start
+**4e. Create the JIRA ticket — now, or later (optional).** After the contract is
+written, offer it explicitly — don't do it silently:
+
+> "Want the JIRA ticket now, or wait until promote?
+>  • Update the existing ticket `<KEY>` with the drafted contract
+>  • Create a new tracking ticket in project `<KEY>`
+>  • Not yet — I'll create it at `/contract promote`"
+
+- **Source was a JIRA ticket** → default to **updating that ticket** in place
+  (`editJiraIssue`, the structured contract as the description); record its key as
+  `jira.issue`. No new ticket.
+- **No JIRA source** → offer to create a tracking ticket now, or defer. Confirm
+  the project key first; never guess it.
+- **Defer (default)** → do nothing now; `/contract promote` creates it. The
+  contract is still draft at pickup, so deferring is the safe default — offer
+  "now" mainly when the team wants early tracker visibility.
+- Follows `reference/JIRA-SYNC.md` §2 and is **idempotent**: the key is stored in
+  frontmatter, so promote later *updates* this ticket instead of making a second
+  one. Not connected → skip and say so. (Devs can also ask for this **anytime**
+  later — "create the JIRA ticket" — without re-running pickup.)
+
+**4f. Start implementation (optional).** Dev clicks "Start
 implementing what's clear." Agent invokes the standard handoff flow
 (opens draft PR, posts `@claude /implement`, etc.). Blocked behaviors
 are skipped; the implementer agent handles partial implementation

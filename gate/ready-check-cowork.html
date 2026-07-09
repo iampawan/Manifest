@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="ready-check-build" content="66" />
-<meta name="ready-check-version" content="0.24.0" /><!-- keep in sync with .claude-plugin/plugin.json version -->
+<meta name="ready-check-build" content="68" />
+<meta name="ready-check-version" content="0.25.0" /><!-- keep in sync with .claude-plugin/plugin.json version -->
 <title>Ready Check (live) · Cowork</title>
 <style>
   :root{ color-scheme: light;
@@ -365,7 +365,7 @@ const FIGMA_ON = true;
 const FIGMA_PREFIXES = ['mcp__Figma_REST_Ready_Check__', 'mcp__Figma_REST__Ready_Check___', 'mcp__figma-rest__'];
 // Ready Check version — MUST match the Manifest plugin (.claude-plugin/plugin.json).
 // Shown in the header so you can ask a PM which version they're on.
-const RC_VERSION = '0.24.0';
+const RC_VERSION = '0.25.0';
 /* =========================================================================== */
 
 const CRITERIA = [
@@ -806,6 +806,23 @@ function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'
 // Unwrap them so a smartlink reads as its URL and a mention as its name — otherwise
 // the review can't "see" content that's only present as a link (e.g. an events page).
 function stripCustom(t){return String(t||'').replace(/<custom[^>]*>([\s\S]*?)<\/custom>/gi,'$1');}
+// Deterministic backstop for the 'events' field: if the PRD has an explicit
+// analytics/tracking section with snake_case event names, extract them — so a
+// clearly-present events table is never missed just because the LLM review
+// chunk timed out or didn't map it. High-precision: needs BOTH a section header
+// AND ≥2 verb-suffixed event ids, so it won't fire on generic prose.
+function detectEvents(text){
+  const t=String(text||''); if(t.length<20) return '';
+  const secRe=/(analytics\s+events|events?\s+to\s+(?:capture|track|fire|log)|instrumentation\b|event\s+name|events?\s+to\s+capture)/i;
+  const m=secRe.exec(t); if(!m) return '';
+  const scan=t.slice(m.index, m.index+3500);
+  const evRe=/\b([a-z][a-z0-9]*(?:_[a-z0-9]+)+)\b/g; const ids=[]; let mm;
+  while((mm=evRe.exec(scan))){ const id=mm[1];
+    if(/_(opened|tapped|clicked|changed|viewed|selected|navigated|initiated|dismissed|toggled|reported|pinned|submitted|started|completed|failed|created|shown|loaded|scrolled|expanded)$/.test(id) && !ids.includes(id)) ids.push(id);
+    if(ids.length>=30) break; }
+  if(ids.length<2) return '';
+  return (ids.length>3? ids.length+' events incl. ':'')+ids.slice(0,3).join(', ');
+}
 function hasBridge(){return !!(window.cowork&&typeof window.cowork.askClaude==='function');}
 function currentAnswers(){const a={}; CRITERIA.forEach(c=>{const s=state[c.id];
   a[c.id]= s.na?'(N/A)' : (s.waived&&s.reason.trim()?'(waived: '+s.reason.trim()+')' : s.detail.trim()); }); return a;}
@@ -1102,7 +1119,9 @@ async function smartCheck(){
       +guide
       +`Return exactly: {"fills":{"<id>":"<answer <=16 words, ONLY for ids THIS part covers that are still blank>"},`
       +`"findings":[{"id":"<id>","severity":"blocker|warning","issue":"<=12 words","fix":"<=12 words"}]}\n`
-      +`ids: ${ids}. findings = up to 5 missing edge cases / vague answers; product-level only (no schema/security/impl). Start with { and end with }.`;
+      +`ids: ${ids}. Fill a field whenever THIS part clearly covers it — do NOT skip it just because the answer is a long list or a table; summarise (e.g. "10 events incl. x, y, z"). `
+      +`In particular, a section/table titled "Analytics Events", "Events to Capture", "Instrumentation" or "Tracking" (with event names) satisfies "events". `
+      +`findings = up to 5 missing edge cases / vague answers; product-level only (no schema/security/impl). Start with { and end with }.`;
     // Run every part IN PARALLEL so a long PRD is ~one call's time, not N× slower.
     const results = await Promise.all(parts.map(async (part,ci)=>{
       let text=''; try{ text=await askClaudeRetry(buildPrompt(part,ci),2,90000); }catch(e){ text=''; }
@@ -1119,6 +1138,12 @@ async function smartCheck(){
     // marked aiDrafted so it shows for a quick verify. Only fills BLANK fields — never overwrites.
     CRITERIA.forEach(c=>{const v=mergedFills[c.id]; const s=state[c.id];
       if(typeof v==='string' && v.trim() && !(s.detail.trim().length>=3) && !s.na && !s.waived){ s.detail=v.trim(); s.checked=true; s.aiDrafted=true; llmSugg++; }});
+    // Deterministic backstop: catch an explicit analytics-events section the LLM
+    // review may have missed (chunk timeout, or didn't map the table). Only fills
+    // 'events' if it's still blank and the PRD clearly has an events section.
+    { const es=state.events; if(es && !es.na && !es.waived && !(es.detail.trim().length>=3)){
+        const ev=detectEvents(clean); if(ev){ es.detail=ev; es.checked=true; es.aiDrafted=true; llmSugg++; } } }
+    const failedParts=results.filter(r=>!r).length;
     render();
     const parsed=reviewed?{}:null;   // marker: did any part return a usable review?
     let auditFindings=[]; _designAudit=null; _designAuditNote='';
@@ -1144,6 +1169,7 @@ async function smartCheck(){
     compute();   // refresh stamp + gate state
     let html='';
     if(prdTruncated) html+=`<div class="vf-row warn"><b>Extremely long PRD — reviewed the first ~${Math.round(MAXCHUNKS*CHUNK/1000)}k characters</b><span>That's ${MAXCHUNKS} sections. Confirm anything past that in the fields below.</span></div>`;
+    if(failedParts>0 && parts.length>1) html+=`<div class="vf-row warn"><b>${failedParts} of ${parts.length} sections couldn't be reviewed</b><span>The review timed out on part of a long PRD. Fields from those sections may show blank — confirm them below (especially events, edge cases, and anything near the end).</span></div>`;
     if(llmSugg) html+=`<div class="sc-fill">✨ <b>Auto-filled ${llmSugg} answer${llmSugg>1?'s':''} from your PRD</b> — paraphrases of what your PRD already says (not invented). They <b>count now</b>; each is marked ✨ below — skim and edit anything that’s off, or:
       <div style="margin-top:8px"><button class="susebtn" onclick="ackAllAi()">✓ Looks right on all</button></div></div>`;
     if(_designAudit){ const a=_designAudit; const P=a.platforms||{};
