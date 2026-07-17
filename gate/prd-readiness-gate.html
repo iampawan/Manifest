@@ -315,33 +315,33 @@ const CRITERIA = [
   {id:'metric',req:true,  name:'How will we know it worked?', why:'A number we can check later.',
     eg:'e.g. +6% checkout conversion for returning payers in 4 weeks.',
     kw:/\b(success metric|kpi|measur|conversion|retention|dau|mau|ctr|% ?(lift|increase)|target|uplift)\b/i},
-  {id:'design',req:true,  name:'Where is the design?', why:'Paste the Figma / mock link. Skip only if there is no UI.',
-    eg:'e.g. https://figma.com/file/pf-saved-cards (final, approved)',
-    kw:/(figma\.com|figma\.io|zeplin|sketch\.com|design ?(link|attached|:)|mockup|wireframe|prototype)/i, na:'No screen changes (backend only)'},
-  {id:'scope', req:true,  name:'Which platforms, and what’s NOT included?', why:'Where it ships, and what you are deliberately leaving out.',
-    eg:'e.g. Android + iOS. Not: web, UPI autopay.',
-    kw:/\b(out[- ]of[- ]scope|not in scope|platforms?:|android|ios|web|backend)\b/i},
+  {id:'design',req:true,  name:'Where’s the design or interface spec?', why:'Figma/mock link for UI, or the API/contract spec for a backend change. N/A only with a reason.',
+    eg:'e.g. https://figma.com/file/pf-saved-cards (final) — or: OpenAPI POST /v2/refunds contract.',
+    kw:/(figma\.com|figma\.io|zeplin|sketch\.com|design ?(link|attached|:)|mockup|wireframe|prototype|openapi|swagger|api ?(spec|contract)|schema|proto)/i, na:'No interface change — why? (e.g. internal job, no API/UI)'},
+  {id:'scope', req:true,  name:'Which platforms or services — and what’s NOT included?', why:'Where it ships (apps and/or services), and what you are deliberately leaving out.',
+    eg:'e.g. Android + iOS. Not: web, UPI autopay. — or: Payments service only. Not: admin console.',
+    kw:/\b(out[- ]of[- ]scope|not in scope|platforms?:|android|ios|web|backend|service|api)\b/i},
   {id:'oldbeh',req:true,  name:'What happens today?', why:'How the feature behaves right now, before this change.',
     eg:'e.g. The payment screen always shows a blank card form; nothing is saved.',
-    kw:/\b(current behavior|currently|today the|existing behavior|old version|as[- ]is|right now)\b/i, na:'Brand-new, nothing exists yet'},
-  {id:'flows', req:true,  name:'Which screens or flows does it touch?', why:'So dev knows what else might be affected.',
-    eg:'e.g. Checkout flow, payment screen, order-confirmation.',
-    kw:/\b(impacted|affects|touches|flow|screen|surface|entry point)\b/i},
-  {id:'edge',  req:true,  name:'What could go wrong?', why:'The obvious failure and boundary cases.',
-    eg:'e.g. Expired card, save fails, no network, user deletes card mid-checkout.',
-    kw:/\b(edge case|error|invalid|fails?|boundary|no network|timeout|expired)\b/i},
-  {id:'states',req:true,  name:'What does the user see: nothing yet / loading / done / error?', why:'The copy for each of those moments.',
-    eg:'e.g. Empty: "No saved cards yet" · Error: "Couldn’t save card, try again".',
-    kw:/\b(empty|loading|success|error|state)\b/i, na:'Nothing the user sees'},
-  {id:'l10n',  req:true,  name:'Is the wording final and translated?', why:'Copy locked and localised.',
-    eg:'e.g. All strings final, localised EN/HI.',
-    kw:/\b(localiz|localis|locale|translation|copy final|strings? (final|locked))\b/i},
-  {id:'writer',req:true,  name:'Does this affect writers or creators?', why:'If content/creator side is touched, say how. If not, tick skip.',
-    eg:'e.g. No, listener-side payment change only.',
-    kw:/\b(writer|creator|author|content (team|ops)|studio)\b/i, na:'No writer/creator impact'},
-  {id:'events',req:true,  name:'What should we track?', why:'The events/analytics to fire.',
-    eg:'e.g. card_saved, saved_card_used, tokenize_failed.',
-    kw:/\b(event|analytics|instrument|tracking|mixpanel|amplitude|clevertap|segment)\b/i},
+    kw:/\b(current behavior|currently|today the|existing behavior|old version|as[- ]is|right now)\b/i, na:'Brand-new — why nothing exists yet'},
+  {id:'flows', req:true,  name:'Which screens, endpoints, or flows does it touch?', why:'So dev knows what else might be affected — UI flows and/or API endpoints and jobs.',
+    eg:'e.g. Checkout flow, payment screen — or: /refunds, /webhooks/settlement, nightly reconcile job.',
+    kw:/\b(impacted|affects|touches|flow|screen|surface|entry point|endpoint|route|job|consumer)\b/i},
+  {id:'edge',  req:true,  name:'What could go wrong? (edge & error cases)', why:'The obvious failure and boundary cases.',
+    eg:'e.g. Expired card, save fails, no network — or: duplicate request, downstream 503, partial write.',
+    kw:/\b(edge case|error|invalid|fails?|boundary|no network|timeout|expired|retry|idempoten|duplicate|concurren)\b/i},
+  {id:'states',req:true,  name:'What does the user or caller see: nothing / loading / success / error?', why:'The copy for each moment (UI) — or the response/status codes a caller gets (API).',
+    eg:'e.g. Empty: "No saved cards yet" · Error: "Try again" — or: 200 ok, 409 duplicate, 503 down.',
+    kw:/\b(empty|loading|success|error|state|200|202|4\d\d|5\d\d|status code|response)\b/i, na:'No observable output — why? (e.g. fire-and-forget job)'},
+  {id:'l10n',  req:true,  name:'Is the wording or response format final?', why:'UI copy locked & localised — or the response/payload format finalised.',
+    eg:'e.g. All strings final, localised EN/HI — or: response schema v2 frozen, error codes finalised.',
+    kw:/\b(localiz|localis|locale|translation|copy final|strings? (final|locked)|payload|response ?(format|schema)|contract ?(final|frozen))\b/i},
+  {id:'writer',req:true,  name:'Does this affect writers, creators, or downstream consumers?', why:'If a content/creator surface or a downstream service/consumer is touched, say how. N/A only with a reason.',
+    eg:'e.g. No, listener-side payment change only — or: settlement service consumes the new field.',
+    kw:/\b(writer|creator|author|content (team|ops)|studio|downstream|consumer|subscriber|webhook)\b/i, na:'No downstream/creator impact — why?'},
+  {id:'events',req:true,  name:'What should we track? (analytics / telemetry)', why:'The events/analytics to fire — or the metrics/logs/traces emitted.',
+    eg:'e.g. card_saved, saved_card_used — or: refund_requested metric, p95 latency, error-rate log.',
+    kw:/\b(event|analytics|instrument|tracking|mixpanel|amplitude|clevertap|segment|metric|telemetry|log|trace|datadog|prometheus)\b/i},
   {id:'deps',  req:false, name:'Does it depend on another team or API?', why:'Nice to flag early.',
     eg:'e.g. Needs payments backend to expose a tokenization API.',
     kw:/\b(depend|api|other team|backend team|blocked by|prerequisite)\b/i},
@@ -351,13 +351,15 @@ const CRITERIA = [
 ];
 
 const state={}; CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false,waived:false,reason:''});
+// N/A is not a free pass: a skipped item only counts when it carries a reason.
+function naOk(s){return s.na&&s.reason.trim().length>=3;}
 
 function render(){
   const box=document.getElementById('criteria'); box.innerHTML='';
   CRITERIA.forEach(c=>{const s=state[c.id];
     const hasD=s.detail.trim().length>=3;
     const waived=!s.na&&!hasD&&s.waived&&s.reason.trim().length>=3;
-    const ok=s.na||hasD||waived;
+    const ok=naOk(s)||hasD||waived;
     const el=document.createElement('div');
     el.className='crit '+(ok?(waived?'ok waived':'ok'):(c.req?'miss':''))+(s.na?' skip':'');
     el.id='crit-'+c.id;
@@ -376,7 +378,8 @@ function render(){
               <div class="eg good"><span class="lbl">Strong</span><span class="txt">${PLAYBOOK[c.id].good}</span></div>
               <div class="eg weak"><span class="lbl">Weak</span><span class="txt">${PLAYBOOK[c.id].weak}</span></div>
             </div></div>`:''}
-          ${c.na?`<label class="na"><input type="checkbox" ${s.na?'checked':''} onchange="setNa('${c.id}',this.checked)"> ${c.na}</label>`:''}
+          ${c.na?`<label class="na"><input type="checkbox" ${s.na?'checked':''} onchange="setNa('${c.id}',this.checked)"> ${c.na}</label>
+            ${s.na?`<input class="detail reason" placeholder="Why doesn't this apply? Dev will see this (e.g. internal cron job, no API or UI surface)" value="${s.reason.replace(/"/g,'&quot;')}" oninput="setReason('${c.id}',this.value)"/>`:''}`:''}
           ${c.req&&!s.na?`<div class="waive">
             <label class="wl"><input type="checkbox" ${s.waived?'checked':''} onchange="setWaived('${c.id}',this.checked)"> Can't provide? Waive with a reason for dev</label>
             ${s.waived?`<input class="detail reason" placeholder="Reason dev should accept (e.g. metric owned by growth, decision pending this week)" value="${s.reason.replace(/"/g,'&quot;')}" oninput="setReason('${c.id}',this.value)"/>`:''}
@@ -389,17 +392,17 @@ function render(){
 }
 function toggle(id){state[id].checked=!state[id].checked; render();}
 function setDetail(id,v){state[id].detail=v; if(v.trim().length>=3)state[id].checked=true; light();}
-function setNa(id,v){state[id].na=v; render();}
+function setNa(id,v){state[id].na=v; if(!v)state[id].reason=''; render();}
 function setWaived(id,v){state[id].waived=v; if(!v)state[id].reason=''; render();}
 function setReason(id,v){state[id].reason=v; light();}
 function light(){CRITERIA.forEach(c=>{const s=state[c.id];
   const hasD=s.detail.trim().length>=3; const waived=!s.na&&!hasD&&s.waived&&s.reason.trim().length>=3;
-  const ok=s.na||hasD||waived;
+  const ok=naOk(s)||hasD||waived;
   const el=document.getElementById('crit-'+c.id); if(!el)return;
   el.className='crit '+(ok?(waived?'ok waived':'ok'):(c.req?'miss':''))+(s.na?' skip':'');
   el.querySelector('.box').textContent=ok?'✓':'';}); compute();}
 
-function sat(c){const s=state[c.id]; return s.na||(s.checked&&s.detail.trim().length>=3)||(!s.na&&s.waived&&s.reason.trim().length>=3);}
+function sat(c){const s=state[c.id]; return naOk(s)||(s.checked&&s.detail.trim().length>=3)||(!s.na&&s.waived&&s.reason.trim().length>=3);}
 
 function compute(){
   const reqs=CRITERIA.filter(c=>c.req);
@@ -475,10 +478,10 @@ function title(){const t=document.getElementById('prd').value.split('\n').find(l
   return (t||state.goal.detail||'Untitled feature').replace(/^#+\s*/,'').replace(/^(title|goal)[:\s]*/i,'').trim().slice(0,46);}
 function platforms(){const t=(document.getElementById('prd').value+' '+state.scope.detail).toLowerCase();const p=[];
   ['android','ios','web','backend','server'].forEach(x=>{if(t.includes(x))p.push(x);});return p.length?p.join(', '):(state.scope.detail||'not set');}
-function designLink(){if(state.design.na)return '(no UI)';return firstUrl(state.design.detail)||(state.design.detail.trim()||'⚠ add link');}
+function designLink(){if(state.design.na)return '(no interface: '+state.design.reason.trim()+')';return firstUrl(state.design.detail)||(state.design.detail.trim()||'⚠ add link/spec');}
 function normAnswers(){const t=title().trim().toLowerCase().replace(/\s+/g,' ');const lines=['title:'+t];
   CRITERIA.forEach(c=>{const s=state[c.id]; const hasD=s.detail.trim().length>=3;
-    const ok=s.na||hasD||(s.waived&&s.reason.trim().length>=3); if(!ok)return;
+    const ok=naOk(s)||hasD||(s.waived&&s.reason.trim().length>=3); if(!ok)return;
     let v; if(c.na&&s.na)v='na';
     else if(!hasD&&s.waived)v='waived:'+s.reason.trim().toLowerCase().replace(/\s+/g,' ');
     else if(c.id==='design')v=firstUrl(s.detail)||'present';
@@ -499,7 +502,7 @@ function handText(){
   CRITERIA.forEach(c=>{if(!sat(c))return; if(c.id==='design')return;
     const s=state[c.id]; const hasD=s.detail.trim().length>=3;
     if(!hasD&&s.waived&&!s.na)return;
-    const val=s.na?'N/A':s.detail.trim(); t+=`• [${c.id}] ${c.name} | ${val}\n`;});
+    const val=s.na?('N/A — '+s.reason.trim()):s.detail.trim(); t+=`• [${c.id}] ${c.name} | ${val}\n`;});
   if(waivers.length){t+=`\nWaivers (dev to accept or push back):\n`;
     waivers.forEach(c=>{t+=`• [${c.id}] ${c.name} | reason: ${state[c.id].reason.trim()}\n`;});}
   t+=`\nGrooming can start. (Dev: verify this code before pickup.)`;

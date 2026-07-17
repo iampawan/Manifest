@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="ready-check-build" content="68" />
-<meta name="ready-check-version" content="0.25.0" /><!-- keep in sync with .claude-plugin/plugin.json version -->
+<meta name="ready-check-build" content="69" />
+<meta name="ready-check-version" content="0.26.0" /><!-- keep in sync with .claude-plugin/plugin.json version -->
 <title>Ready Check (live) · Cowork</title>
 <style>
   :root{ color-scheme: light;
@@ -246,7 +246,7 @@
     </div>
     <h2>Paste your PRD</h2>
     <p class="sub">Plain text, or a JIRA / Confluence link — I'll fetch it. Then one click checks it. This panel does <b>your part (steps 1–3 below)</b>; dev does the rest.</p>
-    <textarea id="prd" class="prd" placeholder="Paste your PRD text, or a JIRA / Confluence link…"></textarea>
+    <textarea id="prd" class="prd" placeholder="Paste your PRD text, or a JIRA / Confluence link…" oninput="onPrdInput()"></textarea>
     <p class="hint">Nothing leaves Cowork. No PRD yet? Load an example, or fill the questions by hand in step 2.</p>
     <div class="onramp">
       <button class="egbtn" id="ideaToggle" onclick="toggleIdea(event)">✨ Only have an idea? Draft a starter PRD</button>
@@ -348,13 +348,21 @@
 </div>
 
 <script>
-/* ================= CONFIG (edit this one line per workspace) =================
-   JIRA-link fetching: set ATLASSIAN_MCP to YOUR Atlassian connector's tool-id
-   prefix, i.e. "mcp__<connector-id>__". Leave it '' to disable fetching (JIRA
-   links then just prompt the PM to paste the ticket text or use /ready-check in
-   chat). When you set an id, also declare the two Atlassian tool names in the
-   artifact's mcp_tools when it's registered. Everything else needs no config. */
-const ATLASSIAN_MCP = 'mcp__275a1dde-9ae7-4923-a3e9-3b254b6a2d98__';
+/* ================= CONFIG (per workspace) =================
+   JIRA/Confluence-link fetching needs YOUR Atlassian connector's tool-id prefix,
+   i.e. "mcp__<connector-id>__". The connector-id is an opaque per-install hash, so
+   this must NOT be a shipped constant — the ready-check skill discovers it (via
+   ToolSearch for getJiraIssue) and sets it when it creates/updates the panel,
+   using setAtlassianConnector(prefix) below (persisted in localStorage). Until
+   that's set, Atlassian links prompt the PM to paste the text or use /ready-check
+   <link> in chat. A dev can also set it by hand from the console:
+     setAtlassianConnector('mcp__<your-atlassian-connector-id>__') */
+function setAtlassianConnector(p){ ATLASSIAN_MCP = String(p||''); try{ p?localStorage.setItem('rc-atlassian-mcp',ATLASSIAN_MCP):localStorage.removeItem('rc-atlassian-mcp'); }catch(e){} if(typeof render==='function')render(); }
+// Default: this workspace's Atlassian connector (the skill overwrites it per install
+// via setAtlassianConnector). A localStorage override always wins so a dev can point
+// the panel at their own connector without editing the file.
+const ATLASSIAN_MCP_DEFAULT = 'mcp__275a1dde-9ae7-4923-a3e9-3b254b6a2d98__';
+let ATLASSIAN_MCP = ATLASSIAN_MCP_DEFAULT; try{ ATLASSIAN_MCP = localStorage.getItem('rc-atlassian-mcp') || ATLASSIAN_MCP_DEFAULT; }catch(e){}
 // Figma design-freeze + audit via the figma-rest connector (needs a read-only
 // FIGMA_TOKEN). The connector's tool-namespace differs by install method, so we
 // try each candidate and cache whichever answers:
@@ -365,7 +373,7 @@ const FIGMA_ON = true;
 const FIGMA_PREFIXES = ['mcp__Figma_REST_Ready_Check__', 'mcp__Figma_REST__Ready_Check___', 'mcp__figma-rest__'];
 // Ready Check version — MUST match the Manifest plugin (.claude-plugin/plugin.json).
 // Shown in the header so you can ask a PM which version they're on.
-const RC_VERSION = '0.25.0';
+const RC_VERSION = '0.26.0';
 /* =========================================================================== */
 
 const CRITERIA = [
@@ -375,33 +383,33 @@ const CRITERIA = [
   {id:'metric',req:true,  name:'How will we know it worked?', why:'A number we can check later.',
     eg:'e.g. +6% checkout conversion for returning payers in 4 weeks.',
     kw:/\b(success metric|kpi|measur|conversion|retention|dau|mau|ctr|% ?(lift|increase)|target|uplift)\b/i},
-  {id:'design',req:true,  name:'Where is the design?', why:'Paste the Figma / mock link. Skip only if there is no UI.',
-    eg:'e.g. https://figma.com/file/pf-saved-cards (final, approved)',
-    kw:/(figma\.com|figma\.io|zeplin|sketch\.com|design ?(link|attached|:)|mockup|wireframe|prototype)/i, na:'No screen changes (backend only)'},
-  {id:'scope', req:true,  name:'Which platforms, and what’s NOT included?', why:'Where it ships, and what you are deliberately leaving out.',
-    eg:'e.g. Android + iOS. Not: web, UPI autopay.',
-    kw:/\b(out[- ]of[- ]scope|not in scope|platforms?:|android|ios|web|backend)\b/i},
+  {id:'design',req:true,  name:'Where’s the design or interface spec?', why:'Figma/mock link for UI, or the API/contract spec for a backend change. N/A only with a reason.',
+    eg:'e.g. https://figma.com/file/pf-saved-cards (final) — or: OpenAPI POST /v2/refunds contract.',
+    kw:/(figma\.com|figma\.io|zeplin|sketch\.com|design ?(link|attached|:)|mockup|wireframe|prototype|openapi|swagger|api ?(spec|contract)|schema|proto)/i, na:'No interface change — say why (e.g. internal job)'},
+  {id:'scope', req:true,  name:'Which platforms or services — and what’s NOT included?', why:'Where it ships (apps and/or services), and what you are deliberately leaving out.',
+    eg:'e.g. Android + iOS. Not: web. — or: Payments service only. Not: admin console.',
+    kw:/\b(out[- ]of[- ]scope|not in scope|platforms?:|android|ios|web|backend|service|api)\b/i},
   {id:'oldbeh',req:true,  name:'What happens today?', why:'How the feature behaves right now, before this change.',
     eg:'e.g. The payment screen always shows a blank card form; nothing is saved.',
-    kw:/\b(current behavior|currently|today the|existing behavior|old version|as[- ]is|right now)\b/i, na:'Brand-new, nothing exists yet'},
-  {id:'flows', req:true,  name:'Which screens or flows does it touch?', why:'So dev knows what else might be affected.',
-    eg:'e.g. Checkout flow, payment screen, order-confirmation.',
-    kw:/\b(impacted|affects|touches|flow|screen|surface|entry point)\b/i},
-  {id:'edge',  req:true,  name:'What could go wrong?', why:'The obvious failure and boundary cases.',
-    eg:'e.g. Expired card, save fails, no network, user deletes card mid-checkout.',
-    kw:/\b(edge case|error|invalid|fails?|boundary|no network|timeout|expired)\b/i},
-  {id:'states',req:true,  name:'What does the user see: nothing yet / loading / done / error?', why:'The copy for each of those moments.',
-    eg:'e.g. Empty: "No saved cards yet" · Error: "Couldn’t save card, try again".',
-    kw:/\b(empty|loading|success|error|state)\b/i, na:'Nothing the user sees'},
-  {id:'l10n',  req:true,  name:'Is the wording final and translated?', why:'Copy locked and localised.',
-    eg:'e.g. All strings final, localised EN/HI.',
-    kw:/\b(localiz|localis|locale|translation|copy final|strings? (final|locked))\b/i},
-  {id:'writer',req:true,  name:'Does this affect writers or creators?', why:'If content/creator side is touched, say how. If not, tick skip.',
-    eg:'e.g. No, listener-side payment change only.',
-    kw:/\b(writer|creator|author|content (team|ops)|studio)\b/i, na:'No writer/creator impact'},
-  {id:'events',req:true,  name:'What should we track?', why:'The events/analytics to fire.',
-    eg:'e.g. card_saved, saved_card_used, tokenize_failed.',
-    kw:/\b(event|analytics|instrument|tracking|mixpanel|amplitude|clevertap|segment)\b/i},
+    kw:/\b(current behavior|currently|today the|existing behavior|old version|as[- ]is|right now)\b/i, na:'Brand-new — say why nothing exists yet'},
+  {id:'flows', req:true,  name:'Which screens, endpoints, or flows does it touch?', why:'So dev knows what else might be affected — UI flows and/or API endpoints and jobs.',
+    eg:'e.g. Checkout flow, payment screen — or: /refunds, /webhooks/settlement, reconcile job.',
+    kw:/\b(impacted|affects|touches|flow|screen|surface|entry point|endpoint|route|job|consumer)\b/i},
+  {id:'edge',  req:true,  name:'What could go wrong? (edge & error cases)', why:'The obvious failure and boundary cases.',
+    eg:'e.g. Expired card, save fails, no network — or: duplicate request, downstream 503, partial write.',
+    kw:/\b(edge case|error|invalid|fails?|boundary|no network|timeout|expired|retry|idempoten|duplicate|concurren)\b/i},
+  {id:'states',req:true,  name:'What does the user or caller see: nothing / loading / success / error?', why:'The copy for each moment (UI) — or the response/status codes a caller gets (API).',
+    eg:'e.g. Empty: "No saved cards yet" · Error: "Try again" — or: 200 ok, 409 duplicate, 503 down.',
+    kw:/\b(empty|loading|success|error|state|200|202|4\d\d|5\d\d|status code|response)\b/i, na:'No observable output — say why'},
+  {id:'l10n',  req:true,  name:'Is the wording or response format final?', why:'UI copy locked & localised — or the response/payload format finalised.',
+    eg:'e.g. All strings final, localised EN/HI — or: response schema v2 frozen, error codes finalised.',
+    kw:/\b(localiz|localis|locale|translation|copy final|strings? (final|locked)|payload|response ?(format|schema)|contract ?(final|frozen))\b/i},
+  {id:'writer',req:true,  name:'Does this affect writers, creators, or downstream consumers?', why:'If a content/creator surface or a downstream service/consumer is touched, say how. N/A only with a reason.',
+    eg:'e.g. No, listener-side payment change only — or: settlement service consumes the new field.',
+    kw:/\b(writer|creator|author|content (team|ops)|studio|downstream|consumer|subscriber|webhook)\b/i, na:'No downstream/creator impact — say why'},
+  {id:'events',req:true,  name:'What should we track? (analytics / telemetry)', why:'The events/analytics to fire — or the metrics/logs/traces emitted.',
+    eg:'e.g. card_saved, saved_card_used — or: refund_requested metric, p95 latency, error-rate log.',
+    kw:/\b(event|analytics|instrument|tracking|mixpanel|amplitude|clevertap|segment|metric|telemetry|log|trace|datadog|prometheus)\b/i},
   {id:'deps',  req:false, name:'Does it depend on another team or API?', why:'Nice to flag early.',
     eg:'e.g. Needs payments backend to expose a tokenization API.',
     kw:/\b(depend|api|other team|backend team|blocked by|prerequisite)\b/i},
@@ -429,6 +437,8 @@ const PLAYBOOK = {
 };
 
 const state={}; CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false,waived:false,reason:'',suggestion:'',aiDrafted:false});
+// N/A is not a free pass: a skipped item only counts when it carries a reason for dev.
+function naOk(s){return s.na&&s.reason.trim().length>=3;}
 let _answersFilter='attention';   // step 2 shows only fields needing action by default
 let _flaggedIds=new Set();         // rubric ids the last review flagged (kept visible in attention mode)
 
@@ -446,7 +456,7 @@ function render(){
   CRITERIA.forEach(c=>{const s=state[c.id];
     const hasD=s.detail.trim().length>=3;
     const waived=!s.na&&!hasD&&s.waived&&s.reason.trim().length>=3;
-    const ok=s.na||hasD||waived;
+    const ok=naOk(s)||hasD||waived;
     // "Needs attention" = a blank REQUIRED item, an AI-drafted answer to verify, or a flagged one.
     const needs = (c.req && !sat(c)) || (s.aiDrafted && hasD) || _flaggedIds.has(c.id);
     if(_answersFilter==='attention' && !needs){ hidden++; return; }
@@ -469,7 +479,8 @@ function render(){
             <div class="stext">✨ <b>AI drafted this from your PRD</b> — verify it’s right (edit the box above if not).</div>
             <div class="sact"><button class="susebtn" onclick="ackAi('${c.id}')">✓ Looks right</button></div>
           </div>`:''}
-          ${c.na?`<label class="na"><input type="checkbox" ${s.na?'checked':''} onchange="setNa('${c.id}',this.checked)"> ${c.na}</label>`:''}
+          ${c.na?`<label class="na"><input type="checkbox" ${s.na?'checked':''} onchange="setNa('${c.id}',this.checked)"> ${c.na}</label>
+            ${s.na?`<input class="detail reason" placeholder="Why doesn't this apply? Dev will see this (e.g. internal cron job, no API or UI surface)" value="${s.reason.replace(/"/g,'&quot;')}" oninput="setReason('${c.id}',this.value)"/>`:''}`:''}
           ${c.req&&!s.na?`<div class="waive">
             <label class="wl"><input type="checkbox" ${s.waived?'checked':''} onchange="setWaived('${c.id}',this.checked)"> Can't provide? Waive with a reason for dev</label>
             ${s.waived?`<input class="detail reason" placeholder="Reason dev should accept (e.g. metric owned by growth, decision pending this week)" value="${s.reason.replace(/"/g,'&quot;')}" oninput="setReason('${c.id}',this.value)"/>`:''}
@@ -491,12 +502,12 @@ function toggle(id){state[id].checked=!state[id].checked; render();}
 function setDetail(id,v){state[id].detail=v; state[id].aiDrafted=false; if(v.trim().length>=3)state[id].checked=true; light();}
 function ackAi(id){state[id].aiDrafted=false; render();}   // PM verified an AI draft as-is
 function ackAllAi(){let n=0; CRITERIA.forEach(c=>{if(state[c.id].aiDrafted){state[c.id].aiDrafted=false; n++;}}); render(); if(n)flash('Marked '+n+' AI draft'+(n>1?'s':'')+' as reviewed.');}
-function setNa(id,v){state[id].na=v; render();}
+function setNa(id,v){state[id].na=v; if(!v)state[id].reason=''; render();}
 function setWaived(id,v){state[id].waived=v; if(!v)state[id].reason=''; render();}
 function setReason(id,v){state[id].reason=v; light();}
 function light(){CRITERIA.forEach(c=>{const s=state[c.id];
   const hasD=s.detail.trim().length>=3; const waived=!s.na&&!hasD&&s.waived&&s.reason.trim().length>=3;
-  const ok=s.na||hasD||waived;
+  const ok=naOk(s)||hasD||waived;
   const el=document.getElementById('crit-'+c.id); if(!el)return;
   const flagged=el.classList.contains('flagged');
   el.className='crit '+(ok?(waived?'ok waived':'ok'):(c.req?'miss':''))+(s.na?' skip':'')+(flagged?' flagged':'');
@@ -557,7 +568,7 @@ async function runVerify(){
   out.innerHTML=rows.map(r=>`<div class="vf-row ${r[0]}"><b>${escapeHtml(r[1])}</b><span>${r[2]}</span></div>`).join('');
 }
 
-function sat(c){const s=state[c.id]; return s.na||(s.checked&&s.detail.trim().length>=3)||(!s.na&&s.waived&&s.reason.trim().length>=3);}
+function sat(c){const s=state[c.id]; return naOk(s)||(s.checked&&s.detail.trim().length>=3)||(!s.na&&s.waived&&s.reason.trim().length>=3);}
 
 function compute(){
   const reqs=CRITERIA.filter(c=>c.req);
@@ -639,10 +650,10 @@ function title(){const t=document.getElementById('prd').value.split('\n').find(l
   return (t||state.goal.detail||'Untitled feature').replace(/^#+\s*/,'').replace(/^(title|goal)[:\s]*/i,'').trim().slice(0,46);}
 function platforms(){const t=(document.getElementById('prd').value+' '+state.scope.detail).toLowerCase();const p=[];
   ['android','ios','web','backend','server'].forEach(x=>{if(t.includes(x))p.push(x);});return p.length?p.join(', '):(state.scope.detail||'not set');}
-function designLink(){if(state.design.na)return '(no UI)';return firstUrl(state.design.detail)||(state.design.detail.trim()||'⚠ add link');}
+function designLink(){if(state.design.na)return '(no interface: '+state.design.reason.trim()+')';return firstUrl(state.design.detail)||(state.design.detail.trim()||'⚠ add link/spec');}
 function normAnswers(){const t=title().trim().toLowerCase().replace(/\s+/g,' ');const lines=['title:'+t];
   CRITERIA.forEach(c=>{const s=state[c.id]; const hasD=s.detail.trim().length>=3;
-    const ok=s.na||hasD||(s.waived&&s.reason.trim().length>=3); if(!ok)return;
+    const ok=naOk(s)||hasD||(s.waived&&s.reason.trim().length>=3); if(!ok)return;
     let v; if(c.na&&s.na)v='na';
     else if(!hasD&&s.waived)v='waived:'+s.reason.trim().toLowerCase().replace(/\s+/g,' ');
     else if(c.id==='design')v=firstUrl(s.detail)||'present';
@@ -670,7 +681,9 @@ function passed(){return readyStatus().s==='ready';}
 //    above, operates on a parsed {title,items} (NOT the live state). Parity-checked. ──
 const _byId={}; CRITERIA.forEach(c=>_byId[c.id]=c);
 function _hasDetail(a){return !!(a&&typeof a.detail==='string'&&a.detail.trim().length>=3);}
-function _isSat(r,a){ if(!a)return false; if(r.na&&a.na===true)return true; if(_hasDetail(a))return true;
+function _isSat(r,a){ if(!a)return false;
+  if(r.na&&a.na===true&&typeof a.reason==='string'&&a.reason.trim().length>=3)return true;   // N/A needs a reason
+  if(_hasDetail(a))return true;
   if(a.waived===true&&typeof a.reason==='string'&&a.reason.trim().length>=3)return true; return false;}
 function _isWaived(r,a){return _isSat(r,a)&&!!a&&a.waived===true&&!_hasDetail(a)&&!(r.na&&a.na===true);}
 function _norm(ans){const items=ans.items||{}; const t=String(ans.title||'').trim().toLowerCase().replace(/\s+/g,' ');
@@ -696,9 +709,14 @@ function _parseHandoff(text){const items={}; let title='',code='',source=null,ha
     else if((m=line.match(/^PRD-Hash:\s*(\S+)/)))hash=m[1];
     else if((m=line.match(/^Feature:\s*(.+)/)))title=m[1].trim();
     else if((m=line.match(/^Platforms:\s*(.+)/)))items.scope={detail:m[1].trim()};
-    else if((m=line.match(/^Design:\s*(.+)/))){const d=m[1].trim(); items.design=(d==='(no UI)')?{na:true}:{detail:d};}
+    else if((m=line.match(/^Design:\s*(.+)/))){const d=m[1].trim(); let na;
+      if((na=d.match(/^\(no interface:\s*(.*)\)$/i)))items.design={na:true,reason:na[1].trim()};
+      else if(d==='(no UI)'||d==='(no interface)')items.design={na:true};
+      else items.design={detail:d};}
     else if((m=line.match(/^[•*-]\s*\[(\w+)\][^|]*\|\s*(.+)/))){const id=m[1],val=m[2].trim();
-      if(_byId[id]){ if(/^reason:\s*/i.test(val))items[id]={waived:true,reason:val.replace(/^reason:\s*/i,'')};
+      if(_byId[id]){ let na;
+        if(/^reason:\s*/i.test(val))items[id]={waived:true,reason:val.replace(/^reason:\s*/i,'')};
+        else if((na=val.match(/^N\/A\s*[—-]\s*(.+)/)))items[id]={na:true,reason:na[1].trim()};
         else if(val==='N/A')items[id]={na:true}; else items[id]={detail:val}; }}
   });
   return {title,items,code,source,designVersion,prdHash:hash};}
@@ -718,7 +736,7 @@ function handText(){
   CRITERIA.forEach(c=>{if(!sat(c))return; if(c.id==='design')return;
     const s=state[c.id]; const hasD=s.detail.trim().length>=3;
     if(!hasD&&s.waived&&!s.na)return;
-    const val=s.na?'N/A':s.detail.trim(); t+=`• [${c.id}] ${c.name} | ${val}\n`;});
+    const val=s.na?('N/A — '+s.reason.trim()):s.detail.trim(); t+=`• [${c.id}] ${c.name} | ${val}\n`;});
   if(waivers.length){t+=`\nWaivers (dev to accept or push back):\n`;
     waivers.forEach(c=>{t+=`• [${c.id}] ${c.name} | reason: ${state[c.id].reason.trim()}\n`;});}
   t+=`\nGrooming can start. (Dev: verify this code before pickup.)`;
@@ -825,7 +843,7 @@ function detectEvents(text){
 }
 function hasBridge(){return !!(window.cowork&&typeof window.cowork.askClaude==='function');}
 function currentAnswers(){const a={}; CRITERIA.forEach(c=>{const s=state[c.id];
-  a[c.id]= s.na?'(N/A)' : (s.waived&&s.reason.trim()?'(waived: '+s.reason.trim()+')' : s.detail.trim()); }); return a;}
+  a[c.id]= s.na?('(N/A: '+(s.reason.trim()||'no reason given')+')') : (s.waived&&s.reason.trim()?'(waived: '+s.reason.trim()+')' : s.detail.trim()); }); return a;}
 
 function askText(res){ let t = typeof res==='string' ? res : (res && (res.text||res.output||res.completion||(res.content&&res.content[0]&&res.content[0].text)))||''; if(!t && res && typeof res==='object') t=''; return String(t||''); }
 function badReply(t){
@@ -899,6 +917,16 @@ let _srcJira=null;   // {key, cloudId} of a fetched ticket, so publish can updat
 let _srcRef=null;    // {type, id, version} of the fetched source, for the freeze stamp
 let _designVer=null; // Figma file version, captured when FIGMA_MCP is wired
 let lastReview=null; // {sig, blockers[]} — the gate stays LOCKED until a smart review has run
+let _reviewedSrcSig=null; // fingerprint of the PRD source that produced the CURRENT answers — guards against a new PRD showing a previous run's results
+function _srcSig(t){return djb2(String(t||'').trim().toLowerCase().replace(/\s+/g,' '));}
+// Wipe everything derived from a PRD, keeping the panel usable for a fresh one.
+function resetAnswers(){ CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false,waived:false,reason:'',suggestion:'',aiDrafted:false}); lastReview=null; _flaggedIds=new Set(); _designAudit=null; _designAuditNote=''; }
+// Called as the PRD field is edited: the moment the source stops matching the one we
+// reviewed, the prior verdict/review is stale — drop it so no "previous run" leaks through.
+function onPrdInput(){ const cur=_srcSig(stripCustom(document.getElementById('prd').value||''));
+  if(_reviewedSrcSig!==null && cur!==_reviewedSrcSig && lastReview){ lastReview=null;
+    const out=document.getElementById('smartOut'); if(out)out.innerHTML='<div class="sc-note">New PRD detected — click <b>Check my PRD</b> to review this one.</div>'; }
+  saveState(); }
                      // on the CURRENT answers AND come back with zero open blockers.
 let _figmaPrefix=null;  // the namespace that answered (cached after first success)
 let _figmaErr='';       // last failure reason, surfaced so we can see WHY a call failed
@@ -937,6 +965,15 @@ function hasMcp(){ return !!(window.cowork && typeof window.cowork.callMcpTool==
 function jiraEnabled(){ return !!ATLASSIAN_MCP && hasMcp(); }
 function isConfluenceUrl(u){ return /atlassian\.net\/wiki\//i.test(u); }
 function isJiraUrl(u){ return /atlassian\.net/i.test(u) && !isConfluenceUrl(u); }
+// Pull an Atlassian source link out of the input even when it has surrounding text
+// (e.g. "PRD: <link>", a trailing newline, or a Rovo/sharable link). Returns the URL
+// only when the input is *essentially* just that link, so a full pasted PRD that
+// merely mentions a link is still treated as text — not re-fetched over the paste.
+function pickSourceUrl(t){ const s=String(t||'').trim();
+  const m=s.match(/https?:\/\/[^\s)]+atlassian\.net\/[^\s)]+/i); if(!m)return null;
+  const url=m[0]; const rest=s.replace(url,'').replace(/^(prd|link|source|ticket|doc)\s*[:\-]?\s*/i,'').trim();
+  return rest.length<=40 ? url : null;   // basically-just-a-link → fetch it
+}
 function unwrap(r){ if(!r) return null; try{ return r.structuredContent ?? (r.content&&r.content[0]&&JSON.parse(r.content[0].text)); }catch(e){ return r.structuredContent||null; } }
 async function jiraIssue(cloudId,key){
   const r=await window.cowork.callMcpTool(JIRA_GET,{cloudId,issueIdOrKey:key,fields:['summary','description','updated'],responseContentFormat:'markdown'});
@@ -994,10 +1031,9 @@ async function verifyFetch(url){
 
 // ── PRD generation (mirrors scripts/ready-check.mjs renderPrd) + publish ──
 let _prdText='';
-const PRD_SECTIONS=[['goal','1. Problem & goal'],['metric','2. Success metric'],['design','3. Design'],['scope','4. Scope & platforms'],['oldbeh','5. What happens today'],['flows','6. Impacted flows & surfaces'],['edge','7. Edge cases & error states'],['states','8. UI states (empty / loading / done / error)'],['l10n','9. Localized values / copy'],['writer','10. Writer / creator impact'],['events','11. Instrumentation / events']];
-const PRD_NA={design:'No UI (backend only).',oldbeh:'Brand-new feature; nothing exists today.',states:'Not user-facing.',writer:'No writer/creator impact.'};
+const PRD_SECTIONS=[['goal','1. Problem & goal'],['metric','2. Success metric'],['design','3. Design / interface spec'],['scope','4. Scope & platforms / services'],['oldbeh','5. What happens today'],['flows','6. Impacted flows, surfaces & endpoints'],['edge','7. Edge cases & error handling'],['states','8. States (empty / loading / success / error)'],['l10n','9. Localized copy / response format'],['writer','10. Writer / creator / consumer impact'],['events','11. Instrumentation / telemetry']];
 function prdVal(id){const c=CRITERIA.find(x=>x.id===id); const s=state[id]||{};
-  if(c&&c.na&&s.na) return PRD_NA[id]||'N/A';
+  if(c&&c.na&&s.na&&s.reason&&s.reason.trim().length>=3) return '_N/A (dev to accept): '+s.reason.trim()+'_';
   const hasD=s.detail&&s.detail.trim().length>=3;
   if(!hasD&&s.waived&&s.reason&&s.reason.trim().length>=3) return '_Waived (dev to accept): '+s.reason.trim()+'_';
   const d=(s.detail||'').trim(); return d||'_(not provided)_';}
@@ -1070,23 +1106,33 @@ async function smartCheck(){
     document.querySelectorAll('.crit.flagged').forEach(e=>e.classList.remove('flagged'));
     if(!hasBridge()){ goStep(2); out.innerHTML='<div class="sc-note">The live smart check runs inside Cowork. Opened in a plain browser? Fill the questions below, then run <code>/ready-check</code> in Claude for the smart pass.</div>';return;}
     let prdRaw=document.getElementById('prd').value.trim();
-    if(/^https?:\/\/\S+$/i.test(prdRaw)){
-      if(isConfluenceUrl(prdRaw) && jiraEnabled()){
+    const srcUrl=pickSourceUrl(prdRaw);
+    if(srcUrl){
+      if(!jiraEnabled()){
+        flash('That’s an Atlassian link but the Atlassian connector isn’t wired into this panel. Paste the PRD text, or run /ready-check <link> in a Cowork chat where Claude can fetch it.'); return;
+      }
+      if(isConfluenceUrl(srcUrl)){
         btn.textContent='Fetching…'; flash('Fetching the Confluence page…');
-        try{ const fetched=await fetchConfluence(prdRaw);
+        try{ const fetched=await fetchConfluence(srcUrl);
           if(!fetched || fetched.trim().length<20) throw new Error('The page has little text to check.');
           document.getElementById('prd').value=fetched; prdRaw=fetched.trim(); flash('Fetched the Confluence page.');
-        }catch(e){ flash('Couldn\'t fetch that page ('+String(e&&e.message||e)+'). Paste the text instead.'); return; }
-      } else if(isJiraUrl(prdRaw) && jiraEnabled()){
+        }catch(e){ flash('Couldn\'t fetch that page ('+String(e&&e.message||e)+'). Paste the text instead, or use /ready-check <link> in chat.'); return; }
+      } else if(isJiraUrl(srcUrl)){
         btn.textContent='Fetching…'; flash('Fetching the JIRA ticket…');
-        try{ const fetched=await fetchJira(prdRaw);
+        try{ const fetched=await fetchJira(srcUrl);
           if(!fetched || fetched.replace(/^[A-Z0-9-]+:\s*/,'').trim().length<10) throw new Error('The ticket has little text to check.');
           document.getElementById('prd').value=fetched; prdRaw=fetched.trim(); flash('Fetched the ticket.');
-        }catch(e){ flash('Couldn\'t fetch that ticket ('+String(e&&e.message||e)+'). Paste the text instead.'); return; }
-      } else {
-        flash('That looks like a link. Paste the PRD text, or use /ready-check <link> in a Cowork chat.'); return;
+        }catch(e){ flash('Couldn\'t fetch that ticket ('+String(e&&e.message||e)+'). Paste the text instead, or use /ready-check <link> in chat.'); return; }
       }
+    } else if(/^https?:\/\/\S+$/i.test(prdRaw)){
+      flash('That looks like a link, but not a JIRA/Confluence one I can fetch here. Paste the PRD text, or use /ready-check <link> in a Cowork chat.'); return;
     }
+    // A DIFFERENT PRD than the one behind the current answers → start clean so a new
+    // source can never show the previous run's results. (Same source re-check keeps answers.)
+    { const srcSig=_srcSig(stripCustom(prdRaw));
+      if(prdRaw && _reviewedSrcSig!==null && srcSig!==_reviewedSrcSig){
+        resetAnswers(); render(); flash('New PRD — starting fresh, ignoring the previous one.'); }
+      if(prdRaw) _reviewedSrcSig=srcSig; }
     if(!prdRaw && CRITERIA.filter(c=>sat(c)).length===0){
       goStep(2); out.innerHTML='<div class="sc-note">No PRD text yet — fill the questions below, or go back and paste a PRD.</div>';
       flash('Add your PRD, or fill the questions.'); return;

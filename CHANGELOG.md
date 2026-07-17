@@ -12,6 +12,37 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.26.0] — Ready Check works for every PRD; N/A is no longer a free pass
+
+Fixes PM feedback that Ready Check felt frontend-only, let PMs skate past items
+via N/A, and (in the Cowork panel) leaked a previous run's results.
+
+- **Stack-neutral rubric.** All 11 items now read for frontend, backend, API,
+  data, and infra PRDs — `design` = design **or interface/contract spec**,
+  `states` = user **or caller** (response/status codes), `flows` =
+  screens/**endpoints**/jobs, `scope` = platforms **or services**, `l10n` =
+  copy **or response format**, `writer` = writers/creators **or downstream
+  consumers**, `events` = analytics **or telemetry**. Synced across the engine
+  (`scripts/ready-check.mjs`), both gates (`gate/ready-check-cowork.html`,
+  `gate/prd-readiness-gate.html`), `reference/READY-CHECK-RUBRIC.md`, and the
+  skill. Backend PRDs clear by answering the backend way — not by skipping UI.
+- **N/A now requires a reason.** A bare `{na:true}` no longer clears a skippable
+  item; it must carry a reason (≥3 chars) that rides into the hand-off for dev to
+  accept or push back. Closes the "just tick N/A" escape. The gate-code hash is
+  unchanged (an N/A still hashes as `na`), so all three encodings stay in parity —
+  verified engine↔panel. Skill now steers PMs to the backend-equivalent answer
+  before any skip.
+- **Fresh fetch, every run (skill).** Ready Check must fetch the source given
+  *now*, echo back the key/title before judging, discard a previous PRD when a new
+  one is given, and never emit a verdict from an earlier run — fixing "it showed
+  results for the previous PRD" and "it answered immediately from a prior run."
+- **Panel: no stale results.** The Cowork panel resets answers + review when the
+  PRD source changes, and invalidates the prior verdict as the field is edited.
+- **Panel: link fetching.** Broader Atlassian URL recognition (sharable/Rovo links
+  and links with a little surrounding text), louder fetch-failure messages, and the
+  connector prefix is no longer a shipped constant — it's discovered by the skill
+  and overridable via `setAtlassianConnector()` / `localStorage`.
+
 ## [0.25.0] — JIRA: sharable links in, tickets out, kept live
 
 The tracker now mirrors the whole lifecycle. New canonical reference

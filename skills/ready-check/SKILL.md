@@ -16,6 +16,26 @@ review (regression, security, feasibility, estimate) is Level 2 —
 `skills/contract-pickup`, dev-side. Read `reference/READY-CHECK-RUBRIC.md` for
 the rubric and the PM-vs-dev dividing line.
 
+## Works for EVERY PRD — frontend, backend, API, data, infra
+
+This gate is **stack-neutral**. It is not a UI-only tool, and there is no "this
+is backend, the tool doesn't apply" escape. Every rubric item has a sensible
+reading for a pure-backend or API PRD — treat the item, not the label:
+
+| item | frontend reading | backend / API / data reading |
+|---|---|---|
+| `design` | Figma / mock link | **interface / contract spec** — OpenAPI, proto, GraphQL schema, event schema |
+| `states` | empty / loading / done / error copy | **response & failure contract** — 2xx/4xx/5xx codes, error bodies, ret/idempotency |
+| `flows` | screens touched | **endpoints, jobs, queues, consumers** touched |
+| `scope` | platforms (iOS/Android/web) | **services** in scope, and what's explicitly out |
+| `l10n` | copy final & localised | **response/payload format** finalised (schema version, error codes) |
+| `writer` | writer/creator surface | **downstream consumers** (services, webhooks, subscribers) |
+| `events` | analytics events | **metrics / logs / traces** (latency, error-rate, throughput) |
+
+A backend PRD is **not** cleared by N/A-ing the UI items — it's cleared by
+answering the backend equivalents above. If a PM says "it won't work, this is
+backend," that's the signal to run it with these readings, not to skip it.
+
 ## Runs in both surfaces
 
 This skill is plain markdown + one deterministic script, so it behaves
@@ -108,15 +128,27 @@ is no sidebar panel — the `/ready-check` chat flow is the way. If the bundled
 HTML can't be found, fall back to telling the user to open
 `gate/ready-check-cowork.html` from the plugin folder directly.
 
-**Optional — JIRA-link fetching in the panel.** The panel can fetch a pasted
-JIRA link through the user's Atlassian connector. It's off by default and
-workspace-specific: set `ATLASSIAN_MCP` (the CONFIG line at the top of
-`gate/ready-check-cowork.html`) to that install's Atlassian tool-id prefix
-(`mcp__<connector-id>__`), and pass the two Atlassian tool names
-(`…getJiraIssue`, `…getAccessibleAtlassianResources`) in `mcp_tools` when you
-create/update the artifact. Leave `ATLASSIAN_MCP` empty to disable — JIRA links
-then just prompt the PM to paste the ticket text or use `/ready-check <link>` in
-chat (which fetches via the connector regardless).
+**Optional — JIRA/Confluence-link fetching in the panel.** The panel can fetch a
+pasted Atlassian link through the user's connector, but the connector-id is an
+opaque per-install hash, so it must be **discovered, not hard-coded**. When you
+create/update the artifact:
+
+1. **Discover the prefix.** `ToolSearch` for `getJiraIssue` (and
+   `getAccessibleAtlassianResources`). Take the returned tool name and extract its
+   `mcp__<connector-id>__` prefix.
+2. **Pass the tools** in `mcp_tools` (`…getJiraIssue`,
+   `…getAccessibleAtlassianResources`, `…getConfluencePage`, and, if publishing,
+   `…editJiraIssue` / `…createJiraIssue`).
+3. **Point the panel at that prefix.** The panel reads the prefix from
+   `localStorage['rc-atlassian-mcp']` (falling back to a documented default), and
+   exposes `setAtlassianConnector('mcp__<connector-id>__')` for a dev to set it by
+   hand from the console. Tell the user the one-liner if their links aren't being
+   picked up. Broaden-URL handling now also accepts sharable/Rovo links and links
+   with a little surrounding text, so a plain `browse/KEY` isn't required.
+
+If no Atlassian connector is registered, Atlassian links simply prompt the PM to
+paste the text or use `/ready-check <link>` in chat (which fetches via the
+connector regardless of the panel).
 
 ## The engine vs the judgement
 
@@ -148,6 +180,22 @@ message, GitHub issue, Figma), pasted text, an image (screenshot of slides / a
 Figma frame), or a plain description. Fetch it with the matching MCP or reader.
 If it's a Figma link, treat that as the design artifact for item 3. If multiple
 sources are pasted, use them all.
+
+**Fresh fetch, every run — never answer from a previous PRD.** Each invocation is
+about the source given *right now*. Follow this every time, with no shortcuts:
+
+1. **Fetch the current source before you judge anything.** Do not emit a verdict,
+   score, or gate code until you have actually fetched THIS source in THIS run and
+   can quote specifics from it. A confident-looking answer that isn't grounded in a
+   fresh fetch is the bug PMs reported ("it showed results for the previous PRD").
+2. **Echo what you fetched back to the PM first** — the issue key / page id and the
+   title (e.g. *"Fetched ENG-1421 'FTC enhancement — pre-auth flow'; analysing this
+   one."*). This lets a wrong or stale doc get caught immediately.
+3. **A new link/source discards the previous one.** If the PM gives a different PRD
+   than a moment ago, start clean — do not carry over the earlier PRD's answers,
+   findings, or verdict. When in doubt, treat it as a brand-new check.
+4. **If the fetch fails, say so and stop** — ask the PM to paste the text or connect
+   the source. Never fall back to answering from memory or an earlier run.
 
 **Discover the connector before deciding it's missing (Cowork especially).** In
 Cowork, connector tools are *deferred* — they do **not** appear in your tool list
@@ -190,10 +238,17 @@ For each rubric item, pull the answer from the source if it's there. Build an
     ... } }
 ```
 
-Only `skippable` items (design, oldbeh, states, writer) may take `{ "na": true }`,
-and only with a real reason the PM confirms — never to dodge a question. For
-everything you can't find, ask the PM in plain words, one short batch. Do not
-invent answers.
+Only `skippable` items (design, oldbeh, states, writer) may take N/A — and **N/A
+is never a free pass**. A bare `{ "na": true }` no longer clears the item; it
+only clears as `{ "na": true, "reason": "<why it genuinely doesn't apply>" }`
+with a reason ≥ 3 chars, which rides into the hand-off for dev to accept or push
+back. Prefer the **stack-appropriate answer** over a skip: for a backend/API
+change, `design` is the **interface/contract spec** (OpenAPI, proto, schema) and
+`states` is the **response & failure contract** (status codes, error bodies) —
+answer those rather than marking them N/A. Reserve N/A for items that truly have
+no analogue (e.g. a pure internal cron with no consumers → `writer` N/A "no
+downstream consumers"). For everything you can't find, ask the PM in plain words,
+one short batch. Do not invent answers.
 
 **Waivers — when the PM genuinely can't answer a required item.** Any required
 item may be *waived with a written reason* (e.g. the metric is owned by another
@@ -370,8 +425,12 @@ you detect the drift at the moment dev picks it up.
 
 ## Scenarios to handle
 
-- **Backend-only feature** — mark `design` and `states` N/A (no UI). Everything
-  else still required.
+- **Backend / API-only feature** — do **not** just N/A the UI items. Answer their
+  backend equivalents: `design` = the interface/contract spec (OpenAPI, proto,
+  schema), `states` = the response & failure contract (status codes, error
+  bodies, retry/idempotency). Only mark an item N/A when it has no analogue at all,
+  and then only *with a reason* (e.g. `writer` → N/A "internal job, no downstream
+  consumers"). Everything else is required, read the backend way.
 - **Brand-new feature** — mark `oldbeh` N/A (nothing exists yet).
 - **No writer/creator impact** — mark `writer` N/A with that reason.
 - **Figma-only hand-off** — the Figma URL satisfies `design`; still need the
@@ -385,12 +444,21 @@ you detect the drift at the moment dev picks it up.
 - **Can't answer an item** — waive it with a reason (`{ "waived": true,
   "reason": "..." }`). It clears but shows in the hand-off's Waivers block for
   dev to accept or push back. Empty reason doesn't clear.
+- **N/A a skippable item** — same rule: `{ "na": true, "reason": "..." }`. A bare
+  N/A no longer clears; the reason rides into the hand-off. Prefer the
+  backend-equivalent answer over N/A wherever one exists.
 - **Not a PM** — a dev pre-checking their own pickup can run it too; same gate.
 
 ## Anti-patterns
 
 - Don't eyeball the verdict or hand-write a gate code — always run the engine.
-- Don't let a PM N/A a non-skippable item to slip through.
+- Don't let a PM N/A a non-skippable item to slip through — and don't accept a
+  bare N/A on a skippable one either; it needs a reason, or better, the
+  backend-equivalent answer.
+- Don't treat a backend/API PRD as out of scope — run it with the backend
+  readings in "Works for EVERY PRD" above.
+- Don't emit a verdict from a previous run — fetch the current source first and
+  echo back what you fetched (issue key + title) before judging.
 - Don't demand implementation detail from the PM (that's Level 2's job) — keep
   blockers to product decisions judgeable from text.
 - Don't fetch source through non-approved means if an MCP fails — say so and ask

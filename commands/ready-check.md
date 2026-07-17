@@ -24,8 +24,14 @@ you only what's missing, and gives a clear verdict.
 /ready-check https://your-org.atlassian.net/browse/ENG-1234
 /ready-check https://www.figma.com/file/<...>            # design-led feature
 /ready-check "saved payment cards at checkout, android + ios"
+/ready-check "idempotent refund API, payments service"  # pure backend — works too
 /ready-check                                             # interview me
 ```
+
+Works for **every** PRD — frontend, backend, API, data, infra. A backend PRD
+answers the same items the backend way (interface/contract spec, response &
+error codes, endpoints, downstream consumers); there's no "backend → skip it"
+path, and N/A only clears with a stated reason.
 
 ## What you get
 

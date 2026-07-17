@@ -41,7 +41,7 @@ const ready = {
     edge:   { detail: "Expired card, tokenize fails, no network, delete mid-checkout." },
     states: { detail: "Empty: no saved cards. loading spinner. success toast. error: try again." },
     l10n:   { detail: "All strings final, localised EN/HI." },
-    writer: { na: true },
+    writer: { na: true, reason: "Listener-side payment change only; no writer/creator surface." },
     events: { detail: "card_saved, saved_card_used, tokenize_failed." },
     deps:   { detail: "Payments backend exposes tokenization API." },
     rollout:{ detail: "Flag saved_cards, ramp 1/10/50/100." },
@@ -72,12 +72,14 @@ test("rough PRD is blocked and lists the gaps", () => {
   assert.ok(v.missing.some((m) => m.id === "metric"));
 });
 
-test("skippable item passes only when its reason is set", () => {
+test("N/A is not a free pass — a skippable item needs a stated reason", () => {
   const design = RUBRIC.find((r) => r.id === "design");
-  assert.equal(isSatisfied(design, { na: true }), true);          // no-ui skip ok
+  assert.equal(isSatisfied(design, { na: true }), false);          // bare N/A no longer clears
+  assert.equal(isSatisfied(design, { na: true, reason: "no" }), false);          // reason too short
+  assert.equal(isSatisfied(design, { na: true, reason: "Pure backend service — no interface." }), true);
   assert.equal(isSatisfied(design, {}), false);
   const goal = RUBRIC.find((r) => r.id === "goal");
-  assert.equal(isSatisfied(goal, { na: true }), false);            // NOT skippable — na ignored
+  assert.equal(isSatisfied(goal, { na: true, reason: "n/a because reasons" }), false); // NOT skippable — na ignored
 });
 
 test("short answers don't count", () => {
@@ -123,20 +125,52 @@ test("hand-off round-trips and re-verifies", () => {
   assert.equal(v, "valid");
 });
 
-test("backend-only feature can clear without design or UI states", () => {
+test("backend-only feature clears when N/A items are justified", () => {
   const backend = structuredClone(ready);
-  backend.items.design = { na: true };
-  backend.items.states = { na: true };
+  backend.items.design = { na: true, reason: "Pure API change — no UI; contract in the OpenAPI spec." };
+  backend.items.states = { na: true, reason: "Server-to-server; no user-visible states, only HTTP codes." };
   const v = checkReadiness(backend);
   assert.equal(v.cleared, true);
-  assert.match(renderHandoff(backend), /Design: \(no UI\)/);
+  assert.equal(v.skips.length, 3);               // design, states, writer — all justified
+  const block = renderHandoff(backend);
+  assert.match(block, /Design: \(no interface: Pure API change/);
+  assert.match(block, /\[states\].*N\/A — Server-to-server/);
+  // bare N/A (no reason) does NOT clear — no free pass for backend either
+  backend.items.design = { na: true };
+  assert.equal(checkReadiness(backend).cleared, false);
 });
 
-test("brand-new feature can skip old-behavior", () => {
+test("a fully-answered backend PRD clears with real backend answers (not skips)", () => {
+  const be = structuredClone(ready);
+  be.title = "Idempotent refund API";
+  be.items.design = { detail: "OpenAPI: POST /v2/refunds, contract at confluence/refunds-api." };
+  be.items.states = { detail: "200 ok, 202 pending, 409 duplicate, 422 invalid, 503 downstream-down." };
+  be.items.scope  = { detail: "Payments backend service only. Out of scope: mobile UI, admin console." };
+  const v = checkReadiness(be);
+  assert.equal(v.cleared, true);
+  assert.equal(v.skips.length, 1);               // only writer is N/A here
+  assert.ok(CODE_RE.test(gateCode(be)));
+});
+
+test("N/A justifications round-trip through the hand-off and re-verify", () => {
+  const backend = structuredClone(ready);
+  backend.items.design = { na: true, reason: "Pure API change — no UI." };
+  backend.items.states = { na: true, reason: "Server-to-server; HTTP codes only." };
+  const block = renderHandoff(backend, { date: "01 Jul 2026" });
+  const parsed = parseHandoff(block);
+  assert.equal(parsed.items.design.na, true);
+  assert.match(parsed.items.design.reason, /Pure API change/);
+  assert.equal(parsed.items.states.na, true);
+  assert.equal(verifyGateCode(parsed.code, { title: parsed.title, items: parsed.items }), "valid");
+});
+
+test("brand-new feature can skip old-behavior with a reason", () => {
   const fresh = structuredClone(ready);
   delete fresh.items.oldbeh;                     // missing → blocked
   assert.equal(checkReadiness(fresh).cleared, false);
-  fresh.items.oldbeh = { na: true };             // explicitly new → clears
+  fresh.items.oldbeh = { na: true };             // bare N/A → still blocked
+  assert.equal(checkReadiness(fresh).cleared, false);
+  fresh.items.oldbeh = { na: true, reason: "Brand-new capability; nothing exists today." };
   assert.equal(checkReadiness(fresh).cleared, true);
 });
 
@@ -199,12 +233,12 @@ test("renderPrd produces an 11-section PRD with the gate code", () => {
   assert.match(prd, /## Rollout/);
 });
 
-test("renderPrd shows N/A defaults and waivers", () => {
+test("renderPrd shows justified N/A skips and waivers", () => {
   const backend = structuredClone(ready);
-  backend.items.design = { na: true };
+  backend.items.design = { na: true, reason: "Pure API change — no UI." };
   backend.items.metric = { waived: true, reason: "growth owns it" };
   const prd = renderPrd(backend);
-  assert.match(prd, /No UI \(backend only\)\./);
+  assert.match(prd, /_N\/A \(dev to accept\): Pure API change/);
   assert.match(prd, /## Waivers \(dev to accept\)/);
   assert.match(prd, /growth owns it/);
 });

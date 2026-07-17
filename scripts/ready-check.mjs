@@ -36,18 +36,23 @@ import { readFileSync } from "node:fs";
 // else must have a real answer. `critic` = the dev-side judgement critic
 // that goes deeper on the same concern; `cache` = the code-context field
 // that can make this check code-aware.
+// Stack-neutral by design: every item reads sensibly for a frontend, backend,
+// API, data, or infra PRD. `skippable` items still require a *stated reason* to
+// clear (see isSatisfied) — N/A is never a free pass. For a backend/API PRD the
+// answer is the backend equivalent (interface/contract spec, response & failure
+// states), not a skip.
 export const RUBRIC = [
   { id: "goal",    req: true,  name: "What problem are we solving?",                   critic: "minimality" },
   { id: "metric",  req: true,  name: "How will we know it worked?",                    critic: "minimality" },
-  { id: "design",  req: true,  name: "Where is the design?",           skippable: "no-ui" },
-  { id: "scope",   req: true,  name: "Which platforms, and what's NOT included?",       critic: "platform-parity" },
+  { id: "design",  req: true,  name: "Where's the design or interface spec? (Figma/mock link, or API/contract spec)", skippable: "no-interface" },
+  { id: "scope",   req: true,  name: "Which platforms or services — and what's NOT included?", critic: "platform-parity" },
   { id: "oldbeh",  req: true,  name: "What happens today?",            skippable: "new-feature", critic: "regression" },
-  { id: "flows",   req: true,  name: "Which screens or flows does it touch?",          critic: "regression", cache: "surface_index" },
-  { id: "edge",    req: true,  name: "What could go wrong?",                           critic: "edge-cases" },
-  { id: "states",  req: true,  name: "What does the user see (nothing/loading/done/error)?", skippable: "not-user-facing", critic: "comms-completeness", cache: "i18n" },
-  { id: "l10n",    req: true,  name: "Is the wording final and translated?",           cache: "i18n" },
-  { id: "writer",  req: true,  name: "Does this affect writers or creators?",          skippable: "no-writer-impact" },
-  { id: "events",  req: true,  name: "What should we track?",                          critic: "instrumentation", cache: "events" },
+  { id: "flows",   req: true,  name: "Which screens, endpoints, or flows does it touch?", critic: "regression", cache: "surface_index" },
+  { id: "edge",    req: true,  name: "What could go wrong? (edge & error cases)",      critic: "edge-cases" },
+  { id: "states",  req: true,  name: "What does the user or caller see: nothing / loading / success / error?", skippable: "no-observable-output", critic: "comms-completeness", cache: "i18n" },
+  { id: "l10n",    req: true,  name: "Is the wording or response format final?",       cache: "i18n" },
+  { id: "writer",  req: true,  name: "Does this affect writers, creators, or downstream consumers?", skippable: "no-downstream-impact" },
+  { id: "events",  req: true,  name: "What should we track? (analytics / telemetry)",  critic: "instrumentation", cache: "events" },
   { id: "deps",    req: false, name: "Does it depend on another team or API?" },
   { id: "rollout", req: false, name: "How will it roll out?" },
 ];
@@ -56,13 +61,23 @@ const byId = Object.fromEntries(RUBRIC.map((r) => [r.id, r]));
 const MIN_DETAIL = 3;
 
 // ─── Satisfaction + verdict ──────────────────────────────────────────
+function reasonOk(ans = {}) {
+  return typeof ans.reason === "string" && ans.reason.trim().length >= MIN_DETAIL;
+}
+// N/A is NOT a free pass. A skippable item marked N/A only clears when the PM
+// states WHY it doesn't apply (e.g. "pure infra service, no caller-facing
+// output"). That reason rides in the hand-off so dev can accept or push back —
+// closing the "just tick N/A and move on" escape route.
+function isReasonedSkip(item, ans = {}) {
+  return !!item.skippable && ans.na === true && reasonOk(ans);
+}
 export function isSatisfied(item, ans = {}) {
   if (!ans) return false;
-  if (item.skippable && ans.na === true) return true;
+  if (isReasonedSkip(item, ans)) return true;
   if (hasDetail(ans)) return true;
   // Waiver: the PM can proceed without answering, but MUST justify it. The
   // waiver is recorded and surfaced in the hand-off for the dev to accept.
-  if (ans.waived === true && typeof ans.reason === "string" && ans.reason.trim().length >= MIN_DETAIL) return true;
+  if (ans.waived === true && reasonOk(ans)) return true;
   return false;
 }
 function hasDetail(ans = {}) {
@@ -86,6 +101,9 @@ export function checkReadiness(answers = {}) {
   const waivers = RUBRIC
     .filter((r) => isWaived(r, items[r.id]))
     .map((r) => ({ id: r.id, name: r.name, reason: (items[r.id].reason || "").trim() }));
+  const skips = RUBRIC
+    .filter((r) => isReasonedSkip(r, items[r.id]))
+    .map((r) => ({ id: r.id, name: r.name, reason: (items[r.id].reason || "").trim() }));
   const cleared = missing.length === 0;
   return {
     cleared,
@@ -95,6 +113,7 @@ export function checkReadiness(answers = {}) {
     missing,
     optionalMissing,
     waivers,
+    skips,
   };
 }
 
@@ -172,8 +191,8 @@ export function renderHandoff(answers = {}, meta = {}) {
   const v = checkReadiness(answers);
   const items = answers.items || {};
   const code = gateCode(answers);
-  const design = items.design && items.design.na ? "(no UI)"
-    : (items.design && items.design.detail ? firstUrl(items.design.detail) || items.design.detail.trim() : "⚠ add link");
+  const design = items.design && items.design.na ? `(no interface: ${(items.design.reason || "").trim()})`
+    : (items.design && items.design.detail ? firstUrl(items.design.detail) || items.design.detail.trim() : "⚠ add link/spec");
   const out = [];
   const nWaive = v.waivers ? v.waivers.length : 0;
   out.push(v.cleared
@@ -197,7 +216,7 @@ export function renderHandoff(answers = {}, meta = {}) {
       if (!isSatisfied(r, a)) continue;
       if (r.id === "design") continue;
       if (isWaived(r, a)) continue; // listed in the waivers block below
-      const val = r.skippable && a.na ? "N/A" : a.detail.trim();
+      const val = r.skippable && a.na ? `N/A — ${(a.reason || "").trim()}` : a.detail.trim();
       out.push(`• [${r.id}] ${r.name} | ${val}`);
     }
     if (nWaive) {
@@ -220,18 +239,16 @@ export function renderHandoff(answers = {}, meta = {}) {
 const PRD_SECTIONS = [
   ["goal",   "1. Problem & goal"],
   ["metric", "2. Success metric"],
-  ["design", "3. Design"],
-  ["scope",  "4. Scope & platforms"],
+  ["design", "3. Design / interface spec"],
+  ["scope",  "4. Scope & platforms / services"],
   ["oldbeh", "5. What happens today"],
-  ["flows",  "6. Impacted flows & surfaces"],
-  ["edge",   "7. Edge cases & error states"],
-  ["states", "8. UI states (empty / loading / done / error)"],
-  ["l10n",   "9. Localized values / copy"],
-  ["writer", "10. Writer / creator impact"],
-  ["events", "11. Instrumentation / events"],
+  ["flows",  "6. Impacted flows, surfaces & endpoints"],
+  ["edge",   "7. Edge cases & error handling"],
+  ["states", "8. States (empty / loading / success / error)"],
+  ["l10n",   "9. Localized copy / response format"],
+  ["writer", "10. Writer / creator / consumer impact"],
+  ["events", "11. Instrumentation / telemetry"],
 ];
-const PRD_NA = { design: "No UI (backend only).", oldbeh: "Brand-new feature; nothing exists today.",
-  states: "Not user-facing.", writer: "No writer/creator impact." };
 
 export function prdTitle(answers = {}) { return String(answers.title || "Untitled feature").trim(); }
 
@@ -241,7 +258,7 @@ export function renderPrd(answers = {}, meta = {}) {
   const code = gateCode(answers);
   const val = (id) => {
     const r = byId[id], a = items[id] || {};
-    if (r && r.skippable && a.na === true) return PRD_NA[id] || "N/A";
+    if (isReasonedSkip(r, a)) return `_N/A (dev to accept): ${a.reason.trim()}_`;
     if (isWaived(r, a)) return `_Waived (dev to accept): ${a.reason.trim()}_`;
     const d = (a.detail || "").trim();
     return d || "_(not provided)_";
@@ -281,12 +298,17 @@ export function parseHandoff(text = "") {
     else if ((m = line.match(/^Platforms:\s*(.+)/))) items.scope = { detail: m[1].trim() };
     else if ((m = line.match(/^Design:\s*(.+)/))) {
       const d = m[1].trim();
-      items.design = d === "(no UI)" ? { na: true } : { detail: d };
+      let na;
+      if ((na = d.match(/^\(no interface:\s*(.*)\)$/i))) items.design = { na: true, reason: na[1].trim() };
+      else if (d === "(no UI)" || d === "(no interface)") items.design = { na: true }; // legacy hand-offs
+      else items.design = { detail: d };
     } else if ((m = line.match(/^[•*-]\s*\[(\w+)\][^|]*\|\s*(.+)/))) {
       const id = m[1], val = m[2].trim();
       if (byId[id]) {
+        let na;
         if (/^reason:\s*/i.test(val)) items[id] = { waived: true, reason: val.replace(/^reason:\s*/i, "") };
-        else if (val === "N/A") items[id] = { na: true };
+        else if ((na = val.match(/^N\/A\s*[—-]\s*(.+)/))) items[id] = { na: true, reason: na[1].trim() };
+        else if (val === "N/A") items[id] = { na: true }; // legacy hand-offs (no reason captured)
         else items[id] = { detail: val };
       }
     }

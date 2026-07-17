@@ -30,34 +30,57 @@ Guardrail: don't push implementation decisions onto PMs. Text-judgeable
 
 ## The 11 required items (+ 2 recommended)
 
-Each is a plain question a PM can answer. `skippable` items may be marked N/A
-with a stated reason; everything else needs a real answer (≥ 3 chars, no
-"TBD"). The engine only checks presence + specificity; the skill judges quality.
+The rubric is **stack-neutral** — every item reads sensibly for a frontend,
+backend, API, data, or infra PRD (see "Backend readings" below). Each is a plain
+question a PM can answer. `skippable` items may be marked N/A **only with a
+stated reason** (≥ 3 chars); a bare N/A no longer clears. Everything else needs a
+real answer (≥ 3 chars, no "TBD"). The engine checks presence + specificity + the
+N/A reason; the skill judges quality.
 
-| # | id | Plain question | Skippable when | Deeper dev critic | Code-context field |
+| # | id | Plain question | Skippable when (needs a reason) | Deeper dev critic | Code-context field |
 |---|----|----|----|----|----|
 | 1 | `goal`   | What problem are we solving? | — | minimality | — |
 | 2 | `metric` | How will we know it worked? | — | minimality | — |
-| 3 | `design` | Where is the design? (Figma/mock link) | no UI change | — | — |
-| 4 | `scope`  | Which platforms — and what's NOT included? | — | platform-parity | — |
-| 5 | `oldbeh` | What happens today? | brand-new feature | regression | — |
-| 6 | `flows`  | Which screens/flows does it touch? | — | regression | `surface_index` |
+| 3 | `design` | Where's the design or interface spec? (Figma/mock link, or API/contract spec) | no interface at all | — | — |
+| 4 | `scope`  | Which platforms or services — and what's NOT included? | — | platform-parity | — |
+| 5 | `oldbeh` | What happens today? | brand-new capability | regression | — |
+| 6 | `flows`  | Which screens, endpoints, or flows does it touch? | — | regression | `surface_index` |
 | 7 | `edge`   | What could go wrong? (edge & error cases) | — | edge-cases | — |
-| 8 | `states` | What does the user see: nothing / loading / done / error? | not user-facing | comms-completeness | `i18n` |
-| 9 | `l10n`   | Is the wording final and translated? | — | — | `i18n` |
-| 10 | `writer` | Does this affect writers or creators? | no writer impact | — | — |
-| 11 | `events` | What should we track? (analytics) | — | instrumentation | `events` |
+| 8 | `states` | What does the user or caller see: nothing / loading / success / error? | no observable output | comms-completeness | `i18n` |
+| 9 | `l10n`   | Is the wording or response format final? | — | — | `i18n` |
+| 10 | `writer` | Does this affect writers, creators, or downstream consumers? | no downstream impact | — | — |
+| 11 | `events` | What should we track? (analytics / telemetry) | — | instrumentation | `events` |
 | — | `deps`    | Depends on another team or API? *(recommended)* | — | — | `dependencies` |
 | — | `rollout` | How will it roll out? *(recommended)* | — | — | — |
 
-Design (3) is the item that caused last sprint's P0 — a UI feature cannot clear
-without a link unless the PM explicitly marks it backend-only. The link then
-rides in every hand-off so "the design wasn't even there" can't recur.
+Design (3) is the item that caused last sprint's P0 — a feature cannot clear
+without a design **or interface spec** unless the PM justifies its absence with a
+reason. The link/spec then rides in every hand-off so "the design wasn't even
+there" can't recur.
+
+### Backend readings — the tool is not UI-only
+
+There is no "backend PRD → skip it" path. A backend/API PRD answers the same
+items the backend way, and clears by answering them — not by N/A-ing the UI ones:
+
+- `design` → the **interface/contract spec** (OpenAPI, proto, GraphQL/event schema).
+- `states` → the **response & failure contract** (2xx/4xx/5xx, error bodies,
+  retry/idempotency), not screens.
+- `flows` → the **endpoints, jobs, queues, and consumers** touched.
+- `scope` → the **services** in scope and what's explicitly out.
+- `l10n` → the **payload/response format** finalised (schema version, error codes).
+- `writer` → **downstream consumers** (services, webhooks, subscribers).
+- `events` → **metrics / logs / traces** (latency, error-rate, throughput).
+
+N/A is reserved for an item with no analogue at all (e.g. a pure internal cron
+with no consumers → `writer` N/A "no downstream consumers"), and even then it
+needs the reason.
 
 ## Verdict
 
-- **Ready** — all 11 required satisfied (skips count as satisfied). A gate code
-  is minted; the hand-off is emitted; grooming may start.
+- **Ready** — all 11 required satisfied (a *justified* N/A skip — one with a
+  reason — counts as satisfied; a bare N/A does not). A gate code is minted; the
+  hand-off is emitted; grooming may start.
 - **Not ready** — any required item missing. The gate code is withheld and the
   exact gaps are listed. Recommended items never block; they're flagged.
 
