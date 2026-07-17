@@ -78,9 +78,14 @@ to the current build whenever the PM uses Ready Check. It's cheap: one
    - **No `ready-check` artifact yet** → create it (fields below).
    - **Bundled N > stored N** → the plugin shipped a newer panel: this is the
      step that was being skipped. Call `mcp__cowork__update_artifact` with `id`
-     `ready-check`, `html_path` = the bundled `gate/ready-check-cowork.html`, and
-     a one-line `update_summary` (e.g. "Ready Check panel → build N"). Approve and
-     the pinned page updates in place.
+     `ready-check`, `html_path` = the bundled `gate/ready-check-cowork.html`, a
+     one-line `update_summary` (e.g. "Ready Check panel → build N"), **and re-pass
+     `mcp_tools` with THIS user's freshly-discovered Atlassian tools** (see the
+     discovery note under the create fields). This matters: the panel reads its
+     Atlassian connector id from the tools it was granted, and the id is unique per
+     user — a panel first created with someone else's tool list (or before
+     Atlassian was connected) can't fetch links until the correct per-user tools are
+     re-granted here. Approve and the pinned page updates in place.
    - **Stored build unparseable / missing tag** (a pre-build-tag artifact) → treat
      as older and update it.
    - **Equal (or stored ≥ bundled)** → do nothing; only mention "already current"

@@ -29,6 +29,23 @@ newer build was never detected.
   means the plugin itself needs updating first.
 - Panel version label + build bumped (build 70) to match.
 
+## [0.26.6] — Fix: panel link-fetch worked for only one user (hardcoded connector id)
+
+Some users saw "couldn't fetch that page/link" even with Atlassian connected, while
+others (the person whose id was baked in) were fine.
+
+- **Cause:** the panel's Atlassian connector id was a **hardcoded constant** — one
+  specific user's connector-id hash. That id is unique per user, so the panel called
+  a tool id that doesn't exist in anyone else's session and the fetch failed.
+- **Fix:** the panel now **self-discovers** its Atlassian prefix from the tools the
+  artifact was actually granted (Cowork lists them in `#cowork-artifact-meta`,
+  populated per user when the skill creates the panel), falling back to a manual
+  `setAtlassianConnector()` / localStorage override. No hardcoded id.
+- The `ready-check` skill now **re-passes the freshly-discovered `mcp_tools`** on
+  every panel reconcile, so a panel first created with the wrong/empty tool list (or
+  before Atlassian was connected) gets the correct per-user connector re-granted.
+- Panel build → 75.
+
 ## [0.26.5] — Simpler + stable: drafts count, and the analysis is cached per PRD
 
 Replaces 0.26.4's "confirm every field before it counts" model, which was
