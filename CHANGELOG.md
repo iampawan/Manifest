@@ -29,6 +29,16 @@ newer build was never detected.
   means the plugin itself needs updating first.
 - Panel version label + build bumped (build 70) to match.
 
+## [0.26.3] — Panel: self-documenting identity banner after a check
+
+- After a PRD is checked, the panel shows a banner at the top with **which PRD
+  this was** — the feature title, a live verdict (READY + gate code, or "Not
+  ready · N/M"), the **source** (JIRA key + version / Confluence page + version /
+  Figma / pasted text), the **time checked**, and a short **content hash** of the
+  PRD. A screenshot of the result is now self-documenting — you can tell exactly
+  what output belongs to what PRD. The banner clears when the PRD box is cleared.
+- Panel build → 72.
+
 ## [0.26.2] — Fix: panel no longer carries a previous PRD's data across reloads
 
 - **Stale-data fix (the recurring one).** The panel used to persist the PRD +
