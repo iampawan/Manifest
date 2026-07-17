@@ -29,6 +29,25 @@ newer build was never detected.
   means the plugin itself needs updating first.
 - Panel version label + build bumped (build 70) to match.
 
+## [0.26.4] — Deterministic score: AI suggestions no longer count until confirmed
+
+Fixes a critical bug where re-checking the *same* PRD returned different scores
+(10/11, then 8/11, then 6/11). Cause: the LLM review auto-filled the 11 fields and
+those drafts **counted toward the score immediately** — but an LLM extracts a
+different set of fields each run (and long-PRD chunks sometimes time out and fill
+fewer), so the score drifted even though the PRD was unchanged.
+
+- **The score is now a pure function of confirmed answers.** AI-drafted answers are
+  **suggestions** (marked ✨) that do **not** count toward the score or the gate
+  code until the PM confirms them (one click "Confirm all", or edit any field).
+  Re-running the review only re-proposes text for still-blank fields — it never
+  moves the number on its own. This restores the gate's stated rule ("only
+  confirmed answers count; presence of text is not readiness") and makes the score
+  reproducible for a given set of confirmed answers.
+- Suggestion copy updated to say plainly that drafts don't count until confirmed;
+  the confirm buttons read "Confirm — count it" / "Confirm all — count these".
+- Panel build → 73.
+
 ## [0.26.3] — Panel: self-documenting identity banner after a check
 
 - After a PRD is checked, the panel shows a banner at the top with **which PRD
