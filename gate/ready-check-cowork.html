@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="ready-check-build" content="75" />
-<meta name="ready-check-version" content="0.26.6" /><!-- keep in sync with .claude-plugin/plugin.json version -->
+<meta name="ready-check-build" content="76" />
+<meta name="ready-check-version" content="0.26.7" /><!-- keep in sync with .claude-plugin/plugin.json version -->
 <title>Ready Check (live) · Cowork</title>
 <style>
   :root{ color-scheme: light;
@@ -381,7 +381,14 @@ function setAtlassianConnector(p){ ATLASSIAN_MCP = String(p||''); try{ p?localSt
 // lists them in the #cowork-artifact-meta block (populated per user when the skill creates the
 // panel) — and take the Atlassian tool's prefix from there. That way the panel always uses the
 // connector the *current* user has. Priority: manual override > this artifact's granted tools > (dev) fallback.
-const ATLASSIAN_MCP_DEFAULT = '';   // no hardcoded id — discovery below supplies the per-user prefix
+// The Atlassian connector id is unique per user. The `ready-check` skill BAKES the current
+// user's prefix into this line when it creates/updates the panel (a find-replace of the token
+// below) — that's the reliable path, with no dependency on runtime DOM/metadata. Discovery
+// from the artifact metadata is a best-effort fallback for panels that weren't baked, and a
+// manual localStorage override always wins. If none resolve, Atlassian links prompt the PM to
+// paste the text or use /ready-check in chat (never a wrong hardcoded id).
+const ATLASSIAN_MCP_BAKED = '__RC_ATLASSIAN_MCP__';   // skill replaces this token per user; left as-is means "not baked"
+const ATLASSIAN_MCP_DEFAULT = (ATLASSIAN_MCP_BAKED.indexOf('RC_ATLASSIAN_MCP')<0) ? ATLASSIAN_MCP_BAKED : '';
 function _discoverAtlassianPrefix(){
   try{ const el=document.getElementById('cowork-artifact-meta'); if(!el) return '';
     const meta=JSON.parse(el.textContent||'{}'); const tools=meta.mcpTools||meta.mcp_tools||[];
@@ -389,8 +396,8 @@ function _discoverAtlassianPrefix(){
   }catch(e){} return '';
 }
 let ATLASSIAN_MCP = '';
-try{ ATLASSIAN_MCP = localStorage.getItem('rc-atlassian-mcp') || _discoverAtlassianPrefix() || ATLASSIAN_MCP_DEFAULT; }
-catch(e){ ATLASSIAN_MCP = _discoverAtlassianPrefix() || ATLASSIAN_MCP_DEFAULT; }
+try{ ATLASSIAN_MCP = localStorage.getItem('rc-atlassian-mcp') || ATLASSIAN_MCP_DEFAULT || _discoverAtlassianPrefix(); }
+catch(e){ ATLASSIAN_MCP = ATLASSIAN_MCP_DEFAULT || _discoverAtlassianPrefix(); }
 // Figma design-freeze + audit via the figma-rest connector (needs a read-only
 // FIGMA_TOKEN). The connector's tool-namespace differs by install method, so we
 // try each candidate and cache whichever answers:
@@ -401,7 +408,7 @@ const FIGMA_ON = true;
 const FIGMA_PREFIXES = ['mcp__Figma_REST_Ready_Check__', 'mcp__Figma_REST__Ready_Check___', 'mcp__figma-rest__'];
 // Ready Check version — MUST match the Manifest plugin (.claude-plugin/plugin.json).
 // Shown in the header so you can ask a PM which version they're on.
-const RC_VERSION = '0.26.6';
+const RC_VERSION = '0.26.7';
 /* =========================================================================== */
 
 const CRITERIA = [

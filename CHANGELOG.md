@@ -29,6 +29,23 @@ newer build was never detected.
   means the plugin itself needs updating first.
 - Panel version label + build bumped (build 70) to match.
 
+## [0.26.7] — Robust per-user Atlassian: the connector id is baked into the panel
+
+0.26.6 removed the hardcoded id and had the panel read its connector from the
+artifact's runtime metadata — but that can be stripped from the rendered page,
+resolving the id to empty and breaking link-fetch (even for the person it used to
+work for).
+
+- **The connector id is now baked into each user's panel.** The skill discovers
+  the user's Atlassian prefix and replaces a `__RC_ATLASSIAN_MCP__` token in the
+  panel HTML before creating/updating the artifact — no dependency on runtime
+  DOM/metadata. Resolution order: manual `localStorage` override → baked id →
+  best-effort metadata discovery. If none resolve, the panel cleanly prompts to
+  paste the text or use `/ready-check` in chat (never a wrong hardcoded id).
+- The skill re-bakes + re-grants the correct per-user tools on every panel
+  reconcile, so a panel created with the wrong/empty connector gets corrected.
+- Panel build → 76.
+
 ## [0.26.6] — Fix: panel link-fetch worked for only one user (hardcoded connector id)
 
 Some users saw "couldn't fetch that page/link" even with Atlassian connected, while

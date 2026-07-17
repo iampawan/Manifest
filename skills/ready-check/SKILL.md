@@ -78,37 +78,45 @@ to the current build whenever the PM uses Ready Check. It's cheap: one
    - **No `ready-check` artifact yet** → create it (fields below).
    - **Bundled N > stored N** → the plugin shipped a newer panel: this is the
      step that was being skipped. Call `mcp__cowork__update_artifact` with `id`
-     `ready-check`, `html_path` = the bundled `gate/ready-check-cowork.html`, a
-     one-line `update_summary` (e.g. "Ready Check panel → build N"), **and re-pass
-     `mcp_tools` with THIS user's freshly-discovered Atlassian tools** (see the
-     discovery note under the create fields). This matters: the panel reads its
-     Atlassian connector id from the tools it was granted, and the id is unique per
-     user — a panel first created with someone else's tool list (or before
-     Atlassian was connected) can't fetch links until the correct per-user tools are
-     re-granted here. Approve and the pinned page updates in place.
+     `ready-check`, `html_path` = the **baked scratch file** (the bundled panel with
+     `__RC_ATLASSIAN_MCP__` replaced by THIS user's discovered prefix — see the bake
+     step under the create fields), a one-line `update_summary` (e.g. "Ready Check
+     panel → build N"), **and re-pass `mcp_tools` with THIS user's Atlassian tools**.
+     Both matter: the id is unique per user, so a panel that shipped with someone
+     else's id (or none) can't fetch links until it's re-baked + re-granted here.
+     Approve and the pinned page updates in place.
    - **Stored build unparseable / missing tag** (a pre-build-tag artifact) → treat
      as older and update it.
    - **Equal (or stored ≥ bundled)** → do nothing; only mention "already current"
      if the user explicitly asked to open/refresh the panel.
    Never create a second artifact with the same id.
 
-   **To create it**, call `mcp__cowork__create_artifact` with:
+   **Discover this user's Atlassian prefix first** — `ToolSearch` for
+   `getJiraIssue` and take its `mcp__<id>__` prefix. The connector id is unique
+   per user, so this must be discovered in THIS user's session, never hardcoded.
+
+   **BAKE that prefix into the panel HTML before creating/updating** — this is
+   what makes link-fetch work reliably for every user (not just whoever's id was
+   shipped). Don't pass the bundled file directly: `Read`
+   `gate/ready-check-cowork.html`, replace the literal token `__RC_ATLASSIAN_MCP__`
+   with the discovered prefix (e.g. `mcp__abc123__`), `Write` the result to a
+   scratch file, and use THAT scratch file as `html_path` for both
+   `create_artifact` and `update_artifact`. (If Atlassian isn't registered, leave
+   the token as-is — the panel then cleanly prompts "paste the text / use
+   /ready-check in chat" instead of calling a wrong id.) A manual
+   `setAtlassianConnector('mcp__<id>__')` in the panel console still overrides.
+
+   Then call `mcp__cowork__create_artifact` with:
    - `id`: `ready-check`
-   - `html_path`: the absolute path to `gate/ready-check-cowork.html` inside
-     this plugin's installed directory
+   - `html_path`: the **baked scratch file** (not the bundled file)
    - `description`: "Ready Check (live) — PM-side PRD readiness gate; smart
      edge-case review via Claude, no backend."
-   - `mcp_tools`: the connector tools the panel calls. **Discover the Atlassian
-     prefix first** — `ToolSearch` for `getJiraIssue`, take its `mcp__<id>__`
-     prefix — then pass the concrete names:
-     `<ATLASSIAN>getJiraIssue`, `<ATLASSIAN>getAccessibleAtlassianResources`,
-     `<ATLASSIAN>getConfluencePage`, `<ATLASSIAN>editJiraIssue`,
-     `<ATLASSIAN>createJiraIssue`, `mcp__figma-rest__get_file_version`, and
-     `mcp__figma-rest__audit_design`. Drop any whose connector the user hasn't
-     registered so the panel degrades gracefully instead of erroring. (The panel
-     reads its Atlassian prefix from `localStorage`/`setAtlassianConnector`,
-     defaulting to this workspace's — so the `mcp_tools` you pass must be for that
-     same connector.)
+   - `mcp_tools`: the concrete per-user tool names — `<ATLASSIAN>getJiraIssue`,
+     `<ATLASSIAN>getAccessibleAtlassianResources`, `<ATLASSIAN>getConfluencePage`,
+     `<ATLASSIAN>editJiraIssue`, `<ATLASSIAN>createJiraIssue`,
+     `mcp__figma-rest__get_file_version`, `mcp__figma-rest__audit_design`. Drop any
+     whose connector the user hasn't registered. The baked prefix and the
+     `mcp_tools` you pass must be for the SAME connector.
 4. **Tell the user** the panel is in their Cowork sidebar (created / refreshed /
    already current) and persists across sessions. Worth surfacing what it does:
    - **Deterministic score & gate** — checking a PRD drafts answers from the PRD
