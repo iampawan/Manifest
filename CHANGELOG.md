@@ -12,6 +12,23 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.26.1] — Fix: the pinned Ready Check panel now reliably self-updates
+
+The Cowork sidebar panel is a saved *snapshot* — Cowork never re-reads the plugin
+file, so the panel only refreshes when the skill calls `update_artifact`. Two bugs
+kept that from happening: the reconciliation ran only on `/ready-check panel`, and
+it tried to read the build number "from the artifact's path" (impossible), so a
+newer build was never detected.
+
+- The `ready-check` skill now **reconciles the panel on every Cowork run** (create
+  if missing; update when the bundled `ready-check-build` is newer), reading the
+  build number from the file's `<meta>` tag — not the path. A pre-build-tag
+  artifact is treated as stale and refreshed.
+- Documented the real model: "auto" means "on your next `/ready-check`," and the
+  panel is only ever as new as the installed plugin — so a stale panel usually
+  means the plugin itself needs updating first.
+- Panel version label + build bumped (build 70) to match.
+
 ## [0.26.0] — Ready Check works for every PRD; N/A is no longer a free pass
 
 Fixes PM feedback that Ready Check felt frontend-only, let PMs skate past items

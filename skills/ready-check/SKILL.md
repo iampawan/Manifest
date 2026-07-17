@@ -44,44 +44,66 @@ identically in **Claude Code** and **Cowork**. The offline web page
 open; it mints the same gate-code format, so a code from any surface verifies
 in all of them.
 
-## Opening the live panel in Cowork (the artifact)
+## Opening & auto-syncing the live panel in Cowork (the artifact)
 
 The chat flow below is the primary experience and needs nothing extra. In
-**Cowork**, you can also give the user a persistent sidebar panel — the live
-artifact `gate/ready-check-cowork.html`, where the deterministic gate runs
-in-page and the edge-case review is done by Claude via
-`window.cowork.askClaude` (no backend). The plugin can't ship the artifact
-itself (plugins bundle skills/commands, not artifacts), so create it on demand:
+**Cowork**, you can also give the user a persistent sidebar panel — the artifact
+built from `gate/ready-check-cowork.html`, where the deterministic gate runs
+in-page and the edge-case review is done by Claude via `window.cowork.askClaude`
+(no backend). The plugin can't ship the artifact itself (plugins bundle
+skills/commands, not artifacts), so create it on demand.
 
-When the user invokes `/ready-check panel`, says "open the Ready Check panel",
-or on their first Cowork use of this skill (offer it once):
+**The pinned panel is a saved *snapshot*, not a live link to the plugin file.**
+Cowork stores a *copy* of the HTML when the artifact is created and never
+re-reads the plugin file on its own — so the panel does **not** magically update
+when the plugin updates. It only refreshes when THIS skill reconciles it with
+`mcp__cowork__update_artifact`. To make that reliable, run the reconciliation
+below **at the start of every Cowork invocation of ready-check** (not only
+`/ready-check panel` / "open the panel") — that way the pinned page self-heals
+to the current build whenever the PM uses Ready Check. It's cheap: one
+`list_artifacts` plus at most one `Read`.
 
-1. **Check for an existing one.** Call `mcp__cowork__list_artifacts`; look for
-   an artifact with id `ready-check`.
-2. **If absent — create it.** Call `mcp__cowork__create_artifact` with:
+**Reconcile (create-or-update, id `ready-check`):**
+
+1. **List.** Call `mcp__cowork__list_artifacts`; find the artifact whose id is
+   `ready-check` and note its `path`.
+2. **Compare build numbers — read them from the file contents, not the path.**
+   Both the plugin's bundled `gate/ready-check-cowork.html` and the stored
+   artifact carry `<meta name="ready-check-build" content="N">`. `Read` the
+   bundled file and, if the artifact exists, `Read` the file at its `path`, and
+   parse the integer `N` from that meta tag in each. (Reading `N` "from the path
+   string" — the old instruction — never worked; that's why the panel went
+   stale. You must open the file and read the tag.)
+3. **Act on the comparison:**
+   - **No `ready-check` artifact yet** → create it (fields below).
+   - **Bundled N > stored N** → the plugin shipped a newer panel: this is the
+     step that was being skipped. Call `mcp__cowork__update_artifact` with `id`
+     `ready-check`, `html_path` = the bundled `gate/ready-check-cowork.html`, and
+     a one-line `update_summary` (e.g. "Ready Check panel → build N"). Approve and
+     the pinned page updates in place.
+   - **Stored build unparseable / missing tag** (a pre-build-tag artifact) → treat
+     as older and update it.
+   - **Equal (or stored ≥ bundled)** → do nothing; only mention "already current"
+     if the user explicitly asked to open/refresh the panel.
+   Never create a second artifact with the same id.
+
+   **To create it**, call `mcp__cowork__create_artifact` with:
    - `id`: `ready-check`
    - `html_path`: the absolute path to `gate/ready-check-cowork.html` inside
      this plugin's installed directory
    - `description`: "Ready Check (live) — PM-side PRD readiness gate; smart
      edge-case review via Claude, no backend."
-   - `mcp_tools`: the connector tools the panel calls. Include the Atlassian
-     fetch/publish tools and the figma-rest version tool, matching the CONFIG
-     lines at the top of the HTML:
-     `<ATLASSIAN_MCP>getJiraIssue`, `<ATLASSIAN_MCP>getAccessibleAtlassianResources`,
-     `<ATLASSIAN_MCP>getConfluencePage`, `<ATLASSIAN_MCP>editJiraIssue`,
-     `<ATLASSIAN_MCP>createJiraIssue`, `mcp__figma-rest__get_file_version`, and
-     `mcp__figma-rest__audit_design`.
-     Drop any whose connector the user hasn't registered (and blank the matching
-     CONFIG line) so the panel degrades gracefully instead of erroring.
-3. **If present — refresh it only when the plugin ships a newer build.** Both
-   the installed artifact and the plugin's `gate/ready-check-cowork.html` carry
-   `<meta name="ready-check-build" content="<N>">`. Read the build number from
-   the existing artifact's `path` (from `list_artifacts`) and from the plugin's
-   bundled file. If the bundled `N` is **greater**, call
-   `mcp__cowork__update_artifact` (id `ready-check`, `html_path` = the bundled
-   file, a one-line `update_summary`) so the user gets the latest. If the
-   numbers match, do nothing — just tell them it's already in their sidebar and
-   current. Never create a duplicate.
+   - `mcp_tools`: the connector tools the panel calls. **Discover the Atlassian
+     prefix first** — `ToolSearch` for `getJiraIssue`, take its `mcp__<id>__`
+     prefix — then pass the concrete names:
+     `<ATLASSIAN>getJiraIssue`, `<ATLASSIAN>getAccessibleAtlassianResources`,
+     `<ATLASSIAN>getConfluencePage`, `<ATLASSIAN>editJiraIssue`,
+     `<ATLASSIAN>createJiraIssue`, `mcp__figma-rest__get_file_version`, and
+     `mcp__figma-rest__audit_design`. Drop any whose connector the user hasn't
+     registered so the panel degrades gracefully instead of erroring. (The panel
+     reads its Atlassian prefix from `localStorage`/`setAtlassianConnector`,
+     defaulting to this workspace's — so the `mcp_tools` you pass must be for that
+     same connector.)
 4. **Tell the user** the panel is in their Cowork sidebar (created / refreshed /
    already current) and persists across sessions. Worth surfacing what it does:
    - **Deterministic gate** — the hand-off/gate code unlocks when every basic is
@@ -121,7 +143,15 @@ or on their first Cowork use of this skill (offer it once):
    panel degrades gracefully instead of erroring.
 
 Bump the `ready-check-build` number in `gate/ready-check-cowork.html` whenever
-you change that file, so this auto-refresh can tell "newer" from "same."
+you change that file, so the reconciliation above can tell "newer" from "same."
+Two things gate whether a PM actually sees a new panel: (1) the **plugin** must be
+updated in their Cowork — the pinned page is only ever as new as the bundled
+`gate/ready-check-cowork.html`; if the plugin is still on an old version there's
+nothing newer to push. (2) the **skill must run** so it can call
+`update_artifact` — Cowork does not watch the file, so "auto" here means "on your
+next `/ready-check`", not "instantly on plugin update." If a PM is stuck on an old
+panel, have them update the Manifest plugin, then run `/ready-check` once (or
+`/ready-check panel`) to pull the latest build.
 
 Only works in Cowork (the artifact bridge is Cowork-only). In Claude Code there
 is no sidebar panel — the `/ready-check` chat flow is the way. If the bundled

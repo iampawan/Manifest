@@ -1,7 +1,7 @@
 # Manifest
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-![Version](https://img.shields.io/badge/version-0.26.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.26.1-blue.svg)
 ![Tests](https://img.shields.io/badge/tests-node%20--test-green.svg)
 
 A Claude Code / Cowork plugin that takes a PRD ("contract") through the full

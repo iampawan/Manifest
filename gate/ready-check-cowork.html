@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="ready-check-build" content="69" />
-<meta name="ready-check-version" content="0.26.0" /><!-- keep in sync with .claude-plugin/plugin.json version -->
+<meta name="ready-check-build" content="70" />
+<meta name="ready-check-version" content="0.26.1" /><!-- keep in sync with .claude-plugin/plugin.json version -->
 <title>Ready Check (live) · Cowork</title>
 <style>
   :root{ color-scheme: light;
@@ -373,7 +373,7 @@ const FIGMA_ON = true;
 const FIGMA_PREFIXES = ['mcp__Figma_REST_Ready_Check__', 'mcp__Figma_REST__Ready_Check___', 'mcp__figma-rest__'];
 // Ready Check version — MUST match the Manifest plugin (.claude-plugin/plugin.json).
 // Shown in the header so you can ask a PM which version they're on.
-const RC_VERSION = '0.26.0';
+const RC_VERSION = '0.26.1';
 /* =========================================================================== */
 
 const CRITERIA = [
@@ -1276,7 +1276,8 @@ function nameFor(id){const c=CRITERIA.find(x=>x.id===id); return c?c.name:id;}
 function initLive(){
   const v=document.getElementById('rcVer'); if(v){v.textContent='v'+RC_VERSION;
     const bm=document.querySelector&&document.querySelector('meta[name=ready-check-build]'); const b=bm&&bm.getAttribute('content');
-    v.title='Ready Check v'+RC_VERSION+(b?' · panel build '+b:'');}
+    v.title='Ready Check v'+RC_VERSION+(b?' · panel build '+b:'')+' — this pinned panel refreshes to the latest build the next time you run /ready-check in chat.';
+    v.style.cursor='help';}
   const p=document.getElementById('livePill'); if(!p)return;
   const live=hasBridge();
   p.className='statusdot '+(live?'ok':'err');
