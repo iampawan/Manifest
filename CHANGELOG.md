@@ -29,6 +29,41 @@ newer build was never detected.
   means the plugin itself needs updating first.
 - Panel version label + build bumped (build 70) to match.
 
+## [0.30.0] — A genuinely panel-like scorecard in chat (progress bar, gaps-first, fix-by-reply)
+
+Builds on the chat-first direction with a much more UI/UX-friendly scorecard.
+
+- **Redesigned scorecard** (`ready-check.mjs --scorecard`): a visual progress bar
+  (`▓▓▓░░░░░░░░ 3/11`), a **gaps-first "To fix" list** — numbered, each with a
+  concrete prompt (e.g. *"Success metric — a number + window (\"+6% in 4 weeks\")"*)
+  so the PM knows exactly what to write — then grouped **Answered / N/A / Waived**
+  sections with each item's value, and the gate code on a pass. Optional items
+  show as "＋ Also noted".
+- **Fix by number or free text.** The card ends with a reply hint; the PM answers
+  "2: …; 4: …" or in plain language, the skill folds it in and re-renders, and the
+  bar fills. Read like a panel, fix like a chat.
+- Rubric gained `short` labels + per-item `ask` prompts to power the card.
+- Panel version synced to 0.30.0 (build 78); 33 engine tests green.
+
+## [0.27.0] — Chat is the front door: a live, panel-like scorecard you fix by replying
+
+The most reliable Ready Check experience is `/ready-check <link>` in chat — it has
+full connector access, the real model, and none of the sandbox limits that made
+the sidebar panel flaky. So the chat flow now *feels* like the panel.
+
+- **Scorecard renderer** (`ready-check.mjs --scorecard`) — a clean, deterministic,
+  panel-like status: the verdict, every item's state (✓ answered / ◦ N/A / ≈
+  waived / ✗ needed) with its answer, and exactly what's left to add. Same format
+  for every PM.
+- **Edit-by-reply loop** — the skill shows the scorecard, lists only the gaps with
+  concrete prompts, and the PM fixes them by just replying ("metric is +6% in 4
+  weeks", or "N/A: writer — internal service"). The skill folds it in, re-renders,
+  and the score climbs — read like a panel, fix like a chat.
+- **Panel repositioned as optional.** The sidebar artifact stays for PMs who want
+  an always-open surface, but chat is now the recommended path; when the panel
+  misbehaves, the answer is "run `/ready-check <link>` in chat."
+- Short rubric labels added for the scorecard; 33 engine tests (was 32).
+
 ## [0.26.7] — Robust per-user Atlassian: the connector id is baked into the panel
 
 0.26.6 removed the hardcoded id and had the panel read its connector from the

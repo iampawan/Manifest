@@ -42,19 +42,19 @@ import { readFileSync } from "node:fs";
 // answer is the backend equivalent (interface/contract spec, response & failure
 // states), not a skip.
 export const RUBRIC = [
-  { id: "goal",    req: true,  name: "What problem are we solving?",                   critic: "minimality" },
-  { id: "metric",  req: true,  name: "How will we know it worked?",                    critic: "minimality" },
-  { id: "design",  req: true,  name: "Where's the design or interface spec? (Figma/mock link, or API/contract spec)", skippable: "no-interface" },
-  { id: "scope",   req: true,  name: "Which platforms or services — and what's NOT included?", critic: "platform-parity" },
-  { id: "oldbeh",  req: true,  name: "What happens today?",            skippable: "new-feature", critic: "regression" },
-  { id: "flows",   req: true,  name: "Which screens, endpoints, or flows does it touch?", critic: "regression", cache: "surface_index" },
-  { id: "edge",    req: true,  name: "What could go wrong? (edge & error cases)",      critic: "edge-cases" },
-  { id: "states",  req: true,  name: "What does the user or caller see: nothing / loading / success / error?", skippable: "no-observable-output", critic: "comms-completeness", cache: "i18n" },
-  { id: "l10n",    req: true,  name: "Is the wording or response format final?",       cache: "i18n" },
-  { id: "writer",  req: true,  name: "Does this affect writers, creators, or downstream consumers?", skippable: "no-downstream-impact" },
-  { id: "events",  req: true,  name: "What should we track? (analytics / telemetry)",  critic: "instrumentation", cache: "events" },
-  { id: "deps",    req: false, name: "Does it depend on another team or API?" },
-  { id: "rollout", req: false, name: "How will it roll out?" },
+  { id: "goal",    req: true,  name: "What problem are we solving?",                   short: "Problem & goal",        ask: "what problem, and why now?",                              critic: "minimality" },
+  { id: "metric",  req: true,  name: "How will we know it worked?",                    short: "Success metric",        ask: "a number + window (e.g. \"+6% in 4 weeks\")",              critic: "minimality" },
+  { id: "design",  req: true,  name: "Where's the design or interface spec? (Figma/mock link, or API/contract spec)", short: "Design / interface spec", ask: "Figma link, or the API/contract spec", skippable: "no-interface" },
+  { id: "scope",   req: true,  name: "Which platforms or services — and what's NOT included?", short: "Scope & platforms/services", ask: "which platforms/services, and what's explicitly out", critic: "platform-parity" },
+  { id: "oldbeh",  req: true,  name: "What happens today?",            short: "What happens today",    ask: "current behaviour before this change",                    skippable: "new-feature", critic: "regression" },
+  { id: "flows",   req: true,  name: "Which screens, endpoints, or flows does it touch?", short: "Flows / endpoints",  ask: "screens / endpoints / jobs it touches",                critic: "regression", cache: "surface_index" },
+  { id: "edge",    req: true,  name: "What could go wrong? (edge & error cases)",      short: "Edge & error cases",    ask: "what breaks? (timeout, duplicate, no-network, partial fail…)", critic: "edge-cases" },
+  { id: "states",  req: true,  name: "What does the user or caller see: nothing / loading / success / error?", short: "States (empty/loading/success/error)", ask: "what the user or caller sees: nothing / loading / success / error", skippable: "no-observable-output", critic: "comms-completeness", cache: "i18n" },
+  { id: "l10n",    req: true,  name: "Is the wording or response format final?",       short: "Wording / response format", ask: "copy final & localised, or payload/response format frozen?", cache: "i18n" },
+  { id: "writer",  req: true,  name: "Does this affect writers, creators, or downstream consumers?", short: "Writer / consumer impact", ask: "any writer / creator / downstream-consumer impact?", skippable: "no-downstream-impact" },
+  { id: "events",  req: true,  name: "What should we track? (analytics / telemetry)",  short: "Instrumentation / telemetry", ask: "events / metrics / logs to fire",                  critic: "instrumentation", cache: "events" },
+  { id: "deps",    req: false, name: "Does it depend on another team or API?",         short: "Dependencies",          ask: "any dependency on another team / API?" },
+  { id: "rollout", req: false, name: "How will it roll out?",                          short: "Rollout",               ask: "flag / staged ramp?" },
 ];
 
 const byId = Object.fromEntries(RUBRIC.map((r) => [r.id, r]));
@@ -231,6 +231,54 @@ export function renderHandoff(answers = {}, meta = {}) {
     v.missing.forEach((m) => out.push(`• ${m.name}`));
   }
   return out.join("\n");
+}
+
+// ─── Scorecard — a readable, panel-like status the chat flow renders ─
+// The in-chat equivalent of the sidebar panel: one glance shows the verdict,
+// every item's state, and exactly what's left to add. Deterministic so every
+// PM sees the same clean format. The skill overlays the smart findings + the
+// "reply to fix" loop around this.
+export function renderScorecard(answers = {}, meta = {}) {
+  const items = answers.items || {};
+  const v = checkReadiness(answers);
+  const trunc = (s, n = 68) => { s = String(s || "").replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+  const req = RUBRIC.filter((r) => r.req);
+  const answered = req.filter((r) => hasDetail(items[r.id]));
+  const skips    = req.filter((r) => isReasonedSkip(r, items[r.id]));
+  const waived   = req.filter((r) => isWaived(r, items[r.id]));
+  const missing  = req.filter((r) => !isSatisfied(r, items[r.id]));
+  const optDone  = RUBRIC.filter((r) => !r.req && isSatisfied(r, items[r.id]));
+  const bar = "▓".repeat(v.met) + "░".repeat(Math.max(0, v.total - v.met));
+  const out = [];
+  out.push(`📋  Ready Check — ${answers.title || "Untitled PRD"}`);
+  out.push(`${bar}  ${v.met}/${v.total} · ${v.cleared ? "Ready ✅" : "Not ready"}`);
+  if (meta.source) out.push(`🔗 ${meta.source}`);
+  out.push("");
+
+  if (v.cleared) {
+    out.push(`🎉  Ready to hand off — gate code **${gateCode(answers)}**`);
+    out.push("");
+  } else {
+    out.push(`🔧  To fix (${missing.length}) — reply with what you can:`);
+    missing.forEach((r, i) => out.push(`   ${i + 1}. **${r.short}** — ${r.ask || trunc(r.name)}`));
+    out.push(`   ↳ e.g. "1: <answer>; 2: <answer>"   ·   or "N/A: <item> — <reason>"`);
+    out.push("");
+  }
+
+  if (answered.length) {
+    out.push(`✓  Answered (${answered.length})`);
+    answered.forEach((r) => out.push(`   • ${r.short} — ${trunc(items[r.id].detail)}`));
+  }
+  if (skips.length) {
+    out.push(`◦  N/A (${skips.length})`);
+    skips.forEach((r) => out.push(`   • ${r.short} — ${trunc(items[r.id].reason, 52)}`));
+  }
+  if (waived.length) {
+    out.push(`≈  Waived (${waived.length})`);
+    waived.forEach((r) => out.push(`   • ${r.short} — ${trunc(items[r.id].reason, 52)}`));
+  }
+  if (optDone.length) out.push(`＋  Also noted: ${optDone.map((r) => r.short).join(" · ")}`);
+  return out.join("\n").trim();
 }
 
 // ─── PRD generation — compose a clean 11-section PRD from the answers ─
@@ -444,6 +492,7 @@ function main() {
     console.log("ready-check · Manifest PM-side gate engine\n" +
       "  --check <answers.json>          verdict (exit 1 if not ready)\n" +
       "  --code <answers.json>           print gate code\n" +
+      "  --scorecard <answers.json>      print the readable panel-like scorecard\n" +
       "  --handoff <answers.json>        print dev hand-off block\n" +
       "  --prd <answers.json>            print the 11-section PRD (publish-ready)\n" +
       "  --verify <handoff.txt|json>     validate a code vs its content\n" +
@@ -468,6 +517,8 @@ function main() {
       const c = gateCode(loadJson(a1));
       if (!c) { console.error("NOT READY: no code minted."); process.exit(1); }
       console.log(c);
+    } else if (mode === "--scorecard") {
+      console.log(renderScorecard(loadJson(a1)));
     } else if (mode === "--handoff") {
       console.log(renderHandoff(loadJson(a1), { date: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) }));
     } else if (mode === "--prd") {

@@ -16,6 +16,7 @@ import {
   gateCode,
   verifyGateCode,
   renderHandoff,
+  renderScorecard,
   parseHandoff,
   cacheChecks,
   renderPrd,
@@ -223,6 +224,22 @@ test("changing a waiver reason changes the code (tamper-evident)", () => {
   const a = structuredClone(ready); a.items.metric = { waived: true, reason: "reason one" };
   const b = structuredClone(ready); b.items.metric = { waived: true, reason: "reason two" };
   assert.notEqual(gateCode(a), gateCode(b));
+});
+
+test("renderScorecard reads like a panel: progress bar, gaps-first, grouped state", () => {
+  const card = renderScorecard(ready);
+  assert.match(card, /📋  Ready Check — Saved payment cards at checkout/);
+  assert.match(card, /▓{11}  11\/11 · Ready ✅/);              // full progress bar
+  assert.match(card, /gate code \*\*RC-SAV-/);
+  assert.match(card, /✓  Answered \(10\)/);
+  assert.match(card, /◦  N\/A \(1\)/);                          // reasoned skip grouped
+  assert.match(card, /Writer \/ consumer impact/);
+
+  const nc = renderScorecard(structuredClone(rough));
+  assert.match(nc, /1\/11 · Not ready/);
+  assert.match(nc, /🔧  To fix \(10\)/);
+  assert.match(nc, /\*\*Success metric\*\* — a number \+ window/); // concrete prompt, numbered
+  assert.doesNotMatch(nc, /gate code/);                        // no code when not ready
 });
 
 test("renderPrd produces an 11-section PRD with the gate code", () => {

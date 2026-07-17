@@ -46,12 +46,20 @@ in all of them.
 
 ## Opening & auto-syncing the live panel in Cowork (the artifact)
 
-The chat flow below is the primary experience and needs nothing extra. In
-**Cowork**, you can also give the user a persistent sidebar panel — the artifact
-built from `gate/ready-check-cowork.html`, where the deterministic gate runs
-in-page and the edge-case review is done by Claude via `window.cowork.askClaude`
-(no backend). The plugin can't ship the artifact itself (plugins bundle
-skills/commands, not artifacts), so create it on demand.
+**Prefer the chat flow.** Running `/ready-check <link>` in chat is the primary,
+most reliable experience — it renders a live, panel-like **scorecard** (Phase 4)
+and fixes are a one-line reply. It has none of the sandbox limitations of the
+artifact (no per-user connector wiring, no snapshot/version drift, no flaky
+in-page bridge), so lead with it. The sidebar panel below is an **optional**
+convenience for PMs who want an always-open surface; when a PM hits panel
+trouble (a link won't fetch, a stale build), the answer is "run `/ready-check
+<link>` in chat" — it just works.
+
+In **Cowork**, you can also give the user a persistent sidebar panel — the
+artifact built from `gate/ready-check-cowork.html`, where the deterministic gate
+runs in-page and the edge-case review is done by Claude via
+`window.cowork.askClaude` (no backend). The plugin can't ship the artifact itself
+(plugins bundle skills/commands, not artifacts), so create it on demand.
 
 **The pinned panel is a saved *snapshot*, not a live link to the plugin file.**
 Cowork stores a *copy* of the HTML when the artifact is created and never
@@ -379,19 +387,38 @@ Run at the deepest mode you have access to; each is a strict superset:
 Whatever mode you're in, say which one you used, so the PM knows how deep the
 edge-case check went.
 
-### Phase 4 — Score + mint (deterministic)
+### Phase 4 — Score + mint (deterministic), rendered as a live scorecard
 
-Write the `answers` to a temp JSON and run the engine:
+**Chat is the primary experience — render a panel-like scorecard, not a wall of
+prose.** The chat flow is the reliable one (full connector access, the real
+model, no sandbox), so make it *feel* like the panel: one glance to read, one
+reply to fix. Write the `answers` to a temp JSON and run the engine:
 
 ```
-node scripts/ready-check.mjs --check   answers.json    # verdict JSON, exit 1 if not ready
-node scripts/ready-check.mjs --handoff answers.json    # the hand-off block (includes the code)
+node scripts/ready-check.mjs --scorecard answers.json   # readable panel-like scorecard
+node scripts/ready-check.mjs --check     answers.json   # verdict JSON, exit 1 if not ready
+node scripts/ready-check.mjs --handoff   answers.json   # the hand-off block (includes the code)
 ```
 
-- **Not ready** — present the missing items as a short, friendly to-do ("2
-  things to add before dev"), each with the plain question and a one-line
-  example. Offer to fill them with the PM now. Never mint a code.
-- **Ready** — show the hand-off block from `--handoff`. The gate code is in it.
+Show the **`--scorecard`** output as-is — it's already the panel: a progress
+bar, the verdict, a **numbered "To fix" list with a concrete prompt per gap**,
+the grouped "Answered / N/A / Waived" items, and (when ready) the gate code. Pass
+`meta.source` (e.g. `JIRA FTC-1421` / `Confluence <id>`) so the card names which
+PRD it is. Then overlay the smart findings from Phase 3 (specific missing edge
+cases / vague answers) as a line or two under the relevant numbered item, so the
+PM sees *what* to fix, not just *that* something's missing.
+
+**The card already invites the fix — just run the loop.** The scorecard ends with
+a numbered gap list and an "↳ e.g. …" reply hint, so the PM can answer by number
+or in free text. When they reply, fold their answers into the `answers` object,
+re-run `--scorecard`, and show the updated card — the progress bar fills and the
+score climbs. Accept free-text ("metric is +6% D1 in 4 weeks"), a numbered list
+("2: …; 4: …"), or `N/A: <item> — <reason>` / `waive <item> — <reason>`. Keep
+looping until it clears. Read like a panel, fix like a chat.
+
+- **Not ready** — show the scorecard + the fix prompt above. Never mint a code.
+- **Ready** — show the scorecard (now ✅), then the hand-off block from
+  `--handoff`. The gate code is in it.
 
 ### Phase 5 — Hand off to dev
 
