@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="ready-check-build" content="70" />
-<meta name="ready-check-version" content="0.26.1" /><!-- keep in sync with .claude-plugin/plugin.json version -->
+<meta name="ready-check-build" content="71" />
+<meta name="ready-check-version" content="0.26.2" /><!-- keep in sync with .claude-plugin/plugin.json version -->
 <title>Ready Check (live) · Cowork</title>
 <style>
   :root{ color-scheme: light;
@@ -373,7 +373,7 @@ const FIGMA_ON = true;
 const FIGMA_PREFIXES = ['mcp__Figma_REST_Ready_Check__', 'mcp__Figma_REST__Ready_Check___', 'mcp__figma-rest__'];
 // Ready Check version — MUST match the Manifest plugin (.claude-plugin/plugin.json).
 // Shown in the header so you can ask a PM which version they're on.
-const RC_VERSION = '0.26.1';
+const RC_VERSION = '0.26.2';
 /* =========================================================================== */
 
 const CRITERIA = [
@@ -629,13 +629,14 @@ function compute(){
     }[status.s]; }
   saveState();
 }
-// Persist answers + PRD across panel reloads, so the score doesn't reset when the
-// panel refreshes (the review itself still has to re-run — a reload can't certify it).
-function saveState(){ try{ const s={}; CRITERIA.forEach(c=>s[c.id]=state[c.id]);
-  localStorage.setItem('rc-session', JSON.stringify({prd:(document.getElementById('prd')||{}).value||'', s})); }catch(e){} }
-function loadState(){ try{ const o=JSON.parse(localStorage.getItem('rc-session')||'null'); if(!o||!o.s)return;
-  const p=document.getElementById('prd'); if(p&&typeof o.prd==='string')p.value=o.prd;
-  CRITERIA.forEach(c=>{ if(o.s[c.id]) state[c.id]=Object.assign({checked:false,detail:'',na:false,waived:false,reason:'',suggestion:'',aiDrafted:false},o.s[c.id]); }); }catch(e){} }
+// The panel deliberately opens on a CLEAN SLATE every time. We used to persist the
+// PRD + answers across reloads, but that leaked a previous PRD's answers into the
+// next one (a stale-data bug PMs hit repeatedly): after a reload the in-memory
+// source fingerprint reset to null, so the new-PRD guard couldn't fire and the old
+// answers stayed put. No cross-reload persistence = no stale data, ever. (Answers
+// still live in memory for the whole working session; only a full reload clears them.)
+function saveState(){ /* no-op: intentionally do not persist PRD/answers across reloads */ }
+function loadState(){ try{ localStorage.removeItem('rc-session'); }catch(e){} }  // purge any legacy saved session
 function focusCrit(id){goStep(2); _flaggedIds.add(id);
   let el=document.getElementById('crit-'+id);
   if(!el){ _answersFilter='all'; render(); el=document.getElementById('crit-'+id); }  // reveal a hidden field
@@ -923,10 +924,16 @@ function _srcSig(t){return djb2(String(t||'').trim().toLowerCase().replace(/\s+/
 function resetAnswers(){ CRITERIA.forEach(c=>state[c.id]={checked:false,detail:'',na:false,waived:false,reason:'',suggestion:'',aiDrafted:false}); lastReview=null; _flaggedIds=new Set(); _designAudit=null; _designAuditNote=''; }
 // Called as the PRD field is edited: the moment the source stops matching the one we
 // reviewed, the prior verdict/review is stale — drop it so no "previous run" leaks through.
-function onPrdInput(){ const cur=_srcSig(stripCustom(document.getElementById('prd').value||''));
+function onPrdInput(){ const raw=document.getElementById('prd').value||''; const cur=_srcSig(stripCustom(raw));
+  // Cleared the box → they're starting over: wipe every prior answer so nothing stale lingers.
+  if(raw.trim()===''){ if(_reviewedSrcSig!==null || CRITERIA.some(c=>state[c.id].detail||state[c.id].na||state[c.id].waived)){
+      resetAnswers(); _reviewedSrcSig=null;
+      const out=document.getElementById('smartOut'); if(out)out.innerHTML='<div class="sc-note">Run <b>Check my PRD</b> for the smart review — or fill the questions below.</div>';
+      render(); } return; }
+  // Different source than the one behind the current answers → the prior verdict is stale.
   if(_reviewedSrcSig!==null && cur!==_reviewedSrcSig && lastReview){ lastReview=null;
     const out=document.getElementById('smartOut'); if(out)out.innerHTML='<div class="sc-note">New PRD detected — click <b>Check my PRD</b> to review this one.</div>'; }
-  saveState(); }
+}
                      // on the CURRENT answers AND come back with zero open blockers.
 let _figmaPrefix=null;  // the namespace that answered (cached after first success)
 let _figmaErr='';       // last failure reason, surfaced so we can see WHY a call failed

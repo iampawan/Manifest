@@ -29,6 +29,19 @@ newer build was never detected.
   means the plugin itself needs updating first.
 - Panel version label + build bumped (build 70) to match.
 
+## [0.26.2] — Fix: panel no longer carries a previous PRD's data across reloads
+
+- **Stale-data fix (the recurring one).** The panel used to persist the PRD +
+  answers to `localStorage` and restore them on every reload. After a reload the
+  in-memory source fingerprint reset to null, so the new-PRD guard couldn't fire
+  and the *previous* PRD's answers leaked into the next one. The panel now opens on
+  a **clean slate** — no cross-reload persistence — and clearing the PRD box wipes
+  all prior answers immediately. (Answers still live in memory for the whole
+  working session; only a full reload starts fresh.)
+- The version chip tooltip now tells a panel-only PM how to pull the latest build
+  ("refreshes the next time you run /ready-check in chat").
+- Panel build bumped to 71; panel version label → 0.26.2.
+
 ## [0.26.0] — Ready Check works for every PRD; N/A is no longer a free pass
 
 Fixes PM feedback that Ready Check felt frontend-only, let PMs skate past items
