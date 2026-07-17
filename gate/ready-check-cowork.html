@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="ready-check-build" content="73" />
-<meta name="ready-check-version" content="0.26.4" /><!-- keep in sync with .claude-plugin/plugin.json version -->
+<meta name="ready-check-build" content="74" />
+<meta name="ready-check-version" content="0.26.5" /><!-- keep in sync with .claude-plugin/plugin.json version -->
 <title>Ready Check (live) · Cowork</title>
 <style>
   :root{ color-scheme: light;
@@ -388,7 +388,7 @@ const FIGMA_ON = true;
 const FIGMA_PREFIXES = ['mcp__Figma_REST_Ready_Check__', 'mcp__Figma_REST__Ready_Check___', 'mcp__figma-rest__'];
 // Ready Check version — MUST match the Manifest plugin (.claude-plugin/plugin.json).
 // Shown in the header so you can ask a PM which version they're on.
-const RC_VERSION = '0.26.4';
+const RC_VERSION = '0.26.5';
 /* =========================================================================== */
 
 const CRITERIA = [
@@ -471,7 +471,7 @@ function render(){
   CRITERIA.forEach(c=>{const s=state[c.id];
     const hasD=s.detail.trim().length>=3;
     const waived=!s.na&&!hasD&&s.waived&&s.reason.trim().length>=3;
-    const ok=naOk(s)||(hasD&&!s.aiDrafted)||waived;  // an unconfirmed AI draft is not "done" yet
+    const ok=naOk(s)||hasD||waived;
     // "Needs attention" = a blank REQUIRED item, an AI-drafted answer to verify, or a flagged one.
     const needs = (c.req && !sat(c)) || (s.aiDrafted && hasD) || _flaggedIds.has(c.id);
     if(_answersFilter==='attention' && !needs){ hidden++; return; }
@@ -491,8 +491,8 @@ function render(){
           <input class="detail" placeholder="${c.eg}" value="${s.detail.replace(/"/g,'&quot;')}"
             oninput="setDetail('${c.id}',this.value)" ${(s.na||s.waived)?'disabled':''}/>
           ${(s.aiDrafted && hasD)?`<div class="sugg">
-            <div class="stext">✨ <b>Suggested from your PRD — doesn’t count yet.</b> Confirm it (or edit the box above) so it counts toward the score.</div>
-            <div class="sact"><button class="susebtn" onclick="ackAi('${c.id}')">✓ Confirm — count it</button></div>
+            <div class="stext">✨ <b>Drafted from your PRD</b> — it counts; just skim it and edit the box above if anything's off.</div>
+            <div class="sact"><button class="susebtn" onclick="ackAi('${c.id}')">✓ Looks right</button></div>
           </div>`:''}
           ${c.na?`<label class="na"><input type="checkbox" ${s.na?'checked':''} onchange="setNa('${c.id}',this.checked)"> ${c.na}</label>
             ${s.na?`<input class="detail reason" placeholder="Why doesn't this apply? Dev will see this (e.g. internal cron job, no API or UI surface)" value="${s.reason.replace(/"/g,'&quot;')}" oninput="setReason('${c.id}',this.value)"/>`:''}`:''}
@@ -583,10 +583,11 @@ async function runVerify(){
   out.innerHTML=rows.map(r=>`<div class="vf-row ${r[0]}"><b>${escapeHtml(r[1])}</b><span>${r[2]}</span></div>`).join('');
 }
 
-// Deterministic score: an AI-drafted suggestion (aiDrafted) does NOT count until the PM
-// confirms it (ackAi / edit → aiDrafted=false). So the score is a pure function of
-// CONFIRMED answers and never drifts when the stochastic review re-runs.
-function sat(c){const s=state[c.id]; return naOk(s)||(s.checked&&s.detail.trim().length>=3&&!s.aiDrafted)||(!s.na&&s.waived&&s.reason.trim().length>=3);}
+// Answers count once present (a drafted answer from the PM's own PRD counts — it's
+// marked ✨ for a quick review, not withheld). Determinism comes from caching the
+// analysis per PRD (see _analysisCache): the same PRD always produces the same fills,
+// so the score never drifts on re-check.
+function sat(c){const s=state[c.id]; return naOk(s)||(s.checked&&s.detail.trim().length>=3)||(!s.na&&s.waived&&s.reason.trim().length>=3);}
 
 function compute(){
   const reqs=CRITERIA.filter(c=>c.req);
@@ -672,7 +673,7 @@ function platforms(){const t=(document.getElementById('prd').value+' '+state.sco
   ['android','ios','web','backend','server'].forEach(x=>{if(t.includes(x))p.push(x);});return p.length?p.join(', '):(state.scope.detail||'not set');}
 function designLink(){if(state.design.na)return '(no interface: '+state.design.reason.trim()+')';return firstUrl(state.design.detail)||(state.design.detail.trim()||'⚠ add link/spec');}
 function normAnswers(){const t=title().trim().toLowerCase().replace(/\s+/g,' ');const lines=['title:'+t];
-  CRITERIA.forEach(c=>{const s=state[c.id]; const hasD=s.detail.trim().length>=3&&!s.aiDrafted;  // unconfirmed AI drafts don't enter the gate code
+  CRITERIA.forEach(c=>{const s=state[c.id]; const hasD=s.detail.trim().length>=3;
     const ok=naOk(s)||hasD||(s.waived&&s.reason.trim().length>=3); if(!ok)return;
     let v; if(c.na&&s.na)v='na';
     else if(!hasD&&s.waived)v='waived:'+s.reason.trim().toLowerCase().replace(/\s+/g,' ');
@@ -939,7 +940,15 @@ let _designVer=null; // Figma file version, captured when FIGMA_MCP is wired
 let lastReview=null; // {sig, blockers[]} — the gate stays LOCKED until a smart review has run
 let _reviewedSrcSig=null; // fingerprint of the PRD source that produced the CURRENT answers — guards against a new PRD showing a previous run's results
 let _ident=null;          // {title, src, at, hash} captured when a PRD is checked — powers the self-documenting identity banner
+let _reusedAnalysis=false; // true when the last check reused a cached analysis for the same PRD (→ identical result)
 function _srcSig(t){return djb2(String(t||'').trim().toLowerCase().replace(/\s+/g,' '));}
+// Per-PRD analysis cache — keyed by the exact PRD content hash, so re-checking the SAME
+// PRD reuses the SAME fills/findings (deterministic score), while a different PRD (different
+// hash) never reuses it (no cross-PRD leak). Capped, oldest-evicted.
+function _analysisGet(h){ try{ const m=JSON.parse(localStorage.getItem('rc-analysis')||'{}'); return m[h]||null; }catch(e){ return null; } }
+function _analysisSet(h,d){ try{ const m=JSON.parse(localStorage.getItem('rc-analysis')||'{}'); m[h]={fills:d.fills||{},findings:d.findings||[],at:Date.now()};
+  const ks=Object.keys(m); if(ks.length>12){ ks.sort((a,b)=>(m[a].at||0)-(m[b].at||0)); delete m[ks[0]]; }
+  localStorage.setItem('rc-analysis',JSON.stringify(m)); }catch(e){} }
 // A human label for where this PRD came from, so a screenshot says WHICH PRD it was.
 function _sourceLabel(){
   if(_srcJira && _srcJira.key) return 'JIRA '+_srcJira.key+((_srcRef&&_srcRef.version)?' · v'+_srcRef.version:'');
@@ -1186,6 +1195,17 @@ async function smartCheck(){
       flash('Add your PRD, or fill the questions.'); return;
     }
     goStep(2);   // move to the review step
+    const clean=stripCustom(prdRaw);
+    const _curHash=_prdHashA(prdRaw);
+    const CHUNK=11000, MAXCHUNKS=16;
+    let mergedFills={}, mergedFindings=[], reviewed=false, prdTruncated=false, failedParts=0, parts=[];
+    const _cacheHit=_analysisGet(_curHash);
+    if(_cacheHit){
+      // Instant, deterministic re-check — reuse the stored analysis for this exact PRD (no bridge call,
+      // works even when the bridge is flaky). A different PRD (different hash) never reuses it.
+      mergedFills=_cacheHit.fills||{}; mergedFindings=_cacheHit.findings||[]; reviewed=true; _reusedAnalysis=true;
+    } else {
+    _reusedAnalysis=false;
     btn.textContent='Reviewing…'; startLoading(out); loadMsg('Checking the review connection…');
     // Liveness probe — if the AI bridge is hung, fail in ~25s with the real fix, not a 3-min spinner.
     let bridgeOk=false;
@@ -1195,16 +1215,13 @@ async function smartCheck(){
       out.innerHTML='<div class="vf-row warn"><b>Smart review unavailable right now</b><span>Cowork’s in-panel AI bridge didn’t respond. It’s optional — fill/confirm the basics below and you can still hand off. For the AI review + design audit, run <code>/ready-check &lt;your PRD link&gt;</code> in a Cowork chat (Claude does it there without this panel’s bridge). Or fully close and reopen the panel to reconnect.</span><button class="btn primary" style="margin-top:9px;align-self:flex-start" onclick="smartCheck()">↻ Retry</button></div>';
       return; }
     { const ab=document.getElementById('answersBlock'); if(ab)ab.style.display='none'; }  // hide the field list while reviewing
-    const clean=stripCustom(prdRaw);
     const answers=currentAnswers();
     const ids=CRITERIA.map(c=>c.id).join(',');
     // Read the WHOLE PRD regardless of length: split into chunks small enough for the
     // askClaude bridge, review each, and merge. (One 40k call errors the bridge.)
-    const CHUNK=11000, MAXCHUNKS=16;
-    let parts = clean.length<=CHUNK ? [clean||''] : chunkText(clean, CHUNK);
-    const prdTruncated = parts.length>MAXCHUNKS; if(prdTruncated) parts=parts.slice(0,MAXCHUNKS);
+    parts = clean.length<=CHUNK ? [clean||''] : chunkText(clean, CHUNK);
+    prdTruncated = parts.length>MAXCHUNKS; if(prdTruncated) parts=parts.slice(0,MAXCHUNKS);
     const guide=`Content may live in TABLES, lists, or behind a LINK to another page. Treat an item as COVERED if this part specifies it OR references it via a link/another doc (then fill with "documented at <link> — confirm complete"). Read tables and links, not just prose.\n`;
-    const mergedFills={}; let mergedFindings=[]; let reviewed=false;
     if(parts.length>1) loadMsg(`Reviewing ${parts.length} sections…`);
     const buildPrompt=(part,ci)=>`A PM is running a Ready Check. Return ONE JSON object only, no markdown, no commentary.\n\n`
       +(parts.length>1?`This is PART ${ci+1} of ${parts.length} of a long PRD — extract what THIS part covers.\n`:``)
@@ -1225,13 +1242,15 @@ async function smartCheck(){
       const f=parsed.fills; if(f && typeof f==='object'){ for(const id of Object.keys(f)){ const v=f[id];
         if(!mergedFills[id] && typeof v==='string' && v.trim() && v.trim().toLowerCase()!=='null') mergedFills[id]=v.trim(); } }
       const fnd=Array.isArray(parsed.findings)?parsed.findings:(Array.isArray(parsed)?parsed:[]); mergedFindings=mergedFindings.concat(fnd); } });
+    failedParts=results.filter(r=>!r).length;
+    // Cache a COMPLETE analysis (first good run wins) so a later re-check is instant + identical.
+    if(reviewed && !failedParts) _analysisSet(_curHash,{fills:mergedFills,findings:mergedFindings});
     stopLoading();
-    // Merged fills → SUGGESTIONS that DON'T count until the PM confirms them (aiDrafted).
-    // This is what makes the score deterministic: the stochastic review only proposes text;
-    // the count comes solely from confirmed answers, so re-checking never moves the number.
+    }  // end fresh-analysis branch
+    // Fills → answers, drafted into BLANK fields only (never overwrites the PM's own text),
+    // marked aiDrafted so each shows a quick "✨ review" prompt. They COUNT (it's the PM's own
+    // PRD); the score is kept stable across re-checks by the per-PRD analysis cache above.
     let llmSugg=0;
-    // Draft into BLANK fields only, marked aiDrafted (shown for a one-click verify) — never
-    // overwrites, and never counts toward the score/gate until the PM keeps it.
     CRITERIA.forEach(c=>{const v=mergedFills[c.id]; const s=state[c.id];
       if(typeof v==='string' && v.trim() && !(s.detail.trim().length>=3) && !s.na && !s.waived){ s.detail=v.trim(); s.checked=true; s.aiDrafted=true; llmSugg++; }});
     // Deterministic backstop: catch an explicit analytics-events section the LLM
@@ -1239,7 +1258,6 @@ async function smartCheck(){
     // 'events' if it's still blank and the PRD clearly has an events section.
     { const es=state.events; if(es && !es.na && !es.waived && !(es.detail.trim().length>=3)){
         const ev=detectEvents(clean); if(ev){ es.detail=ev; es.checked=true; es.aiDrafted=true; llmSugg++; } } }
-    const failedParts=results.filter(r=>!r).length;
     render();
     const parsed=reviewed?{}:null;   // marker: did any part return a usable review?
     let auditFindings=[]; _designAudit=null; _designAuditNote='';
@@ -1268,8 +1286,9 @@ async function smartCheck(){
     let html='';
     if(prdTruncated) html+=`<div class="vf-row warn"><b>Extremely long PRD — reviewed the first ~${Math.round(MAXCHUNKS*CHUNK/1000)}k characters</b><span>That's ${MAXCHUNKS} sections. Confirm anything past that in the fields below.</span></div>`;
     if(failedParts>0 && parts.length>1) html+=`<div class="vf-row warn"><b>${failedParts} of ${parts.length} sections couldn't be reviewed</b><span>The review timed out on part of a long PRD. Fields from those sections may show blank — confirm them below (especially events, edge cases, and anything near the end).</span></div>`;
-    if(llmSugg) html+=`<div class="sc-fill">✨ <b>Drafted ${llmSugg} suggestion${llmSugg>1?'s':''} from your PRD</b> — paraphrases of what your PRD already says (not invented). These are <b>suggestions and do not count yet</b> — confirm them so the score reflects what you've verified (that's what keeps the score stable). Review each ✨ field and edit anything that's off, then:
-      <div style="margin-top:8px"><button class="susebtn" onclick="ackAllAi()">✓ Confirm all — count these</button></div></div>`;
+    if(_reusedAnalysis) html+=`<div class="sc-note">↺ <b>Same PRD as your last check — same result.</b> The analysis is cached per PRD, so re-checking won't change the score. Edit the PRD text to re-analyze.</div>`;
+    if(llmSugg) html+=`<div class="sc-fill">✨ <b>Filled ${llmSugg} answer${llmSugg>1?'s':''} from your PRD</b> — paraphrases of what your PRD already says (not invented). They <b>count</b>; each is marked ✨ below — skim and edit anything that's off, or:
+      <div style="margin-top:8px"><button class="susebtn" onclick="ackAllAi()">✓ Looks right on all</button></div></div>`;
     if(_designAudit){ const a=_designAudit; const P=a.platforms||{};
       const plats=[P.mobile?'mobile':'',P.tablet?'tablet':'',P.desktop?'web':''].filter(Boolean).join(' + ')||'—';
       const st=a.states||{}; const has=[st.empty?'empty':'',st.loading?'loading':'',st.error?'error':'',st.success?'success':''].filter(Boolean).join('/')||'none';

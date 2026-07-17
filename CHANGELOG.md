@@ -29,6 +29,25 @@ newer build was never detected.
   means the plugin itself needs updating first.
 - Panel version label + build bumped (build 70) to match.
 
+## [0.26.5] — Simpler + stable: drafts count, and the analysis is cached per PRD
+
+Replaces 0.26.4's "confirm every field before it counts" model, which was
+deterministic but confusing (a fully-analyzed PRD showed **0/11** until the PM
+clicked through every field).
+
+- **Drafts count again** — answers the review pulls from your PRD count toward the
+  score immediately (each still marked ✨ to skim/edit), so you see a real score
+  right after a check, not 0/11.
+- **Determinism comes from a per-PRD cache instead.** The analysis is cached by the
+  PRD's content hash, so re-checking the *same* PRD returns the *same* result every
+  time — the score can't drift 10 → 8 → 6. Edit the PRD text to force a re-analysis.
+- **Instant, bridge-proof re-checks** — a cached PRD re-checks with no LLM call, so
+  re-checking works even when the in-panel AI bridge is flaky. Only *complete*
+  analyses are cached (a timed-out partial run isn't), so a flaky first pass can be
+  retried rather than frozen.
+- Quality is preserved by the edge-case findings + editable ✨ fields, not by a
+  gate that shows 0/11. Panel build → 74.
+
 ## [0.26.4] — Deterministic score: AI suggestions no longer count until confirmed
 
 Fixes a critical bug where re-checking the *same* PRD returned different scores

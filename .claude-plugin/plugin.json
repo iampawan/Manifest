@@ -1,6 +1,6 @@
 {
   "name": "manifest",
-  "version": "0.26.4",
+  "version": "0.26.5",
   "description": "PRD-to-production pipeline with quality gates. Author contracts, run critics, implement via agent, verify deploys, and produce post-launch reports \u2014 all from markdown in your repo.",
   "author": {
     "name": "Pawan"

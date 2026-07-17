@@ -106,11 +106,12 @@ to the current build whenever the PM uses Ready Check. It's cheap: one
      same connector.)
 4. **Tell the user** the panel is in their Cowork sidebar (created / refreshed /
    already current) and persists across sessions. Worth surfacing what it does:
-   - **Deterministic gate** — the hand-off/gate code unlocks when every basic is
-     confirmed. The smart review (suggestions + gap findings) is a helper, not a
-     gate: findings are advice, and a slow review bridge can't lock the PM out.
-     (Presence of text is not readiness — only confirmed answers count; no keyword
-     auto-fill.)
+   - **Deterministic score & gate** — checking a PRD drafts answers from the PRD
+     (each marked ✨ to review) and scores them; the result is **cached per PRD**
+     (by content hash), so re-checking the *same* PRD always returns the *same*
+     score — no drift. Edit the PRD to re-analyze. The gap findings are a helper
+     (advice); a slow review bridge can't lock the PM out, and a cached PRD
+     re-checks instantly with no bridge call.
    - **Playbook** (header) — good-vs-weak examples for all 13 fields, plus an
      inline "see example" on each field.
    - **Verify** (header) — dev pastes a hand-off → authentic / tampered /
