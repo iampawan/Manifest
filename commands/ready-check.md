@@ -41,6 +41,25 @@ path, and N/A only clears with a stated reason.
   Paste it into the ticket or the dev thread. Dev grooms only PRDs with a valid
   code.
 
+## Verifying a hand-off (no panel needed)
+
+```
+/ready-check verify <ticket-or-page-link>   # best — nothing to paste
+/ready-check verify                          # then paste the whole block
+```
+
+**Give it the link** and it fetches the ticket/page and finds the hand-off inside
+it — no copying. Pasting works too, but paste the **whole** block including every
+`• [id] …` line: the gate code is a *hash of the answers*, so the code on its own
+can't be checked against anything (you'll get `UNVERIFIABLE`).
+
+You get `VALID` / `STALE` / `INVALID`, or `UNVERIFIABLE` if the block wasn't
+produced by the tool (a hand-written block proves nothing). If it carries a freeze
+stamp, the PRD and design are re-fetched to confirm nothing changed since sign-off.
+
+Also works from a terminal — and accepts a whole ticket dump, not just the block:
+`node scripts/ready-check.mjs --verify <ticket-or-block>.txt`
+
 ## For devs — nothing extra to run
 
 When you `/contract pickup <ticket>`, pickup reads the `Ready-Check:` code from

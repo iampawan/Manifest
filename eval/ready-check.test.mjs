@@ -17,6 +17,9 @@ import {
   verifyGateCode,
   renderHandoff,
   renderScorecard,
+  renderAddendum,
+  stripAddendum,
+  extractHandoff,
   parseHandoff,
   cacheChecks,
   renderPrd,
@@ -249,6 +252,50 @@ test("renderScorecard reads like a panel: progress bar, gaps-first, grouped stat
   assert.match(nc, /🔧  To fix \(10\)/);
   assert.match(nc, /\*\*Success metric\*\* — a number \+ window/); // concrete prompt, numbered
   assert.doesNotMatch(nc, /gate code/);                        // no code when not ready
+});
+
+test("extractHandoff finds the block inside a whole ticket dump", () => {
+  const block = renderHandoff(ready, { date: "21 Jul 2026" });
+  const ticket = [
+    "h2. Contest Detail Page Redesign", "", "Please groom this next sprint.", "cc @dev-team", "",
+    block, "", "---", "Notes from standup: check the CMS keys.",
+  ].join("\n");
+  const found = extractHandoff(ticket);
+  assert.match(found, /^✅ READY CHECK PASSED/);
+  assert.doesNotMatch(found, /standup/);                       // trailing noise excluded
+  const p = parseHandoff(found);
+  assert.equal(verifyGateCode(p.code, { title: p.title, items: p.items }), "valid");
+  assert.equal(extractHandoff("no hand-off in here at all"), "");
+});
+
+test("appending the addendum does not count as PRD drift", () => {
+  // Writing the PM's answers back into the PRD must not trip STALE-SOURCE — but a
+  // genuine edit to the PRD body still must.
+  const body = "## 1. Context\nWriters miss the guides.\n\n## 2. Metrics\nTrope adherence 14% -> >50%.\n";
+  const a = structuredClone(ready);
+  a.items.events = { detail: "card_saved, saved_card_used", addedInReview: true };
+  const withAddendum = body + "\n" + renderAddendum(a, { date: "21 Jul 2026" });
+  const twice = withAddendum + "\n" + renderAddendum(a, { date: "22 Jul 2026" });
+
+  assert.equal(prdHash(stripAddendum(body)), prdHash(stripAddendum(withAddendum)));  // no false drift
+  assert.equal(prdHash(stripAddendum(body)), prdHash(stripAddendum(twice)));         // idempotent
+  const edited = withAddendum.replace("Trope adherence 14% -> >50%.", "Trope adherence: hopefully better.");
+  assert.notEqual(prdHash(stripAddendum(body)), prdHash(stripAddendum(edited)));     // real edit caught
+});
+
+test("renderAddendum returns only what the PM added during review", () => {
+  const a = structuredClone(ready);
+  a.items.events = { detail: "card_saved, saved_card_used, tokenize_failed", addedInReview: true };
+  const add = renderAddendum(a, { date: "21 Jul 2026", by: "Srishti" });
+  assert.match(add, /## Ready Check addendum — 21 Jul 2026/);
+  assert.match(add, /by Srishti/);
+  assert.match(add, /Gate code: RC-SAV-/);
+  assert.match(add, /\*\*Instrumentation \/ telemetry\*\* — card_saved/);
+  assert.doesNotMatch(add, /Problem & goal/);      // untouched items are NOT re-published
+
+  // nothing flagged → falls back to the full satisfied set (still useful to append)
+  const all = renderAddendum(ready, {});
+  assert.match(all, /Problem & goal/);
 });
 
 test("renderPrd produces an 11-section PRD with the gate code", () => {

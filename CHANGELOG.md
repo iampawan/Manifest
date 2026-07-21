@@ -29,6 +29,44 @@ newer build was never detected.
   means the plugin itself needs updating first.
 - Panel version label + build bumped (build 70) to match.
 
+## [0.40.0] — The PRD stays complete, and anyone can verify a hand-off
+
+0.30.x made hand-offs tamper-evident. This release closes the two gaps that were
+left: answers a PM gave in chat never made it back into the PRD, and verifying a
+hand-off was awkward enough that people wouldn't bother.
+
+### The PRD no longer goes stale behind the hand-off
+
+- **Answers given in chat are written back into the PRD.** When a PM unblocks a gap
+  by replying ("here are the analytics events"), that answer used to live only in
+  the conversation and the hand-off — the Confluence/JIRA doc stayed incomplete, so
+  a dev reading the PRD never saw it. `--addendum <answers.json> [by]` renders just
+  the newly-supplied items (flagged `addedInReview`), stamped with the gate code, to
+  **append** to the source page/ticket. Never overwrites — the PRD is the PM's
+  document — and the skill asks first.
+- **Write-back can't cause a false alarm.** Appending changes the document's bytes,
+  which would otherwise trip `STALE-SOURCE`. Two defences: the skill writes back
+  **before** minting the hand-off and re-fetches the version, and `--hash` now
+  strips any Ready Check addendum (`stripAddendum`) so appending — even twice —
+  leaves the content hash byte-identical, while a genuine edit to the PRD body still
+  trips `STALE-SOURCE`. (The gate code was never at risk: it hashes the answers, not
+  the document.)
+
+### Verifying a hand-off is now trivial
+
+- **Verify from the link — nothing to paste.** `--verify` accepts a whole ticket or
+  page dump and locates the hand-off block inside it (`extractHandoff`), so a dev
+  can point at the ticket instead of hand-copying and risking a clipped block.
+- **A gate code alone now explains itself.** Pasting only `RC-XXX-######` used to
+  return a confusing `NOT-READY`; it now reports `UNVERIFIABLE` with the reason —
+  the code is a *hash of the answers*, so without the `• [id] …` list there is
+  nothing to check it against.
+- **Three routes, none needing the panel:** paste in chat (`/ready-check verify`),
+  `/contract pickup` (automatic), or `ready-check.mjs --verify` in a terminal.
+
+37 engine tests (was 34), including regressions pinning "append ≠ drift, real edit =
+drift" and block-extraction from a noisy ticket.
+
 ## [0.30.2] — Verifiable hand-offs: catch hand-written blocks, Confluence tiny links, real freeze pins
 
 A real hand-off turned up in the wild with no `PRD-Hash`, a `Source:` line missing

@@ -285,6 +285,43 @@ export function renderScorecard(answers = {}, meta = {}) {
   return out.join("\n").trim();
 }
 
+// Our OWN appended addendum must never count as PRD drift. Writing the PM's answers
+// back into the doc changes its bytes, so a naive content hash would trip
+// STALE-SOURCE at pickup — a false alarm caused by us. Strip the addendum (and any
+// repeats of it) before hashing, so only genuine edits to the PRD move the hash.
+export function stripAddendum(text = "") {
+  return String(text).replace(/\n*#{1,6}\s*Ready Check addendum[\s\S]*$/i, "").trimEnd();
+}
+
+// ─── Addendum — the answers the PM gave in chat, written back INTO the PRD ─
+// The gap this closes: a PM unblocks a check by answering in chat ("here are the
+// events"), the hand-off carries it, but the actual PRD doc still doesn't — so a
+// dev reading the Confluence/JIRA page never sees it. This renders just those
+// answers as an appendable block, so the PRD becomes self-contained.
+// Mark items the PM supplied during the review with `"addedInReview": true`.
+export function renderAddendum(answers = {}, meta = {}) {
+  const items = answers.items || {};
+  const flagged = RUBRIC.filter((r) => items[r.id] && items[r.id].addedInReview === true && isSatisfied(r, items[r.id]));
+  const list = flagged.length ? flagged : RUBRIC.filter((r) => r.req && isSatisfied(r, items[r.id]));
+  const code = gateCode(answers);
+  const out = [];
+  out.push(`## Ready Check addendum${meta.date ? ` — ${meta.date}` : ""}`);
+  out.push("");
+  out.push(`_Added during Ready Check${meta.by ? ` by ${meta.by}` : ""} so this PRD is self-contained for engineering.` +
+    `${code ? ` Gate code: ${code}.` : ""}_`);
+  out.push("");
+  for (const r of list) {
+    const a = items[r.id];
+    let val;
+    if (isReasonedSkip(r, a)) val = `N/A — ${a.reason.trim()}`;
+    else if (isWaived(r, a)) val = `Waived (dev to accept) — ${a.reason.trim()}`;
+    else val = a.detail.trim();
+    out.push(`**${r.short || r.name}** — ${val}`);
+    out.push("");
+  }
+  return out.join("\n").trim() + "\n";
+}
+
 // ─── PRD generation — compose a clean 11-section PRD from the answers ─
 // The "right format" a PM can publish straight to JIRA. Deterministic, so
 // the panel (JS port) and Claude Code (this CLI) produce the same document.
@@ -332,6 +369,29 @@ export function renderPrd(answers = {}, meta = {}) {
     out.push("");
   }
   return out.join("\n").trim() + "\n";
+}
+
+// Pull the hand-off block out of a bigger document — a whole JIRA description, a
+// Confluence page body, a Slack message. Means a dev can verify by pointing at the
+// TICKET instead of hand-copying the block (and can't accidentally clip the
+// `• [id]` lines, which would make it unverifiable).
+export function extractHandoff(text = "") {
+  const lines = String(text).split("\n");
+  let start = lines.findIndex((l) => /READY CHECK PASSED|⛔\s*NOT READY/i.test(l));
+  if (start < 0) start = lines.findIndex((l) => /^Ready-Check:\s*RC-/i.test(l.trim()));
+  if (start < 0) return "";
+  let end = -1;
+  for (let i = start; i < lines.length; i++) {
+    if (/^Grooming can start/i.test(lines[i].trim())) {
+      end = /^Check by hand/i.test((lines[i + 1] || "").trim()) ? i + 1 : i;
+      break;
+    }
+  }
+  if (end < 0) {                       // no footer — fall back to the last item bullet / waiver line
+    for (let i = start; i < lines.length; i++) if (/^[•*-]\s*\[\w+\]/.test(lines[i].trim())) end = i;
+    if (end < 0) end = lines.length - 1;
+  }
+  return lines.slice(start, end + 1).join("\n").trim();
 }
 
 // Parse a rendered hand-off back into { title, items, code } so a pasted
@@ -504,6 +564,7 @@ function main() {
       "  --cache-check <answers.json> <code-context.json>\n" +
       "  --ledger <events.json> [slaHrs] [startedAt]   PM/dev ball ledger + SLA-paused-on-PM\n" +
       "  --rollup <children.json>        epic rollup — states, critical path, feature-landed\n" +
+      "  --addendum <answers.json> [by]  answers added in review, to append to the PRD\n" +
       "  --hash <file>                   content hash (use as source.version when none exists)\n" +
       "  --rubric                        print the Definition of Ready");
     return;
@@ -522,12 +583,16 @@ function main() {
       const c = gateCode(loadJson(a1));
       if (!c) { console.error("NOT READY: no code minted."); process.exit(1); }
       console.log(c);
+    } else if (mode === "--addendum") {
+      console.log(renderAddendum(loadJson(a1), { date: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }), by: a2 || "" }));
     } else if (mode === "--hash") {
       // Content hash of any file — use it as source.version for sources that expose no
       // stable version number (Confluence via MCP returns only a RELATIVE "lastModified"
       // like "yesterday at 5:35 AM", which is useless as a pin). Hash the fetched body
       // instead: re-fetch + re-hash at pickup detects any edit.
-      console.log(prdHash(readFileSync(a1, "utf8")));
+      // Strips any Ready Check addendum first, so appending the PM's answers back into
+      // the PRD does NOT change this hash — only real edits to the PRD do.
+      console.log(prdHash(stripAddendum(readFileSync(a1, "utf8"))));
     } else if (mode === "--scorecard") {
       console.log(renderScorecard(loadJson(a1)));
     } else if (mode === "--handoff") {
@@ -547,18 +612,23 @@ function main() {
       console.log(renderPrd(loadJson(a1), { date: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) }));
     } else if (mode === "--verify") {
       let answers, code;
-      const raw = readFileSync(a1, "utf8");
+      let raw = readFileSync(a1, "utf8");
       if (a1.endsWith(".json")) { answers = JSON.parse(raw); code = answers.code || (answers.gateCode); }
       else {
-        const p = parseHandoff(raw); answers = { title: p.title, items: p.items }; code = p.code;
+        // Accept a whole ticket/page dump — pull the hand-off block out of it first,
+        // so a dev can verify straight from the source instead of hand-copying.
+        const block = extractHandoff(raw) || raw;
+        const p = parseHandoff(block); answers = { title: p.title, items: p.items }; code = p.code;
+        raw = block;
         // A genuine hand-off carries the per-item "• [id] … | …" list — that's the content the
         // code is a hash OF. Without it there is nothing to recompute against, which means the
         // block was hand-written rather than emitted by `--handoff`. Say so plainly instead of
         // reporting a misleading NOT-READY.
         const bullets = (raw.match(/^[•*-]\s*\[\w+\]/gm) || []).length;
-        if (/READY CHECK PASSED/i.test(raw) && bullets < 3) {
-          console.error("UNVERIFIABLE — this block has no answered-items list, so its code can't be");
-          console.error("checked against any content. It was not produced by `--handoff`.");
+        if (code && bullets < 3) {
+          console.error("UNVERIFIABLE — a gate code on its own proves nothing: the code is a HASH of the");
+          console.error("answers, so without the `• [id] … | …` list there is nothing to check it against.");
+          console.error("Paste the WHOLE hand-off block (or point this at the ticket/page that contains it).");
           if (!p.source) console.error("Also missing a parseable freeze stamp (need `Source: <type> <id> v<version>`).");
           if (!p.prdHash) console.error("Also missing `PRD-Hash:` — the content-drift check would be skipped.");
           console.error("Ask the PM to re-run Ready Check and paste the tool-generated block.");

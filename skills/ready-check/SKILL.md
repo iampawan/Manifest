@@ -448,6 +448,35 @@ looping until it clears. Read like a panel, fix like a chat.
 - **Ready** — show the scorecard (now ✅), then the hand-off block from
   `--handoff`. The gate code is in it.
 
+### Phase 4b — Write the PM's new answers back INTO the PRD (don't strand them)
+
+When a PM unblocks a gap by answering in chat ("here are the analytics events"),
+that answer exists only in the conversation and the hand-off block. **The PRD
+document itself is still missing it** — so a dev who opens the Confluence page or
+JIRA ticket never sees it. Always close that loop.
+
+1. **Track what was added.** Mark every item the PM supplied during the review with
+   `"addedInReview": true` in the `answers` object.
+2. **Render just those answers:**
+   `node scripts/ready-check.mjs --addendum answers.json "<PM name>"` — a short
+   markdown block of only the newly-supplied items, stamped with the gate code.
+3. **Append it to the source — never replace.** Show the PM the block and get an
+   explicit yes first. The PRD is their document, often rich with tables and images:
+   - **Confluence** → `updateConfluencePage`, appending the block to the end of the
+     existing body (fetch the current body first and concatenate). Never overwrite.
+   - **JIRA** → append to `fields.description` via `editJiraIssue`, or, if they'd
+     rather not touch the description, `addCommentToJiraIssue`.
+   - If the PM declines, say plainly that the answers will live only in the hand-off
+     and the PRD will stay incomplete for whoever reads it next.
+
+> **⚠ Order matters — write back BEFORE you mint the hand-off.** Editing the source
+> bumps its version/content, so if you stamp the freeze first and edit after, pickup
+> re-fetches, sees a different version, and reports `STALE-SOURCE` — a false alarm
+> caused by our own edit. Correct sequence: gather answers → append the addendum →
+> **re-fetch the source version/hash** → then `--handoff answers.json freeze.json`
+> with the *post-edit* version. Then the PRD, the hand-off, and the freeze pin all
+> agree.
+
 ### Phase 5 — Hand off to dev
 
 > **🚨 NEVER hand-write the hand-off block.** It MUST be the verbatim stdout of
@@ -514,6 +543,46 @@ So the only person who ever thinks about the code is the PM (they paste the
 hand-off once). Dev just picks up as usual and the gate enforces itself. The
 manual `ready-check.mjs --verify <handoff>` exists as a fallback for anyone who
 wants to check by hand, but the normal flow needs no command.
+
+## Verifying a hand-off — three ways, none of them need the panel
+
+A dev should never have to open the Cowork panel to check a gate code. When someone
+says "verify this hand-off" / `/ready-check verify` / pastes a block starting
+`✅ READY CHECK PASSED`, do this:
+
+**Prefer the link — the dev shouldn't hand-copy anything.** If they give a ticket
+or page URL (or you already know it), fetch the source and save the **whole
+description / page body** to a temp file; `--verify` locates the hand-off block
+inside it automatically (`extractHandoff`). That's the best route: nothing to
+paste, and no risk of clipping the `• [id]` lines. Pasting the block is the
+fallback for when it lives somewhere unfetchable, like a Slack DM.
+
+1. **Save the source verbatim** to a temp file — the fetched ticket/page body, or
+   the pasted block including every `• [id] … | …` line. That list is the content
+   the code hashes; dropping it makes the block unverifiable.
+   **A gate code alone can never be verified** — if someone offers only
+   `RC-XXX-######`, say so plainly and ask for the block or the ticket link.
+2. **Run** `node scripts/ready-check.mjs --verify <block>.txt` and report plainly:
+   - `VALID` → the answers are exactly what was signed off. Proceed.
+   - `STALE` → the block was edited after the code was minted (or the PRD was
+     re-checked). Say *what* looks changed if you can, and ask for a fresh check.
+   - `INVALID` → not a real gate code.
+   - `UNVERIFIABLE` (exit 2) → the block has no item list, i.e. it was hand-written
+     rather than produced by `--handoff`. Treat it as **no gate at all** and ask the
+     PM to re-run Ready Check.
+3. **Then check for drift**, if the block carries a freeze stamp and the source is
+   reachable: re-fetch the PRD, `--hash` the body (the addendum is stripped
+   automatically, so a written-back answer never counts as drift), re-read the Figma
+   version if present, and run `--verify-freeze <block>.txt current.json` →
+   `VALID` / `STALE-SOURCE` / `STALE-DESIGN` / `STALE-CONTENT`.
+
+The three routes, in order of convenience:
+
+| Route | Who | Needs |
+|---|---|---|
+| Paste the block in chat → "verify this" | anyone | nothing — this skill |
+| `/contract pickup <ticket>` | dev | runs steps 2–3 automatically |
+| `ready-check.mjs --verify <block>.txt` | dev in a terminal | the repo + Node |
 
 ## Freeze check (v0.22) — did the PRD or design change after sign-off?
 
