@@ -482,7 +482,7 @@ function designLink(){if(state.design.na)return '(no interface: '+state.design.r
 function normAnswers(){const t=title().trim().toLowerCase().replace(/\s+/g,' ');const lines=['title:'+t];
   CRITERIA.forEach(c=>{const s=state[c.id]; const hasD=s.detail.trim().length>=3;
     const ok=naOk(s)||hasD||(s.waived&&s.reason.trim().length>=3); if(!ok)return;
-    let v; if(c.na&&s.na)v='na';
+    let v; if(c.na&&s.na)v='na:'+String(s.reason||'').trim().toLowerCase().replace(/\s+/g,' ');  // N/A hashes WITH its reason
     else if(!hasD&&s.waived)v='waived:'+s.reason.trim().toLowerCase().replace(/\s+/g,' ');
     else if(c.id==='design')v=firstUrl(s.detail)||'present';
     else v=s.detail.trim().toLowerCase().replace(/\s+/g,' '); lines.push(c.id+':'+v);});
@@ -505,7 +505,7 @@ function handText(){
     const val=s.na?('N/A — '+s.reason.trim()):s.detail.trim(); t+=`• [${c.id}] ${c.name} | ${val}\n`;});
   if(waivers.length){t+=`\nWaivers (dev to accept or push back):\n`;
     waivers.forEach(c=>{t+=`• [${c.id}] ${c.name} | reason: ${state[c.id].reason.trim()}\n`;});}
-  t+=`\nGrooming can start. (Dev: verify this code before pickup.)`;
+  t+=`\nGrooming can start. Dev: `+"`"+`/contract pickup <ticket>`+"`"+` verifies this automatically.`;
   return t;
 }
 function copyHand(){

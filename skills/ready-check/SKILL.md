@@ -270,6 +270,18 @@ such a link:
      key by scanning the URL for the first `[A-Z][A-Z0-9]+-\d+` (covers
      `selectedIssue=`, `/issues/<KEY>`, `browse/<KEY>`), then `getJiraIssue`. See
      `reference/JIRA-SYNC.md`.
+   - **Confluence TINY links work too** — the `…/wiki/x/<id>` form PMs actually copy
+     from the Share button (e.g. `…/wiki/x/Z4IElg`) has **no numeric page id**. Don't
+     reject it: `getConfluencePage` accepts the tiny-link id as `pageId` directly.
+     Take `/pages/(\d+)` if present, else `/wiki/x/([A-Za-z0-9_-]+)`, and pass
+     whichever you got.
+   - **Confluence exposes no stable version number** via this MCP — only a *relative*
+     `lastModified` ("yesterday at 5:35 AM"), which is useless as a freeze pin
+     because its meaning changes with time. For `source.version` on a Confluence
+     PRD, use a **content hash of the fetched body** instead:
+     `node scripts/ready-check.mjs --hash <body.txt>`. At pickup, re-fetch and
+     re-hash — any edit to the page changes the hash and trips `STALE-SOURCE`.
+     (JIRA is fine: use the issue's `updated` timestamp.)
 3. **Never say "X isn't connected" without having run ToolSearch for it.** That
    was the failure mode — reporting a connector absent when it was only deferred.
 
@@ -397,8 +409,24 @@ reply to fix. Write the `answers` to a temp JSON and run the engine:
 ```
 node scripts/ready-check.mjs --scorecard answers.json   # readable panel-like scorecard
 node scripts/ready-check.mjs --check     answers.json   # verdict JSON, exit 1 if not ready
-node scripts/ready-check.mjs --handoff   answers.json   # the hand-off block (includes the code)
+node scripts/ready-check.mjs --handoff   answers.json freeze.json   # hand-off + freeze stamp
 ```
+
+**Always pass `freeze.json` when the PRD came from a fetched source.** Write the
+version you fetched in Phase 1:
+
+```json
+{ "freeze": true,
+  "source": { "type": "jira", "id": "ENG-1234", "version": "<JIRA updated ts>" },
+  "design": { "version": "<figma file version, if any>" } }
+```
+
+(Confluence: `"type":"confluence"`, `id` = page id, `version` = `version.number`.)
+This stamps `Source: … v<version>` and `PRD-Hash: H…` into the hand-off, which is
+what lets `/contract pickup` detect the PRD **document** being edited after
+sign-off — not just the hand-off text. Without it, that drift check is silently
+skipped. Omit `freeze.json` only when the PRD was pasted as raw text (no source
+version to pin).
 
 Show the **`--scorecard`** output as-is — it's already the panel: a progress
 bar, the verdict, a **numbered "To fix" list with a concrete prompt per gap**,
@@ -421,6 +449,23 @@ looping until it clears. Read like a panel, fix like a chat.
   `--handoff`. The gate code is in it.
 
 ### Phase 5 — Hand off to dev
+
+> **🚨 NEVER hand-write the hand-off block.** It MUST be the verbatim stdout of
+> `node scripts/ready-check.mjs --handoff answers.json freeze.json`. Do not retype
+> it, reformat it, summarise it, drop the `• [id] … | …` item list, or reword the
+> footer. That item list *is* the content the gate code hashes — without it the
+> block is **unverifiable**: `--verify` can only recover a couple of items, so the
+> code can't be checked against anything and pickup reports `NOT-READY`. A
+> hand-written block looks official and proves nothing, which is worse than no
+> gate at all. Same rule for `Source:` — it must read `<type> <id> v<version>`;
+> without the `v<version>` the freeze stamp doesn't parse and drift-detection is
+> silently skipped. If you don't have the version, say so rather than emitting a
+> half-stamp.
+>
+> Self-check before you paste: the block contains `The basics, answered:` followed
+> by one `• [id]` line per satisfied item, a `PRD-Hash:` line (when the PRD was
+> fetched), and a `Source: … v…` line. If any are missing, you didn't use the
+> engine — re-run it.
 
 Tell the PM exactly where the block goes: the JIRA ticket, or the dev Slack
 thread. If a Slack/JIRA MCP is connected and the PM asks, post it for them in

@@ -135,7 +135,10 @@ function normalize(answers = {}) {
     const a = items[r.id];
     if (!isSatisfied(r, a)) continue;
     let val;
-    if (r.skippable && a.na === true) val = "na";
+    // N/A hashes WITH its reason (like a waiver) — otherwise a justification could be
+    // rewritten in the hand-off without invalidating the code. Keep byte-identical in the
+    // JS ports (gate/*.html) or codes won't verify across surfaces.
+    if (r.skippable && a.na === true) val = "na:" + String(a.reason || "").trim().toLowerCase().replace(/\s+/g, " ");
     else if (isWaived(r, a)) val = "waived:" + a.reason.trim().toLowerCase().replace(/\s+/g, " ");
     else if (r.id === "design") val = firstUrl(a.detail) || "present"; // link shown separately; hash a stable token so the hand-off round-trips
     else val = a.detail.trim().toLowerCase().replace(/\s+/g, " ");
@@ -225,7 +228,8 @@ export function renderHandoff(answers = {}, meta = {}) {
       v.waivers.forEach((w) => out.push(`• [${w.id}] ${w.name} | reason: ${w.reason}`));
     }
     out.push("");
-    out.push("Grooming can start. (Dev: verify this code before pickup.)");
+    out.push("Grooming can start. Dev: `/contract pickup <ticket>` verifies this automatically.");
+    out.push("Check by hand: save this whole block and run `ready-check.mjs --verify <block>.txt`");
   } else {
     out.push("Missing, still to add:");
     v.missing.forEach((m) => out.push(`• ${m.name}`));
@@ -493,13 +497,14 @@ function main() {
       "  --check <answers.json>          verdict (exit 1 if not ready)\n" +
       "  --code <answers.json>           print gate code\n" +
       "  --scorecard <answers.json>      print the readable panel-like scorecard\n" +
-      "  --handoff <answers.json>        print dev hand-off block\n" +
+      "  --handoff <answers.json> [freeze.json]   dev hand-off block (+ freeze stamp)\n" +
       "  --prd <answers.json>            print the 11-section PRD (publish-ready)\n" +
       "  --verify <handoff.txt|json>     validate a code vs its content\n" +
       "  --verify-freeze <handoff.txt> <current.json>   PRD/design drift at pickup\n" +
       "  --cache-check <answers.json> <code-context.json>\n" +
       "  --ledger <events.json> [slaHrs] [startedAt]   PM/dev ball ledger + SLA-paused-on-PM\n" +
       "  --rollup <children.json>        epic rollup — states, critical path, feature-landed\n" +
+      "  --hash <file>                   content hash (use as source.version when none exists)\n" +
       "  --rubric                        print the Definition of Ready");
     return;
   }
@@ -517,17 +522,49 @@ function main() {
       const c = gateCode(loadJson(a1));
       if (!c) { console.error("NOT READY: no code minted."); process.exit(1); }
       console.log(c);
+    } else if (mode === "--hash") {
+      // Content hash of any file — use it as source.version for sources that expose no
+      // stable version number (Confluence via MCP returns only a RELATIVE "lastModified"
+      // like "yesterday at 5:35 AM", which is useless as a pin). Hash the fetched body
+      // instead: re-fetch + re-hash at pickup detects any edit.
+      console.log(prdHash(readFileSync(a1, "utf8")));
     } else if (mode === "--scorecard") {
       console.log(renderScorecard(loadJson(a1)));
     } else if (mode === "--handoff") {
-      console.log(renderHandoff(loadJson(a1), { date: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) }));
+      // Optional freeze.json: { "freeze": true, "source": {"type":"jira","id":"ENG-1","version":"…"},
+      //   "design": {"version":"…"} } — emits the Source/Design-Version/PRD-Hash stamp so pickup can
+      //   detect the PRD or design changing AFTER sign-off. Pass it whenever the PRD was fetched.
+      const meta = { date: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) };
+      if (a2) Object.assign(meta, loadJson(a2));
+      // A half-stamp is worse than none: `Source: <type> <id>` without a version doesn't parse,
+      // so pickup silently skips drift-detection. Fail loudly instead of shipping a fake freeze.
+      if (meta.freeze && meta.source && !meta.source.version) {
+        console.error("WARNING: freeze requested but source.version is missing — the drift check will be");
+        console.error("skipped at pickup. Pass the fetched version (JIRA `updated` / Confluence `version.number`).");
+      }
+      console.log(renderHandoff(loadJson(a1), meta));
     } else if (mode === "--prd") {
       console.log(renderPrd(loadJson(a1), { date: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) }));
     } else if (mode === "--verify") {
       let answers, code;
       const raw = readFileSync(a1, "utf8");
       if (a1.endsWith(".json")) { answers = JSON.parse(raw); code = answers.code || (answers.gateCode); }
-      else { const p = parseHandoff(raw); answers = { title: p.title, items: p.items }; code = p.code; }
+      else {
+        const p = parseHandoff(raw); answers = { title: p.title, items: p.items }; code = p.code;
+        // A genuine hand-off carries the per-item "• [id] … | …" list — that's the content the
+        // code is a hash OF. Without it there is nothing to recompute against, which means the
+        // block was hand-written rather than emitted by `--handoff`. Say so plainly instead of
+        // reporting a misleading NOT-READY.
+        const bullets = (raw.match(/^[•*-]\s*\[\w+\]/gm) || []).length;
+        if (/READY CHECK PASSED/i.test(raw) && bullets < 3) {
+          console.error("UNVERIFIABLE — this block has no answered-items list, so its code can't be");
+          console.error("checked against any content. It was not produced by `--handoff`.");
+          if (!p.source) console.error("Also missing a parseable freeze stamp (need `Source: <type> <id> v<version>`).");
+          if (!p.prdHash) console.error("Also missing `PRD-Hash:` — the content-drift check would be skipped.");
+          console.error("Ask the PM to re-run Ready Check and paste the tool-generated block.");
+          process.exit(2);
+        }
+      }
       const verdict = verifyGateCode(code, answers);
       console.log(`${code || "(no code)"} → ${verdict.toUpperCase()}`);
       process.exit(verdict === "valid" ? 0 : 1);

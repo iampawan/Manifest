@@ -220,6 +220,15 @@ test("waivers surface in the hand-off and round-trip through verify", () => {
   assert.equal(verifyGateCode(parsed.code, { title: parsed.title, items: parsed.items }), "valid");
 });
 
+test("changing an N/A reason changes the code (tamper-evident)", () => {
+  // A justification must be as tamper-evident as an answer — otherwise someone could
+  // rewrite "N/A — internal service" in the hand-off and it would still verify.
+  const a = structuredClone(ready);  a.items.writer = { na: true, reason: "internal service, no writer surface" };
+  const b = structuredClone(ready);  b.items.writer = { na: true, reason: "a completely different justification" };
+  assert.notEqual(gateCode(a), gateCode(b));
+  assert.equal(verifyGateCode(gateCode(a), b), "stale");
+});
+
 test("changing a waiver reason changes the code (tamper-evident)", () => {
   const a = structuredClone(ready); a.items.metric = { waived: true, reason: "reason one" };
   const b = structuredClone(ready); b.items.metric = { waived: true, reason: "reason two" };

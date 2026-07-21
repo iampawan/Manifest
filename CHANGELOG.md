@@ -29,6 +29,56 @@ newer build was never detected.
   means the plugin itself needs updating first.
 - Panel version label + build bumped (build 70) to match.
 
+## [0.30.2] — Verifiable hand-offs: catch hand-written blocks, Confluence tiny links, real freeze pins
+
+A real hand-off turned up in the wild with no `PRD-Hash`, a `Source:` line missing
+its version, and no answered-items list. `--verify` reported a confusing
+`NOT-READY`; the truth was that the block had been **hand-written by the agent
+instead of emitted by `--handoff`**, so there was nothing to verify it against.
+
+- **`--verify` now names the real problem.** If a block claims PASSED but has no
+  `• [id] …` item list, it reports `UNVERIFIABLE — not produced by --handoff`
+  (exit 2) and calls out the missing freeze stamp / PRD-Hash, instead of a
+  misleading NOT-READY.
+- **Every hand-off now says how to check it** — a "Check by hand:
+  `ready-check.mjs --verify <block>.txt`" line, in the engine and both gates.
+- **Half-stamps fail loudly.** `--handoff` warns when `freeze` is set but
+  `source.version` is missing — that combination doesn't parse, so drift-detection
+  would be silently skipped.
+- **Skill hard rule:** never hand-write, retype, reformat, or summarise the
+  hand-off — it must be the verbatim engine output, with a self-check list before
+  pasting.
+- **Confluence tiny links now work.** The `…/wiki/x/<id>` form PMs copy from the
+  Share button has no numeric page id, and the fetch required `/pages/<digits>` —
+  so those links were rejected outright. Both fetch paths now accept either shape
+  (`getConfluencePage` takes a tiny-link id as `pageId` directly).
+- **Confluence had no usable version to freeze against.** This MCP returns only a
+  *relative* `lastModified` ("yesterday at 5:35 AM"), whose meaning drifts with
+  time — pinning it would give false STALEs. New `--hash <file>` computes a content
+  hash of the fetched body to use as `source.version`; re-fetch + re-hash at pickup
+  catches any edit. (JIRA still uses the issue's `updated` timestamp.)
+- Verified end-to-end on a live PRD (`…/wiki/x/Z4IElg`): 11/11 → gate code →
+  `VALID`; weakened metric → `STALE`; widened scope → `STALE`; page edited →
+  `STALE-SOURCE`; Figma changed → `STALE-DESIGN`; nothing changed → `VALID`.
+
+## [0.30.1] — Tamper-evidence hardened: N/A reasons are hashed, chat hand-offs are frozen
+
+Two integrity gaps found while auditing the hand-off after the chat-first change.
+
+- **An N/A justification could be rewritten without invalidating the gate code.**
+  `na` hashed as the bare token `na`, ignoring its reason — so "N/A — internal
+  service" could be edited in the hand-off and still verify as `valid`. N/A now
+  hashes **with its reason** (like waivers), in the engine and both JS ports;
+  engine↔panel parity re-verified. ⚠ This changes the code for any PRD containing
+  an N/A item — previously-minted codes with N/A go `STALE` and need a re-check.
+- **Chat hand-offs carried no freeze stamp.** `--handoff` had no way to receive the
+  fetched source version, so `Source:`/`PRD-Hash:` were omitted and pickup silently
+  skipped the "PRD document edited after sign-off" check. `--handoff <answers.json>
+  [freeze.json]` now accepts it, and the skill passes it whenever the PRD came from
+  a fetched source.
+- Verified end-to-end: untouched → VALID; answer edited → STALE; N/A reason edited
+  → STALE; code swapped → STALE; source doc bumped v12→v13 → STALE-SOURCE.
+
 ## [0.30.0] — A genuinely panel-like scorecard in chat (progress bar, gaps-first, fix-by-reply)
 
 Builds on the chat-first direction with a much more UI/UX-friendly scorecard.
