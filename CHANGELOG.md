@@ -29,6 +29,45 @@ newer build was never detected.
   means the plugin itself needs updating first.
 - Panel version label + build bumped (build 70) to match.
 
+## [0.42.0] — One-command setup for any platform
+
+Makes 0.41's portability actually reachable — generating `AGENTS.md` was possible,
+now it's offered during setup and documented for every tool.
+
+- **`docs/INSTALL.md`** — step-by-step install for Claude Code, Cowork, Cursor,
+  Codex, Gemini CLI / Antigravity, Copilot, Windsurf / Aider / Zed, CI, and "no AI
+  tool at all". Every command in it was executed and verified, including the
+  documented exit codes (`0` valid · `1` stale · `2` unverifiable).
+- **`setup-init` now offers to install `AGENTS.md`** into the repo (Step 6c). It
+  respects zero-footprint mode (never writes to a team repo the user opted out of)
+  and **appends rather than overwrites** an existing `AGENTS.md` — someone else's
+  agent config is their document.
+- `AGENTS.md` and `docs/INSTALL.md` added to the docs hub; README now points
+  non-Claude users to the install guide up front.
+
+## [0.41.0] — Works outside Claude: Cursor, Codex, Gemini CLI, Copilot, CI
+
+Not everyone on the team has Claude. Manifest's value was already portable — the
+gates are plain Node — but nothing told other tools how to use them.
+
+- **`AGENTS.md`**, the Linux-Foundation-stewarded standard read natively by Codex,
+  Cursor, Copilot, Gemini CLI, Aider, Windsurf and Zed. One file at repo root and
+  Manifest works in all of them.
+- **Generated, not hand-maintained** — `scripts/build-agents-md.mjs` builds it from
+  the engine's `RUBRIC` and `plugin.json`, so it can't drift. `--check` fails if it's
+  stale; an eval test enforces the same. Deliberately compact (~157 lines): the core
+  PM/dev workflows only, since every tool loads it into context on every run.
+- **Cross-tool trust.** A gate code minted by a PM in Gemini verifies identically for
+  a dev in Cursor and for CI — it's a hash computed by Node, not a model judgement.
+  Verified end-to-end using only the documented commands: score → 11/11 → write-back
+  → freeze → hand-off → verify `VALID` → tamper → `STALE`.
+- **Ready Check needs nothing installed.** Confirmed `ready-check.mjs` has *zero*
+  dependencies — a single file plus Node 18+ is the whole PM-side gate. (Only the
+  contract/repo tooling needs `js-yaml`.) AGENTS.md says so, lowering the barrier for
+  non-dev teammates.
+- Teammates with no AI tool at all can still clear the gate via
+  `gate/prd-readiness-gate.html` in a plain browser — same rubric, same code format.
+
 ## [0.40.0] — The PRD stays complete, and anyone can verify a hand-off
 
 0.30.x made hand-offs tamper-evident. This release closes the two gaps that were

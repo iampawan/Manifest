@@ -1,7 +1,7 @@
 # Manifest
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-![Version](https://img.shields.io/badge/version-0.40.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.42.0-blue.svg)
 ![Tests](https://img.shields.io/badge/tests-node%20--test-green.svg)
 
 A Claude Code / Cowork plugin that takes a PRD ("contract") through the full
@@ -116,7 +116,13 @@ hardening plan and what's built vs still planned.
 
 # Installation
 
-Three ways to install Manifest depending on your situation. Pick one.
+> **Not using Claude?** Manifest works in **Cursor, Codex, Gemini CLI, Copilot,
+> Aider, Windsurf, Zed and CI** — the gates are plain Node, and `AGENTS.md` tells
+> those tools how to run them. A gate code minted in one tool verifies in every
+> other. See **[docs/INSTALL.md](docs/INSTALL.md)** for step-by-step setup on every
+> platform (including "no AI tool at all").
+
+Three ways to install Manifest **in Claude** depending on your situation. Pick one.
 
 | Method | When to use | Effort |
 |---|---|---|

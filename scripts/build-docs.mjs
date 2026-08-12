@@ -28,7 +28,7 @@ try {
 } catch { /* no releases dir */ }
 
 const SECTIONS = [
-  { title: "Overview", files: ["QUICKSTART.md", "README.md", "GUIDE.md", "CHANGELOG.md", "CONTRIBUTING.md"] },
+  { title: "Overview", files: ["QUICKSTART.md", "README.md", "AGENTS.md", "GUIDE.md", "CHANGELOG.md", "CONTRIBUTING.md"] },
   { title: "Reference", files: [
     "reference/CONTRACT-FORMAT.md", "reference/CRITIC-RULES.md", "reference/CRITIC-PROTOCOL.md",
     "reference/BUG-PATTERNS.md", "reference/bug-patterns.candidates.md",
@@ -36,7 +36,7 @@ const SECTIONS = [
     "reference/RECOMMENDED-LINT-RULES.md",
   ] },
   { title: "Guides", files: [
-    "docs/INSTALL-FOR-TRYERS.md", "docs/RELIABILITY.md",
+    "docs/INSTALL.md", "docs/INSTALL-FOR-TRYERS.md", "docs/RELIABILITY.md",
     "docs/PUBLISH-CHECKLIST.md", "docs/superseded-critic-sizing.md",
   ] },
   { title: "Proposals", files: [

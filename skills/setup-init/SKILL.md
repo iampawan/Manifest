@@ -180,6 +180,37 @@ Ask once (AskUserQuestion) where Manifest should live:
 Default to asking; if the user says "just for me" / "don't touch the
 team repo", pick solo mode without prompting.
 
+## Step 6c — Offer `AGENTS.md` (so non-Claude teammates can use Manifest)
+
+Manifest's gates are plain Node, so they work in **Cursor, Codex, Gemini CLI,
+Copilot, Aider, Windsurf, Zed and CI** — but only if those tools are told how.
+`AGENTS.md` is the open standard they all read natively.
+
+Ask once (AskUserQuestion): *"Does anyone on the team use Cursor, Codex, Gemini or
+Copilot instead of Claude?"* If yes (or unsure — default to offering it):
+
+```
+node scripts/build-agents-md.mjs --out <target-repo>/AGENTS.md
+```
+
+- **Team mode** → write it to the target repo root and tell them to commit it.
+  Every agent that opens the repo then knows how to run Ready Check, verify a
+  hand-off, and where the rubric lives.
+- **Solo / zero-footprint mode** → do **NOT** write it into the target repo. Put it
+  beside their contracts location instead, same as `repos.yml`.
+- **If the repo already has an `AGENTS.md`** (likely — it's a common standard),
+  never overwrite it. Show the user the Manifest section and offer to **append** it,
+  or hand them the file to merge by hand. Someone else's AGENTS.md is their
+  document, exactly like a PRD.
+
+Mention the two things that make this land:
+- **Ready Check needs nothing installed** — `scripts/ready-check.mjs` has zero
+  dependencies, so a teammate needs only Node 18+ and that one file.
+- **Codes verify across tools** — a gate code minted in Gemini verifies in Cursor
+  and in CI, because it's a content hash, not a model judgement.
+
+Regenerate it on upgrade (`node scripts/build-agents-md.mjs --check` fails if stale).
+
 ## Step 7 — Confirm and summarize
 
 Show the user:
@@ -192,6 +223,8 @@ Show the user:
 - **Solo mode:** "Config written to <your contracts location>. Nothing
   was added to the target repo. Run skills locally; open normal PRs.
   Next: `/contract new <a small feature>`."
+- **If `AGENTS.md` was written:** "Teammates on Cursor / Codex / Gemini / Copilot
+  can now use Manifest too — they just need Node. See `docs/INSTALL.md`."
 
 ## Anti-patterns
 

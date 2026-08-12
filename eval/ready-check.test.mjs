@@ -8,6 +8,9 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync, existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   RUBRIC,
@@ -252,6 +255,24 @@ test("renderScorecard reads like a panel: progress bar, gaps-first, grouped stat
   assert.match(nc, /🔧  To fix \(10\)/);
   assert.match(nc, /\*\*Success metric\*\* — a number \+ window/); // concrete prompt, numbered
   assert.doesNotMatch(nc, /gate code/);                        // no code when not ready
+});
+
+test("AGENTS.md is in sync with the engine (cross-tool entry point)", () => {
+  // AGENTS.md is what Codex / Cursor / Gemini CLI read. It's generated from the
+  // RUBRIC + plugin.json, so it must be regenerated when either changes —
+  // otherwise teammates outside Claude get stale instructions.
+  const repo = dirname(dirname(fileURLToPath(import.meta.url)));
+  const agents = join(repo, "AGENTS.md");
+  assert.ok(existsSync(agents), "AGENTS.md missing — run: node scripts/build-agents-md.mjs");
+  const txt = readFileSync(agents, "utf8");
+
+  // every required rubric item is documented for other tools
+  for (const r of RUBRIC.filter((x) => x.req)) {
+    assert.ok(txt.includes(`\`${r.id}\``), `AGENTS.md missing rubric item: ${r.id}`);
+  }
+  // and the version matches the plugin manifest
+  const v = JSON.parse(readFileSync(join(repo, ".claude-plugin", "plugin.json"), "utf8")).version;
+  assert.ok(txt.includes(v), `AGENTS.md version drifted — expected ${v}. Regenerate it.`);
 });
 
 test("extractHandoff finds the block inside a whole ticket dump", () => {
