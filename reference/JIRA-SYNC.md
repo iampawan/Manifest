@@ -38,8 +38,8 @@ report "not connected" without having searched.
 ## 1. Read — accept any sharable JIRA link → issue key
 
 Humans paste many URL shapes. Extract the **issue key** (`[A-Z][A-Z0-9]+-\d+`,
-e.g. `PROD-1234`) from whichever of these you get, then call
-`getJiraIssue({ issueKey })`:
+e.g. `PROD-1234`) from whichever of these you get, resolve the cloud once, then
+call `getJiraIssue({ cloudId, issueIdOrKey: key })`:
 
 | What the human pastes | Where the key is |
 |---|---|
@@ -57,6 +57,15 @@ practice it appears in exactly one of `selectedIssue=`, `/issues/<KEY>`, or
 "Share → Copy link" URLs. If a link has NO key match (a board/backlog link with
 no `selectedIssue`), tell the human it points at a board, not an issue, and ask
 for the specific ticket link.
+
+The current Atlassian Rovo schemas also require a `cloudId` and call the issue
+argument `issueIdOrKey`. Resolve `cloudId` once with
+`getAccessibleAtlassianResources`, then use
+`getJiraIssue({ cloudId, issueIdOrKey: key })`. Creation uses
+`createJiraIssue({ cloudId, projectKey, issueTypeName, summary, description,
+additional_fields })`; comments use `commentBody`; transitions use the ID
+returned by `getTransitionsForJiraIssue`. Manifest plans expose these exact
+argument shapes while still matching tools by their stable suffix.
 
 After fetching, also scan the issue Description/Comments for **embedded links**
 (Figma frames, Confluence pages) and follow those too — richest context comes

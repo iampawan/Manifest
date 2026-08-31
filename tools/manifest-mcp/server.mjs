@@ -35,9 +35,21 @@ import {
 import { detectFromFiles } from "../../scripts/detect.mjs";
 import { scoreRecall, scoreStability } from "../../scripts/recall.mjs";
 import { renderHtml } from "../../scripts/render-diagram.mjs";
+import {
+  contractSummary,
+  finalizeCodeReview,
+  initializeImplementState,
+  mergeContractFindings,
+  planContractPickup,
+  planFixLoop,
+  planImplementation,
+  planJiraSync,
+  renderContractFindings,
+  verifyPullRequest,
+} from "./core.mjs";
 
 export const NAME = "pocketfm-manifest";
-export const VERSION = "0.42.0";
+export const VERSION = "0.43.0";
 export const DEFAULT_PROTOCOL_VERSION = "2025-06-18";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -108,6 +120,22 @@ export const TOOLS = [
     annotations: { readOnlyHint: true, idempotentHint: true },
   },
   {
+    name: "manifest_contract_pickup",
+    title: "Pick up a contract source",
+    description: "Advance Manifest's contract-pickup state machine for Jira/docs/text. Returns source connector calls when needed; when contract markdown is supplied it also runs full deterministic verification and prepares Jira synchronization.",
+    inputSchema: objectSchema({
+      source: { type: "string", minLength: 1, description: "Jira/Doc/Slack/Figma URL, raw Jira key, or free text." },
+      sourceContent: { type: "string", description: "Content already fetched by the connected agent." },
+      contract: { type: "string", description: "Agent-authored Manifest contract markdown. Omit until the source has been drafted." },
+      judgmentFindings: { type: "array", items: ANY_OBJECT, default: [] },
+      conventions: ANY_OBJECT,
+      connectorAvailable: { type: "boolean", default: true },
+      atlassianCloudId: { type: "string", default: "", description: "Resolved Atlassian cloud ID/site URL for direct Jira fetch plans." },
+      jiraSync: { ...ANY_OBJECT, description: "Optional Jira upsert settings including confirmed/projectKey/issueType." },
+    }, ["source"]),
+    annotations: { readOnlyHint: true, idempotentHint: true },
+  },
+  {
     name: "manifest_contract_validate",
     title: "Validate Manifest contract",
     description: "Parse and deterministically validate a Manifest contract markdown payload. Returns findings, sizing, model plan, readiness, and contract hash.",
@@ -118,10 +146,103 @@ export const TOOLS = [
     annotations: { readOnlyHint: true, idempotentHint: true },
   },
   {
+    name: "manifest_contract_verify",
+    title: "Verify Manifest contract",
+    description: "Merge deterministic validator findings with schema-validated judgment findings, preserve prior human dispositions, compute the blocker-only promotion gate, and render the human and machine findings artifacts.",
+    inputSchema: objectSchema({
+      contract: { type: "string", minLength: 1 },
+      judgmentFindings: { type: "array", items: ANY_OBJECT, default: [] },
+      priorFindings: { type: "array", items: ANY_OBJECT, default: [] },
+      priorProvenance: ANY_OBJECT,
+      conventions: ANY_OBJECT,
+      verifyMode: { type: "string", enum: ["full", "fast"], default: "full" },
+      criticsRun: { type: "array", items: { type: "string" }, default: [] },
+      criticsSkipped: { type: "array", items: { type: "string" }, default: [] },
+      usage: ANY_OBJECT,
+      verifiedAt: { type: "string", description: "Optional ISO instant for reproducible output." },
+    }, ["contract"]),
+    annotations: { readOnlyHint: true, idempotentHint: true },
+  },
+  {
     name: "manifest_contract_status",
     title: "Get contract status",
     description: "Derive a contract's current phase, SLA, deterministic readiness, and next action from its markdown payload.",
     inputSchema: objectSchema({ contract: { type: "string", minLength: 1 } }, ["contract"]),
+    annotations: { readOnlyHint: true, idempotentHint: true },
+  },
+  {
+    name: "manifest_jira_sync",
+    title: "Plan Jira synchronization",
+    description: "Create an idempotent Jira read/upsert/lifecycle synchronization plan using stable Atlassian connector tool names. Writes require explicit confirmation and are executed by the connected agent, not by this credential-free shared server.",
+    inputSchema: objectSchema({
+      action: { type: "string", enum: ["read", "upsert", "event"] },
+      source: { type: "string", default: "" },
+      issueKey: { type: "string", default: "" },
+      cloudId: { type: "string", default: "", description: "Atlassian cloud ID or site URL. If omitted, the plan first requests accessible resources." },
+      contract: { type: "string", description: "Contract markdown for upsert body/frontmatter." },
+      frontmatter: ANY_OBJECT,
+      confirmed: { type: "boolean", default: false },
+      projectKey: { type: "string", default: "" },
+      issueType: { type: "string", default: "Story" },
+      contractUrl: { type: "string", default: "" },
+      readyCheckCode: { type: "string", default: "" },
+      event: { type: "string", enum: ["implement_started", "milestone_done", "blocked", "pr_opened", "verify_pr", "code_review", "done", "status"] },
+      eventData: ANY_OBJECT,
+      appliedDedupeKeys: { type: "array", items: { type: "string" }, default: [], description: "Previously applied lifecycle dedupe keys. Matching events become no-ops." },
+    }, ["action"]),
+    annotations: { readOnlyHint: true, idempotentHint: true },
+  },
+  {
+    name: "manifest_delivery_implement",
+    title: "Start or resume implementation",
+    description: "Initialize or validate durable implement-state from a promoted contract, select the next acceptance criterion, and return stack-resolved checks and implementation invariants. In fix mode, use manifest_delivery_fix_loop first.",
+    inputSchema: objectSchema({
+      contract: { type: "string", minLength: 1 },
+      state: ANY_OBJECT,
+      repo: ANY_OBJECT,
+      mode: { type: "string", enum: ["build", "fix"], default: "build" },
+      prNumber: { type: "number" },
+    }, ["contract", "repo"]),
+    annotations: { readOnlyHint: true, idempotentHint: true },
+  },
+  {
+    name: "manifest_delivery_verify_pr",
+    title: "Verify PR against contract",
+    description: "Deterministically verify acceptance-criterion test evidence, instrumentation, feature-flag evidence, i18n evidence, and changed-code nits for a supplied PR snapshot.",
+    inputSchema: objectSchema({
+      contract: { type: "string", minLength: 1 },
+      pr: { ...ANY_OBJECT, description: "PR snapshot with changedFiles, tests, instrumentationEvents, featureFlags, hardcodedStrings, and qualityIssues." },
+      requiredFeatureFlag: { type: "string", default: "" },
+      jiraSync: { ...ANY_OBJECT, description: "Optional confirmed Jira event sync settings." },
+    }, ["contract", "pr"]),
+    annotations: { readOnlyHint: true, idempotentHint: true },
+  },
+  {
+    name: "manifest_delivery_code_review",
+    title: "Finalize code review",
+    description: "Validate a connected agent's grounded code-review findings against Manifest's closed schema, enforce the 15-finding cap and unique IDs, compute the merge gate, and render review artifacts.",
+    inputSchema: objectSchema({
+      findings: { type: "array", items: ANY_OBJECT },
+      contractId: { type: "string" },
+      pr: ANY_OBJECT,
+      autoFixWarnings: { type: "boolean", default: false },
+      jiraSync: { ...ANY_OBJECT, description: "Optional confirmed Jira event sync settings." },
+    }, ["findings"]),
+    annotations: { readOnlyHint: true, idempotentHint: true },
+  },
+  {
+    name: "manifest_delivery_fix_loop",
+    title: "Advance bounded fix loop",
+    description: "Advance or stop a contract-verify, pre-push self-review, or PR review fix loop. Enforces the configured iteration cap and returns exact state/frontmatter patches without modifying code.",
+    inputSchema: objectSchema({
+      kind: { type: "string", enum: ["contract-verify", "self-review", "pr-review"], default: "pr-review" },
+      contract: { type: "string", minLength: 1 },
+      state: ANY_OBJECT,
+      reviewFindings: { type: "array", items: ANY_OBJECT, default: [] },
+      verifyPr: ANY_OBJECT,
+      conventions: ANY_OBJECT,
+      advisorConsulted: { type: "boolean", default: false },
+    }, ["contract"]),
     annotations: { readOnlyHint: true, idempotentHint: true },
   },
   {
@@ -239,6 +360,84 @@ function displayDate(input) {
   });
 }
 
+async function verifyContract(args) {
+  const v = await validator();
+  const parsed = v.parseContract(args.contract);
+  const deterministicFindings = v.checkContract(parsed, args.conventions || {});
+  const judgmentFindings = args.judgmentFindings || [];
+  const schemaErrors = v.validateFindings(judgmentFindings);
+  const summary = contractSummary(parsed);
+  const verifyMode = args.verifyMode || "full";
+  const verifiedAt = args.verifiedAt || new Date().toISOString();
+
+  if (schemaErrors.length) {
+    return {
+      valid: false,
+      schemaErrors,
+      contract: summary,
+      deterministicFindings,
+      judgmentFindings,
+      reason: "Judgment critic output failed the closed Manifest findings schema; do not normalize or publish it.",
+    };
+  }
+
+  const sizing = v.computeSizing(parsed, judgmentFindings);
+  const modelPlan = v.computeModelPlan(parsed, sizing, args.conventions || {});
+
+  const findings = mergeContractFindings(
+    deterministicFindings,
+    judgmentFindings,
+    args.priorFindings || [],
+  );
+  const readiness = v.computeReadiness(parsed, findings);
+  const promotable = verifyMode === "full" && readiness.promotable;
+  const contractHash = v.hashOf(args.contract);
+  const provenance = {
+    fragmentHashes: v.fragmentHashes(parsed),
+    apiSurfaceHash: v.apiSurfaceHash(parsed),
+    regressionScan: args.priorProvenance ? v.rerunPlan(args.priorProvenance, parsed) : v.rerunPlan({}, parsed),
+    verifiedWith: {
+      models: modelPlan.models || modelPlan,
+      complexity: sizing.complexity,
+      protocolVersion: v.PROTOCOL_VERSION,
+      contractHash,
+    },
+    criticsRun: args.criticsRun || [],
+    criticsSkipped: args.criticsSkipped || [],
+    ...(args.usage && Object.keys(args.usage).length ? { usage: args.usage } : {}),
+  };
+  const machineArtifact = {
+    contractId: summary.id,
+    verifiedAt,
+    pluginVersion: VERSION,
+    verifyMode,
+    readiness: readiness.readiness,
+    promotable,
+    findings,
+    ...provenance,
+  };
+  return {
+    valid: true,
+    contract: summary,
+    deterministicFindings,
+    judgmentFindings,
+    findings,
+    sizing,
+    modelPlan,
+    readiness: { ...readiness, promotable },
+    contractHash,
+    artifacts: {
+      findingsJson: machineArtifact,
+      findingsMarkdown: renderContractFindings({ summary, readiness, findings, verifyMode, verifiedAt, pluginVersion: VERSION }),
+    },
+    frontmatterPatch: {
+      status: promotable ? "verified" : "verifying",
+      complexity: sizing.complexity,
+      ...(promotable ? { verifiedAt } : {}),
+    },
+  };
+}
+
 export async function runTool(name, args = {}) {
   assertPayloadSize(args);
 
@@ -306,6 +505,43 @@ export async function runTool(name, args = {}) {
     return { addendum: renderAddendum(args.answers, { by: args.author || "", date: displayDate(args.date) }) };
   }
 
+  if (name === "manifest_contract_pickup") {
+    const plan = planContractPickup({
+      source: args.source,
+      hasSourceContent: Boolean(args.sourceContent),
+      hasContract: Boolean(args.contract),
+      connectorAvailable: args.connectorAvailable !== false,
+      atlassianCloudId: args.atlassianCloudId || "",
+    });
+    if (!args.contract) return plan;
+    const verification = await verifyContract({
+      contract: args.contract,
+      judgmentFindings: args.judgmentFindings || [],
+      conventions: args.conventions || {},
+      verifyMode: "full",
+    });
+    const v = await validator();
+    const parsed = v.parseContract(args.contract);
+    const jira = args.jiraSync
+      ? planJiraSync({
+          action: "upsert",
+          source: args.source,
+          frontmatter: parsed.frontmatter,
+          summary: contractSummary(parsed),
+          confirmed: Boolean(args.jiraSync.confirmed),
+          projectKey: args.jiraSync.projectKey || "",
+          issueType: args.jiraSync.issueType || "Story",
+          contractUrl: args.jiraSync.contractUrl || "",
+          readyCheckCode: args.jiraSync.readyCheckCode || "",
+          cloudId: args.jiraSync.cloudId || "",
+        })
+      : null;
+    const status = !verification.valid
+      ? "invalid_critic_output"
+      : verification.readiness.promotable ? "pickup_complete_promotable" : "pickup_complete_with_blockers";
+    return { ...plan, status, verification, ...(jira ? { jiraSync: jira } : {}) };
+  }
+
   if (name === "manifest_contract_validate") {
     const v = await validator();
     const contract = v.parseContract(args.contract);
@@ -321,6 +557,8 @@ export async function runTool(name, args = {}) {
       valid: !findings.some((finding) => finding.severity === "blocker" && (finding.status || "open") === "open"),
     };
   }
+
+  if (name === "manifest_contract_verify") return verifyContract(args);
 
   if (name === "manifest_contract_status") {
     const v = await validator();
@@ -346,6 +584,99 @@ export async function runTool(name, args = {}) {
 
   if (name === "manifest_contract_diagram") {
     return { html: renderHtml(args.contract, args.title || "Contract diagrams") };
+  }
+
+  if (name === "manifest_jira_sync") {
+    let parsed = null;
+    if (args.contract) parsed = (await validator()).parseContract(args.contract);
+    return planJiraSync({
+      action: args.action,
+      source: args.source || "",
+      issueKey: args.issueKey || "",
+      frontmatter: parsed?.frontmatter || args.frontmatter || {},
+      summary: parsed ? contractSummary(parsed) : null,
+      confirmed: Boolean(args.confirmed),
+      projectKey: args.projectKey || "",
+      issueType: args.issueType || "Story",
+      contractUrl: args.contractUrl || "",
+      readyCheckCode: args.readyCheckCode || "",
+      event: args.event || "",
+      eventData: args.eventData || {},
+      appliedDedupeKeys: args.appliedDedupeKeys || [],
+      cloudId: args.cloudId || "",
+    });
+  }
+
+  if (name === "manifest_delivery_implement") {
+    const v = await validator();
+    const parsed = v.parseContract(args.contract);
+    const state = initializeImplementState(parsed, args.state || null);
+    const stateErrors = v.validateImplementState(state);
+    const stateStatus = v.computeImplementStatus(state);
+    return planImplementation({ parsed, state, stateStatus, stateErrors, repo: args.repo || {}, mode: args.mode || "build", prNumber: args.prNumber || null });
+  }
+
+  if (name === "manifest_delivery_verify_pr") {
+    const v = await validator();
+    const parsed = v.parseContract(args.contract);
+    const result = verifyPullRequest({ parsed, pr: args.pr || {}, requiredFeatureFlag: args.requiredFeatureFlag || "" });
+    if (args.jiraSync) {
+      result.jiraSync = planJiraSync({
+        action: "event",
+        frontmatter: parsed.frontmatter,
+        issueKey: args.jiraSync.issueKey || "",
+        confirmed: Boolean(args.jiraSync.confirmed),
+        cloudId: args.jiraSync.cloudId || "",
+        appliedDedupeKeys: args.jiraSync.appliedDedupeKeys || [],
+        event: "verify_pr",
+        eventData: { verdict: result.verdict, reviewUrl: args.pr?.url || "" },
+      });
+    }
+    return result;
+  }
+
+  if (name === "manifest_delivery_code_review") {
+    const v = await validator();
+    const schemaErrors = v.validateReviewFindings(args.findings || []);
+    const result = finalizeCodeReview({
+      findings: args.findings || [],
+      schemaErrors,
+      contractId: args.contractId || null,
+      pr: args.pr || {},
+      autoFixWarnings: Boolean(args.autoFixWarnings),
+    });
+    if (args.jiraSync) {
+      result.jiraSync = planJiraSync({
+        action: "event",
+        frontmatter: args.jiraSync.frontmatter || {},
+        issueKey: args.jiraSync.issueKey || "",
+        confirmed: Boolean(args.jiraSync.confirmed),
+        cloudId: args.jiraSync.cloudId || "",
+        appliedDedupeKeys: args.jiraSync.appliedDedupeKeys || [],
+        event: "code_review",
+        eventData: { verdict: result.verdict, reviewUrl: args.pr?.url || "" },
+      });
+    }
+    return result;
+  }
+
+  if (name === "manifest_delivery_fix_loop") {
+    const v = await validator();
+    const parsed = v.parseContract(args.contract);
+    const reviewFindings = args.reviewFindings || [];
+    const schemaErrors = (args.kind || "pr-review") === "contract-verify"
+      ? v.validateFindings(reviewFindings)
+      : v.validateReviewFindings(reviewFindings);
+    if (schemaErrors.length) return { status: "invalid_findings", schemaErrors };
+    return planFixLoop({
+      kind: args.kind || "pr-review",
+      frontmatter: parsed.frontmatter,
+      state: args.state || {},
+      reviewFindings,
+      verifyPr: args.verifyPr || {},
+      conventions: args.conventions || {},
+      advisorConsulted: Boolean(args.advisorConsulted),
+    });
   }
 
   if (name === "manifest_detect_stack") {

@@ -1,11 +1,15 @@
 {
   "name": "manifest",
-  "version": "0.42.0",
+  "version": "0.43.0",
   "description": "PRD-to-production pipeline with quality gates. Author contracts, run critics, implement via agent, verify deploys, and produce post-launch reports \u2014 all from markdown in your repo.",
   "author": {
     "name": "Pawan"
   },
   "mcpServers": {
+    "manifest": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/tools/manifest-mcp/server.mjs"]
+    },
     "figma-rest": {
       "command": "node",
       "args": ["${CLAUDE_PLUGIN_ROOT}/tools/figma-rest-mcp/index.mjs"],
