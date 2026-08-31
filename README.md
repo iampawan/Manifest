@@ -4,9 +4,10 @@
 ![Version](https://img.shields.io/badge/version-0.42.0-blue.svg)
 ![Tests](https://img.shields.io/badge/tests-node%20--test-green.svg)
 
-A Claude Code / Cowork plugin that takes a PRD ("contract") through the full
-lifecycle — spec → implement → ship → land — with quality gates that won't
-let an under-specified spec progress.
+A portable Agent Plugin and MCP server that takes a PRD ("contract") through the
+full lifecycle — spec → implement → ship → land — with quality gates that won't
+let an under-specified spec progress. It runs in Claude Code/Cowork, Cursor, Codex,
+and other agents through native skills, MCP, or the generated `AGENTS.md` fallback.
 
 The contract lives as **markdown in your repo** at `.manifest/contracts/*.md`.
 Critics produce findings as adjacent files. Reports are committed alongside.
@@ -121,6 +122,11 @@ hardening plan and what's built vs still planned.
 > those tools how to run them. A gate code minted in one tool verifies in every
 > other. See **[docs/INSTALL.md](docs/INSTALL.md)** for step-by-step setup on every
 > platform (including "no AI tool at all").
+
+The repository also ships an [Agent Plugins 1.0 manifest](plugin.json), a native
+[Cursor Plugin manifest](.cursor-plugin/plugin.json), and a
+[Manifest MCP server](tools/manifest-mcp/README.md) supporting both local stdio and
+a centrally hosted Streamable HTTP endpoint.
 
 Three ways to install Manifest **in Claude** depending on your situation. Pick one.
 

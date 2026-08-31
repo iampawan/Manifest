@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "pocketfm-manifest",
+  "version": "0.42.0",
+  "description": "PocketFM's portable PRD-to-production workflow: Ready Check, contracts, implementation, verification, launch, and postmortems.",
+  "author": {
+    "name": "PocketFM"
+  },
+  "repository": "https://github.com/Pocket-Fm/Manifest",
+  "keywords": ["pocketfm", "manifest", "prd", "delivery", "mcp", "agent-plugin"]
+}
