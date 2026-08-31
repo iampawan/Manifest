@@ -1,0 +1,18 @@
+{
+  "name": "@pocketfm/manifest-mcp",
+  "version": "0.42.0",
+  "description": "Portable MCP server for Manifest's deterministic delivery gates and playbooks",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "manifest-mcp": "./server.mjs"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "start:http": "node server.mjs --http",
+    "test": "node --test server.test.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

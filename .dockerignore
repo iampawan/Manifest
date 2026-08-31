@@ -1,0 +1,12 @@
+.git
+.github
+.codex
+.claude
+.cursor
+**/node_modules
+**/.DS_Store
+*.log
+.env
+.env.*
+coverage
+dist

@@ -1,0 +1,13 @@
+{
+  "name": "pocketfm-manifest",
+  "version": "0.42.0",
+  "description": "PocketFM's PRD-to-production workflow with deterministic quality gates and a portable MCP server.",
+  "author": {
+    "name": "PocketFM"
+  },
+  "repository": "https://github.com/Pocket-Fm/Manifest",
+  "keywords": ["pocketfm", "manifest", "prd", "delivery", "mcp"],
+  "skills": "./skills/",
+  "commands": "./commands/",
+  "mcpServers": "./mcp.json"
+}

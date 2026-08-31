@@ -5,7 +5,8 @@ Manifest has two layers, and that's the key to installing it anywhere:
 | Layer | What it is | Where it runs |
 |---|---|---|
 | **The gates** | `scripts/*.mjs` — plain Node, deterministic | **Anywhere**: any agent, any terminal, CI |
-| **The playbooks** | `skills/`, `commands/` — markdown prompts | Richest in Claude Code / Cowork; portable via `AGENTS.md` |
+| **The playbooks** | `skills/`, `commands/` — markdown prompts | Agent Plugin clients, Claude, or any agent via `AGENTS.md` |
+| **The MCP** | deterministic tools + playbook resources/prompts | Local stdio or one PocketFM-hosted HTTP endpoint |
 
 A gate code minted in one tool **verifies in every other**, because it's a content
 hash computed by Node — not a model judgement. So a PM on Gemini, a dev on Cursor,
@@ -23,7 +24,7 @@ and CI all agree.
 - **Node 18+** — check with `node --version`
 - **The repo** — clone once, anywhere:
   ```bash
-  git clone https://github.com/iampawan/Manifest ~/work/manifest
+  git clone https://github.com/Pocket-Fm/Manifest ~/work/manifest
   cd ~/work/manifest/scripts && npm install    # only needed for contract tooling
   ```
 
@@ -69,7 +70,25 @@ reach everyone on their next session instead of each person re-uploading a file.
 
 ## 3. Cursor
 
-Cursor reads `AGENTS.md` natively.
+Manifest is a native Cursor Plugin: `.cursor-plugin/plugin.json` discovers the
+skills, commands, and root `mcp.json`. Until it is published in PocketFM's Cursor
+team marketplace, clone the repository and add its MCP locally:
+
+```json
+// ~/.cursor/mcp.json (available in every workspace)
+{
+  "mcpServers": {
+    "manifest": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/absolute/path/to/Manifest/tools/manifest-mcp/server.mjs"]
+    }
+  }
+}
+```
+
+Cursor also reads `AGENTS.md` natively. Generate it in each product repository
+so the agent has the whole lifecycle even when plugin discovery is unavailable:
 
 ```bash
 # from your product repo
@@ -77,8 +96,10 @@ node ~/work/manifest/scripts/build-agents-md.mjs --out ./AGENTS.md
 git add AGENTS.md && git commit -m "Add Manifest AGENTS.md"
 ```
 
-Open the repo in Cursor and ask: *"Run a Ready Check on this PRD: <link>"*. The agent
-reads `AGENTS.md` and shells out to the same deterministic engine.
+Open the repo in Cursor and ask: *"Show Manifest's capabilities"* or *"Run a Ready
+Check on this PRD: <link>"*. The MCP tools are deterministic; the installed skills
+tell Cursor how to perform code edits, Jira/GitHub actions, deploy verification,
+and the rest of the lifecycle with Cursor's own approved tools.
 
 If your repo already has an `AGENTS.md`, **append** the Manifest section rather than
 overwriting — generate to a temp path and merge.
@@ -86,11 +107,27 @@ overwriting — generate to a temp path and merge.
 Connectors (Atlassian/Figma) are reusable: Cursor speaks MCP, so point it at the same
 MCP servers you use elsewhere.
 
+For a shared PocketFM endpoint, use the HTTP deployment in
+[`tools/manifest-mcp/README.md`](../tools/manifest-mcp/README.md), then replace the
+stdio entry with:
+
+```json
+{
+  "mcpServers": {
+    "manifest": {
+      "url": "https://manifest-mcp.pocketfm.com/mcp",
+      "headers": { "Authorization": "Bearer ${env:MANIFEST_MCP_TOKEN}" }
+    }
+  }
+}
+```
+
 ---
 
 ## 4. OpenAI Codex
 
-Same as Cursor — Codex reads `AGENTS.md` from the repo root:
+Agent Plugin-compatible installations can consume root `plugin.json` and
+`mcp.json`. As the universal fallback, Codex reads `AGENTS.md` from the repo root:
 
 ```bash
 node ~/work/manifest/scripts/build-agents-md.mjs --out ./AGENTS.md
