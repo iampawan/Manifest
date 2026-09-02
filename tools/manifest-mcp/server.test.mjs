@@ -110,6 +110,12 @@ test("contract pickup resolves Jira and completes into verified artifacts", asyn
   });
   assert.equal(needsConfluence.source.type, "confluence");
 
+  const freeTextMention = await runTool("manifest_contract_pickup", {
+    source: "Please review the confluence migration notes and draft the contract.",
+  });
+  assert.equal(freeTextMention.source.type, "text");
+  assert.equal(freeTextMention.status, "needs_contract_draft");
+
   const completed = await runTool("manifest_contract_pickup", {
     source: "UWS-777",
     sourceContent: "Fetched issue content",
@@ -187,9 +193,16 @@ test("Jira sync is idempotent, confirmation-gated, and transition-name based", a
   assert.equal(missingCloud.calls[0].tool, "getAccessibleAtlassianResources");
 
   const update = await runTool("manifest_jira_sync", { action: "upsert", contract, confirmed: true, cloudId });
-  assert.equal(update.calls[0].tool, "editJiraIssue");
-  assert.deepEqual(update.calls[0].arguments, { cloudId, issueIdOrKey: "UWS-777", fields: update.preview.fields });
+  assert.deepEqual(update.calls.map((call) => call.tool), ["getJiraIssue", "editJiraIssue"]);
+  assert.deepEqual(update.calls[0].arguments, { cloudId, issueIdOrKey: "UWS-777", fields: ["labels"] });
+  assert.equal(update.calls[1].arguments.fields.labels, "<existing labels plus manifest and complexity>");
+  assert.deepEqual(update.calls[1].resolution.addLabels, ["manifest", "unsized"]);
+  assert.equal(update.calls[1].resolution.preserveExistingLabels, true);
   assert.equal(update.calls.some((call) => call.tool === "createJiraIssue"), false);
+
+  const datedContract = promotedContract().replace("revision: 1", "revision: 1\nslaDeadline: 2026-09-10T12:30:00.000Z");
+  const datedUpdate = await runTool("manifest_jira_sync", { action: "upsert", contract: datedContract, confirmed: false });
+  assert.equal(datedUpdate.preview.fields.duedate, "2026-09-10");
 
   const create = await runTool("manifest_jira_sync", {
     action: "upsert", contract: cleanContract(), confirmed: true, cloudId, projectKey: "UWS", issueType: "Story",
@@ -216,6 +229,16 @@ test("Jira sync is idempotent, confirmation-gated, and transition-name based", a
   });
   assert.equal(replay.status, "already_applied");
   assert.deepEqual(replay.calls, []);
+
+  const passReview = await runTool("manifest_jira_sync", {
+    action: "event", contract, confirmed: true, cloudId, event: "verify_pr",
+    eventData: { verdict: "pass", reviewUrl: "https://github.com/Pocket-Fm/ugc-ui/pull/12" },
+  });
+  const failReview = await runTool("manifest_jira_sync", {
+    action: "event", contract, confirmed: true, cloudId, event: "verify_pr",
+    eventData: { verdict: "fail", reviewUrl: "https://github.com/Pocket-Fm/ugc-ui/pull/12" },
+  });
+  assert.notEqual(passReview.dedupeKey, failReview.dedupeKey);
 });
 
 test("delivery implement initializes and resumes durable AC state", async () => {
@@ -337,6 +360,21 @@ test("bounded fix loops increment, stop at cap, and stop when green", async () =
   assert.equal(first.status, "fix");
   assert.equal(first.iteration, 1);
   assert.deepEqual(first.frontmatterPatch, { fixIterations: 1 });
+  assert.match(first.nextAction, /verify-pr/);
+
+  const contractLoop = await runTool("manifest_delivery_fix_loop", {
+    kind: "contract-verify", contract: promotedContract(), reviewFindings: [{
+      id: "F-001", critic: "security", severity: "blocker", message: "Missing authorization.",
+      suggestion: "Define the ownership check.", fragmentRef: "B1", status: "open",
+    }],
+  });
+  assert.match(contractLoop.nextAction, /contract-only/);
+  assert.doesNotMatch(contractLoop.nextAction, /verify-pr/);
+
+  const selfReviewLoop = await runTool("manifest_delivery_fix_loop", {
+    kind: "self-review", contract: promotedContract(), state: { selfReviewIterations: 0 }, reviewFindings: [blocker],
+  });
+  assert.match(selfReviewLoop.nextAction, /before pushing/);
 
   const cappedContract = promotedContract().replace("fixIterations: 0", "fixIterations: 3");
   const capped = await runTool("manifest_delivery_fix_loop", {
@@ -346,6 +384,7 @@ test("bounded fix loops increment, stop at cap, and stop when green", async () =
   assert.equal(capped.iteration, 3);
   assert.equal(capped.advisorRequiredBeforeHandoff, true);
   assert.deepEqual(capped.frontmatterPatch, {});
+  assert.match(capped.nextAction, /PR-review/);
 
   const green = await runTool("manifest_delivery_fix_loop", {
     kind: "pr-review", contract: promotedContract(), reviewFindings: [{ ...blocker, status: "resolved" }],

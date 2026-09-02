@@ -7,6 +7,18 @@
 const JIRA_KEY_RE = /\b[A-Z][A-Z0-9]+-\d+\b/;
 const OPEN = "open";
 
+function isConfluenceSource(source) {
+  try {
+    const url = new URL(source);
+    if (!/^https?:$/.test(url.protocol)) return false;
+    return /confluence/i.test(url.hostname)
+      || (/\.atlassian\.net$/i.test(url.hostname) && /^\/wiki(?:\/|$)/i.test(url.pathname))
+      || /(?:^|\/)confluence(?:\/|$)/i.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
 export function extractJiraIssueKey(value = "") {
   return String(value).match(JIRA_KEY_RE)?.[0] || null;
 }
@@ -16,7 +28,7 @@ export function detectSourceType(value = "") {
   if (!source) return "unknown";
   // Atlassian hosts both Jira and Confluence. Resolve the more specific wiki
   // shape first so a page title/query containing a Jira key is not misrouted.
-  if (/atlassian\.net\/wiki|confluence/i.test(source)) return "confluence";
+  if (isConfluenceSource(source)) return "confluence";
   if (/^[A-Z][A-Z0-9]+-\d+$/.test(source) || (/atlassian\.net/i.test(source) && extractJiraIssueKey(source))) return "jira";
   if (/linear\.app/i.test(source)) return "linear";
   if (/notion\.(?:so|site)/i.test(source)) return "notion";
@@ -196,6 +208,25 @@ function contractDescription(summary, contractUrl, readyCheckCode) {
   ].filter((line) => line !== null).join("\n");
 }
 
+function jiraDueDate(value) {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString().slice(0, 10);
+  }
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  const isoDate = text.match(/^(\d{4}-\d{2}-\d{2})(?:$|T|\s)/);
+  if (isoDate) return isoDate[1];
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
+}
+
+function lifecycleDedupeKey(issueKey, event, eventData = {}) {
+  const payload = Object.entries(eventData || {})
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([name, value]) => [name, value]);
+  return `${issueKey}:${event}:${JSON.stringify(payload)}`;
+}
+
 const JIRA_EVENTS = {
   implement_started: { status: "In Progress", comment: ({ contractId, branch }) => `Implementation started · contract ${contractId}${branch ? ` · branch ${branch}` : ""}.` },
   milestone_done: { comment: ({ acId, done, total }) => `${acId ? `${acId} done` : "Milestone done"}${done != null && total != null ? ` · ${done}/${total} acceptance criteria passing` : ""}.` },
@@ -241,21 +272,35 @@ export function planJiraSync({
   if (action === "upsert") {
     if (!summary?.id || !summary?.title) return { ...base, status: "invalid", reason: "A parsed contract summary is required." };
     const description = contractDescription(summary, contractUrl, readyCheckCode);
+    const dueDate = frontmatter.slaDeadline ? jiraDueDate(frontmatter.slaDeadline) : null;
+    if (frontmatter.slaDeadline && !dueDate) {
+      return { ...base, status: "invalid", reason: "slaDeadline must be a valid date; Jira due dates require YYYY-MM-DD.", preview: { existingIssue: key, projectKey: projectKey || frontmatter.jira?.project || null, issueType } };
+    }
     const fields = {
       summary: summary.title,
       description,
       labels: ["manifest", String(summary.complexity || "unsized").toLowerCase()],
-      ...(frontmatter.slaDeadline ? { duedate: String(frontmatter.slaDeadline).slice(0, 10) } : {}),
+      ...(dueDate ? { duedate: dueDate } : {}),
     };
     const preview = { existingIssue: key, projectKey: projectKey || frontmatter.jira?.project || null, issueType, fields };
     if (!confirmed) return { ...base, status: "awaiting_confirmation", requiresConfirmation: true, preview };
     if (!cloudId) return { ...cloudResolution, preview };
     if (key) {
+      const fieldsWithoutLabels = { ...fields };
+      delete fieldsWithoutLabels.labels;
       return {
         ...base,
         status: "ready",
         preview,
-        calls: [{ tool: "editJiraIssue", arguments: { cloudId, issueIdOrKey: key, fields } }],
+        calls: [
+          { id: "read-current-labels", tool: "getJiraIssue", arguments: { cloudId, issueIdOrKey: key, fields: ["labels"] }, purpose: "Read current labels before merging Manifest labels." },
+          {
+            tool: "editJiraIssue",
+            arguments: { cloudId, issueIdOrKey: key, fields: { ...fieldsWithoutLabels, labels: "<existing labels plus manifest and complexity>" } },
+            dependsOn: "read-current-labels",
+            resolution: { preserveExistingLabels: true, addLabels: fields.labels, rule: "Materialize the merged label array from the preceding getJiraIssue result before executing this edit." },
+          },
+        ],
         frontmatterPatch: { jira: { ...(frontmatter.jira || {}), issue: key } },
       };
     }
@@ -292,7 +337,7 @@ export function planJiraSync({
       if (!cloudId) return cloudResolution;
       return { ...base, status: "ready", calls: [{ tool: "getJiraIssue", arguments: { cloudId, issueIdOrKey: key } }] };
     }
-    const dedupeKey = `${key}:${event}:${eventData.prUrl || eventData.acId || eventData.reason || "event"}`;
+    const dedupeKey = lifecycleDedupeKey(key, event, eventData);
     if (appliedDedupeKeys.includes(dedupeKey)) {
       return { ...base, status: "already_applied", calls: [], dedupeKey };
     }
@@ -557,12 +602,13 @@ export function planFixLoop({
   }
   const config = { ...rawConfig, current, cap };
   const autoFixWarnings = Boolean(conventions.autoFixWarnings);
+  const loopLabel = kind === "contract-verify" ? "contract" : kind === "self-review" ? "self-review" : "PR-review";
   const reviewTargets = (reviewFindings || [])
     .filter((finding) => finding.status === OPEN && (finding.severity === "blocker" || (kind !== "contract-verify" && autoFixWarnings && finding.severity === "warning")))
     .map((finding) => ({ ...finding, source: kind === "contract-verify" ? "contract-verify" : "code-review" }));
   const targets = kind === "contract-verify" ? reviewTargets : [...reviewTargets, ...verifyPrTargets(verifyPr)];
   if (!targets.length) {
-    return { status: "green", kind, iteration: config.current, maxIterations: config.cap, targets: [], nextAction: "No open targets; stop the loop." };
+    return { status: "green", kind, iteration: config.current, maxIterations: config.cap, targets: [], nextAction: `No open ${loopLabel} targets; stop this loop.` };
   }
   if (config.current >= config.cap) {
     return {
@@ -572,7 +618,11 @@ export function planFixLoop({
       maxIterations: config.cap,
       targets,
       advisorRequiredBeforeHandoff: !advisorConsulted,
-      nextAction: "Do not modify code. Post the unresolved targets to the PR and send a top-level human handoff alert.",
+      nextAction: kind === "contract-verify"
+        ? "Do not edit code. Record the unresolved contract blockers and send a top-level human handoff alert to the contract owner."
+        : kind === "self-review"
+          ? "Do not make another automatic code pass. Send the unresolved self-review targets to a human before pushing."
+          : "Do not modify code. Post the unresolved PR-review targets to the PR and send a top-level human handoff alert.",
       frontmatterPatch: {},
       statePatch: {},
     };
@@ -585,7 +635,11 @@ export function planFixLoop({
     maxIterations: config.cap,
     remainingAfterThisPass: config.cap - nextIteration,
     targets,
-    nextAction: "Apply the smallest in-scope fixes, rerun resolved local checks, then rerun verify-pr and the full code-review catalog.",
+    nextAction: kind === "contract-verify"
+      ? "Apply the smallest contract-only fixes, rerun manifest_contract_verify, and stop when the contract is promotable."
+      : kind === "self-review"
+        ? "Apply the smallest code fixes, rerun resolved local checks, then rerun the full code-review catalog before pushing."
+        : "Apply the smallest in-scope code fixes, rerun resolved local checks, then rerun verify-pr and the full code-review catalog.",
     frontmatterPatch: kind === "self-review" ? {} : { [config.counter]: nextIteration },
     statePatch: kind === "self-review" ? { [config.counter]: nextIteration } : {},
   };
