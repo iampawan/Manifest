@@ -1,7 +1,7 @@
 # Manifest
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-![Version](https://img.shields.io/badge/version-0.42.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.43.0-blue.svg)
 ![Tests](https://img.shields.io/badge/tests-node%20--test-green.svg)
 
 A portable Agent Plugin and MCP server that takes a PRD ("contract") through the
@@ -126,7 +126,9 @@ hardening plan and what's built vs still planned.
 The repository also ships an [Agent Plugins 1.0 manifest](plugin.json), a native
 [Cursor Plugin manifest](.cursor-plugin/plugin.json), and a
 [Manifest MCP server](tools/manifest-mcp/README.md) supporting both local stdio and
-a centrally hosted Streamable HTTP endpoint.
+a centrally hosted Streamable HTTP endpoint. The MCP includes portable contract
+core operations (`pickup`, `validate`, `verify`, `status`, Jira sync) and delivery
+core operations (`implement`, `verify-pr`, `code-review`, bounded fix loops).
 
 Three ways to install Manifest **in Claude** depending on your situation. Pick one.
 

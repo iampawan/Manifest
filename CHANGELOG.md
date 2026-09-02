@@ -12,6 +12,23 @@ Every findings file records the `pluginVersion` that produced it (see
 `CRITIC-PROTOCOL.md`), so you can always tell which version verified a
 given contract.
 
+## [0.43.0] - Portable contract and delivery cores
+
+Expands the portable MCP from individual gates into executable lifecycle state
+machines that any connected agent can use consistently.
+
+- **Contract core:** pickup planning, deterministic validation, full verification
+  artifact generation, status, and confirmation-gated/idempotent Jira sync plans.
+- **Delivery core:** resumable implementation state, PR-to-AC verification,
+  schema-gated code-review artifacts, and hard-capped contract/self-review/PR fix
+  loops.
+- Jira and GitHub credentials stay with the connected agent. The shared MCP emits
+  stable connector calls and state patches; it never stores secrets or silently
+  performs external writes.
+- Adds direct tests for every core operation, invalid critic output, Jira update
+  versus create behavior, PR evidence gaps, implementation resume, and cap
+  exhaustion.
+
 ## [0.26.1] — Fix: the pinned Ready Check panel now reliably self-updates
 
 The Cowork sidebar panel is a saved *snapshot* — Cowork never re-reads the plugin

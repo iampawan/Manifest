@@ -15,8 +15,10 @@ server is stateless and safe to run centrally.
 
 - Ready Check: evaluate, mint/verify handoffs, freeze verification, content hash,
   PRD/addendum rendering, code-context checks, ledger, and epic rollup;
-- Contracts: deterministic validation, status, safe in-memory migration, and
-  Mermaid HTML rendering;
+- Contract core: `pickup`, `validate`, `verify`, `status`, safe in-memory
+  migration, Mermaid rendering, and confirmation-gated Jira synchronization;
+- Delivery core: resumable `implement`, evidence-backed `verify-pr`,
+  schema-gated `code-review`, and bounded contract/self-review/PR fix loops;
 - Setup/evals: stack detection, recall scoring, and stability scoring;
 - Manifest commands, skills, and reference documentation as MCP resources;
 - one MCP prompt for every Manifest command.
@@ -25,6 +27,33 @@ External actions are intentionally not hidden inside this server. Jira/GitHub
 writes, code edits, deployment, and production monitoring are performed by the
 connected agent using Manifest's skills and that agent's approved connectors.
 That keeps credentials and write approval on the user's laptop or agent host.
+
+## How the cores compose
+
+The MCP owns the deterministic state and artifacts. The connected agent owns
+judgment and side effects:
+
+1. `manifest_contract_pickup` resolves the source and returns a connector call
+   such as `getJiraIssue` when content still needs fetching.
+2. The agent reads the pickup skill, drafts the contract from the fetched source,
+   and runs the relevant judgment critics.
+3. `manifest_contract_verify` schema-validates those findings, merges them with
+   deterministic findings, preserves acknowledged/dismissed statuses, computes
+   the blocker-only promotion gate, and returns `.findings.md` and
+   `.findings.json` payloads.
+4. `manifest_jira_sync` returns previewed, confirmation-gated connector calls.
+   An existing Jira key always produces `editJiraIssue`, never a duplicate create.
+5. `manifest_delivery_implement` initializes or resumes durable AC state.
+6. After the agent changes code and runs local checks,
+   `manifest_delivery_verify_pr` verifies supplied PR/test/event/flag evidence and
+   `manifest_delivery_code_review` validates and gates the judgment review.
+7. `manifest_delivery_fix_loop` increments exactly one bounded counter or returns
+   `green`/`escalate`. It never permits a pass beyond the configured cap.
+
+This is deliberate MCP composition: one MCP server cannot safely impersonate
+another user's Jira or GitHub connector. It returns stable tool names and
+arguments for the host agent to execute under that user's normal approval and
+identity controls.
 
 ## Local stdio
 
